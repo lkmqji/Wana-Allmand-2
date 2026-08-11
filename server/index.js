@@ -68,7 +68,11 @@ io.on('connection', (socket) => {
             }
             
             io.to(sessionId).emit('game_started');
-            sendNextQuestion(sessionId);
+            
+            // Wait a moment for clients to render the Game component before sending the first question
+            setTimeout(() => {
+                sendNextQuestion(sessionId);
+            }, 1000);
         }
     });
 
