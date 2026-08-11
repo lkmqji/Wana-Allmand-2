@@ -99,9 +99,9 @@ export default function Game({ socket, session }) {
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+    <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', height: '100%', padding: '0.5rem' }}>
       {/* Scoreboard Header */}
-      <div className="score-board glass-panel" style={{ padding: '1rem 2rem', marginBottom: '2rem' }}>
+      <div className="score-board glass-panel" style={{ padding: '0.5rem 1rem', marginBottom: '1rem' }}>
         {Object.values(players).map((p, i) => {
           const isLeader = p.id === leaderId;
           const isOvertaking = p.id === overtakerId;
@@ -119,26 +119,26 @@ export default function Game({ socket, session }) {
         })}
       </div>
 
-      <div className="glass-panel" style={{ textAlign: 'center', position: 'relative' }}>
+      <div className="glass-panel" style={{ textAlign: 'center', position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '1.5rem' }}>
         <div style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--text-muted)' }}>
           {questionIndex + 1} / {totalQuestions}
         </div>
         
-        <h2 style={{ fontSize: '1.5rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+        <h2 style={{ fontSize: '1.2rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
           Traduisez en allemand :
         </h2>
         
-        <h1 style={{ fontSize: '3.5rem', marginBottom: '2rem', color: 'white' }}>
+        <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem', color: 'white' }}>
           {question || 'Chargement...'}
         </h1>
 
         {!roundResult ? (
           <>
-            <div className={`timer ${timeRemaining < 5 ? 'danger' : ''}`}>
+            <div className={`timer ${timeRemaining < 5 ? 'danger' : ''}`} style={{ fontSize: '3rem', margin: '1rem 0' }}>
               {Math.ceil(timeRemaining)}s
             </div>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} style={{ marginTop: 'auto' }}>
               <input
                 ref={inputRef}
                 type="text"
@@ -147,27 +147,43 @@ export default function Game({ socket, session }) {
                 onChange={(e) => setAnswer(e.target.value)}
                 placeholder="Ex: der Tisch"
                 disabled={hasAnswered}
-                style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '1rem' }}
+                style={{ textAlign: 'center', fontSize: '1.25rem', marginBottom: '0.5rem', padding: '0.75rem' }}
                 autoComplete="off"
               />
               <button 
                 type="submit" 
                 className="btn btn-primary" 
-                style={{ width: '100%' }}
+                style={{ width: '100%', padding: '0.75rem' }}
                 disabled={hasAnswered || !answer.trim()}
               >
-                {hasAnswered ? 'En attente de l\'autre joueur...' : 'Valider'}
+                {hasAnswered ? 'En attente...' : 'Valider'}
               </button>
             </form>
           </>
         ) : (
-          <div style={{ padding: '2rem 0', animation: 'fadeIn 0.5s ease-out' }}>
-            <h3 style={{ color: 'var(--success)', marginBottom: '1rem', fontSize: '2rem' }}>Temps écoulé !</h3>
-            <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1.5rem', borderRadius: '12px', display: 'inline-block' }}>
-              <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }}>La bonne réponse était :</p>
-              <h2 style={{ fontSize: '2.5rem', margin: 0 }}>{roundResult.correctAnswer}</h2>
+          <div style={{ padding: '1rem 0', animation: 'fadeIn 0.5s ease-out' }}>
+            <h3 style={{ color: 'var(--success)', marginBottom: '0.5rem', fontSize: '1.5rem' }}>Temps écoulé !</h3>
+            <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '12px', display: 'inline-block', marginBottom: '1rem' }}>
+              <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>La bonne réponse était :</p>
+              <h2 style={{ fontSize: '2rem', margin: 0 }}>{roundResult.correctAnswer}</h2>
             </div>
-            <p style={{ marginTop: '2rem', color: 'var(--text-muted)' }}>Prochaine question imminente...</p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {Object.values(roundResult.players).map(p => {
+                const playerAns = p.answers[questionIndex];
+                const isCorrect = playerAns?.score >= 100;
+                return (
+                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                    <span style={{ fontWeight: 'bold' }}>{p.name}</span>
+                    <span style={{ color: isCorrect ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }}>
+                      {playerAns?.answer || '(Aucune réponse)'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            
+            <p style={{ marginTop: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Prochaine question imminente...</p>
           </div>
         )}
       </div>
