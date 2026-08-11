@@ -79,7 +79,7 @@ class GameManager {
         session.answersThisRound += 1;
 
         return {
-            allAnswered: session.answersThisRound === 2,
+            allAnswered: session.answersThisRound === Object.keys(session.players).length,
             playerScore: session.players[playerId].score
         };
     }

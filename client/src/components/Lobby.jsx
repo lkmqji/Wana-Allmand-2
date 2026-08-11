@@ -36,10 +36,9 @@ export default function Lobby({ socket, session, players, isHost }) {
         <button 
           className="btn btn-primary" 
           onClick={handleStart} 
-          disabled={playerCount < 2}
           style={{ width: '100%', fontSize: '1.25rem' }}
         >
-          {playerCount < 2 ? 'En attente du joueur...' : 'Démarrer la partie !'}
+          {playerCount === 1 ? 'Jouer en Solo' : 'Démarrer la partie !'}
         </button>
       ) : (
         <div style={{ padding: '1rem', color: 'var(--warning)' }}>
