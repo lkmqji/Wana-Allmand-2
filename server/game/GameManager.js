@@ -6,7 +6,7 @@ class GameManager {
         this.sessions = new Map();
     }
 
-    createSession(hostId) {
+    createSession(hostId, hostName) {
         // Generate a random 4 letter/number code
         const sessionId = Math.random().toString(36).substring(2, 6).toUpperCase();
         
@@ -16,9 +16,10 @@ class GameManager {
             guestId: null,
             status: 'waiting', // waiting, playing, finished
             vocabList: [],
+            settings: { rounds: 20, timePerWord: 15 },
             currentQuestionIndex: -1,
             players: {
-                [hostId]: { id: hostId, name: 'Hôte', score: 0, answers: {} }
+                [hostId]: { id: hostId, name: hostName || 'Hôte', score: 0, answers: {} }
             },
             roundTimer: null,
             answersThisRound: 0
@@ -27,20 +28,28 @@ class GameManager {
         return sessionId;
     }
 
-    joinSession(sessionId, guestId) {
+    joinSession(sessionId, guestId, guestName) {
         const session = this.sessions.get(sessionId);
         if (!session) return { error: "Session introuvable." };
         if (session.guestId) return { error: "Session déjà pleine." };
         
         session.guestId = guestId;
-        session.players[guestId] = { id: guestId, name: 'Invité', score: 0, answers: {} };
+        session.players[guestId] = { id: guestId, name: guestName || 'Invité', score: 0, answers: {} };
         return { success: true, session };
     }
 
-    setVocabList(sessionId, vocabList) {
+    setVocabList(sessionId, vocabList, settings) {
         const session = this.sessions.get(sessionId);
         if (session) {
-            session.vocabList = vocabList;
+            session.settings = settings || { rounds: vocabList.length, timePerWord: 15 };
+            
+            // Si on demande moins de rounds que la taille totale, on mélange et on coupe
+            if (session.settings.rounds < vocabList.length) {
+                const shuffled = [...vocabList].sort(() => 0.5 - Math.random());
+                session.vocabList = shuffled.slice(0, session.settings.rounds);
+            } else {
+                session.vocabList = vocabList;
+            }
         }
     }
 

@@ -35,20 +35,18 @@ app.post('/api/upload', upload.single('pdf'), async (req, res) => {
     }
 });
 
-const QUESTION_DURATION = 15; // seconds
-
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
-    socket.on('create_session', (vocabList) => {
-        const sessionId = gameManager.createSession(socket.id);
-        gameManager.setVocabList(sessionId, vocabList);
+    socket.on('create_session', ({ vocabList, settings, playerName }) => {
+        const sessionId = gameManager.createSession(socket.id, playerName);
+        gameManager.setVocabList(sessionId, vocabList, settings);
         socket.join(sessionId);
         socket.emit('session_created', sessionId);
     });
 
-    socket.on('join_session', (sessionId) => {
-        const result = gameManager.joinSession(sessionId, socket.id);
+    socket.on('join_session', ({ sessionId, playerName }) => {
+        const result = gameManager.joinSession(sessionId, socket.id, playerName);
         if (result.error) {
             socket.emit('error', result.error);
         } else {
@@ -63,8 +61,11 @@ io.on('connection', (socket) => {
         if (session && session.hostId === socket.id) {
             session.status = 'playing';
             
-            // Randomize questions for the session
-            session.vocabList.sort(() => Math.random() - 0.5);
+            // Randomize questions for the session if they weren't already cut
+            if (session.vocabList.length === session.settings.rounds) {
+                // Shuffle to ensure random order
+                session.vocabList.sort(() => Math.random() - 0.5);
+            }
             
             io.to(sessionId).emit('game_started');
             sendNextQuestion(sessionId);
@@ -99,13 +100,13 @@ function sendNextQuestion(sessionId) {
             question: next.question.question,
             questionIndex: session.currentQuestionIndex,
             totalQuestions: session.vocabList.length,
-            duration: QUESTION_DURATION
+            duration: session.settings.timePerWord
         });
 
         // Start timer
         session.roundTimer = setTimeout(() => {
             handleRoundEnd(sessionId);
-        }, QUESTION_DURATION * 1000);
+        }, session.settings.timePerWord * 1000);
     }
 }
 
