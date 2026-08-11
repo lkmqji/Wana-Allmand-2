@@ -5,6 +5,14 @@ const cors = require('cors');
 const multer = require('multer');
 const { parsePdf } = require('./utils/pdfParser');
 const gameManager = require('./game/GameManager');
+const mongoose = require('mongoose');
+const List = require('./models/List');
+require('dotenv').config();
+
+// MongoDB Connection
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
 const app = express();
 const server = http.createServer(app);
@@ -32,6 +40,32 @@ app.post('/api/upload', upload.single('pdf'), async (req, res) => {
     } catch (error) {
         console.error('Error parsing PDF:', error);
         res.status(500).json({ error: 'Failed to parse PDF.' });
+    }
+});
+
+// Endpoint to save a list
+app.post('/api/lists', async (req, res) => {
+    try {
+        const { userId, name, words } = req.body;
+        if (!userId || !name || !words) return res.status(400).json({ error: 'Missing fields' });
+        
+        const newList = new List({ userId, name, words });
+        await newList.save();
+        res.json(newList);
+    } catch (error) {
+        console.error('Error saving list:', error);
+        res.status(500).json({ error: 'Failed to save list.' });
+    }
+});
+
+// Endpoint to get lists for a user
+app.get('/api/lists/:userId', async (req, res) => {
+    try {
+        const lists = await List.find({ userId: req.params.userId }).sort({ createdAt: -1 });
+        res.json(lists);
+    } catch (error) {
+        console.error('Error fetching lists:', error);
+        res.status(500).json({ error: 'Failed to fetch lists.' });
     }
 });
 

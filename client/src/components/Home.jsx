@@ -1,8 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-export default function Home({ socket, setVocabListForReview, playerName, setPlayerName }) {
+export default function Home({ socket, setVocabListForReview, playerName, setPlayerName, user, loginWithGoogle, logout }) {
   const [joinCode, setJoinCode] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [archivedLists, setArchivedLists] = useState([]);
+  
+  useEffect(() => {
+    if (user) {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      fetch(`${API_URL}/api/lists/${user.uid}`)
+        .then(res => res.json())
+        .then(data => {
+           if (Array.isArray(data)) setArchivedLists(data);
+        })
+        .catch(console.error);
+    }
+  }, [user]);
 
   const handleUpload = async (e) => {
     const file = e.target.files[0];
@@ -39,8 +52,15 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
 
   return (
     <div className="glass-panel" style={{ maxWidth: '600px', margin: '0 auto' }}>
-      <h1 className="title">VokabelDuell</h1>
-      <p className="subtitle">L'application de compétition de vocabulaire allemand</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1 className="title" style={{ fontSize: '2.5rem', marginBottom: 0 }}>VokabelDuell</h1>
+        {user ? (
+          <button onClick={logout} className="btn" style={{ background: 'rgba(255,255,255,0.1)', padding: '0.5rem 1rem' }}>Déconnexion</button>
+        ) : (
+          <button onClick={loginWithGoogle} className="btn btn-primary" style={{ padding: '0.5rem 1rem' }}>Se connecter</button>
+        )}
+      </div>
+      <p className="subtitle" style={{ marginTop: '0.5rem' }}>L'application de compétition de vocabulaire allemand</p>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
         
@@ -64,6 +84,25 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
             {isUploading ? 'Analyse...' : 'Upload PDF'}
             <input type="file" accept=".pdf" style={{ display: 'none' }} onChange={handleUpload} disabled={isUploading} />
           </label>
+
+          {user && archivedLists.length > 0 && (
+            <div style={{ marginTop: '2rem' }}>
+              <h3 style={{ marginBottom: '1rem', color: 'var(--text-muted)' }}>Mes Archives</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {archivedLists.map(list => (
+                  <button 
+                    key={list._id} 
+                    className="btn"
+                    style={{ background: 'rgba(255,255,255,0.1)', textAlign: 'left', display: 'flex', justifyContent: 'space-between' }}
+                    onClick={() => setVocabListForReview(list.words)}
+                  >
+                    <span>{list.name}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{list.words.length} mots</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>OU</div>

@@ -1,9 +1,11 @@
 import { useState } from 'react';
 
-export default function Review({ vocabList, onCreateSession }) {
+export default function Review({ vocabList, onCreateSession, user }) {
   const [words, setWords] = useState(vocabList);
   const [rounds, setRounds] = useState(Math.min(20, vocabList.length));
   const [timePerWord, setTimePerWord] = useState(15);
+  const [listName, setListName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleEdit = (id, field, value) => {
     setWords(words.map(w => w.id === id ? { ...w, [field]: value } : w));
@@ -25,6 +27,37 @@ export default function Review({ vocabList, onCreateSession }) {
     if (validWords.length === 0) return alert("La liste est vide !");
     
     onCreateSession(validWords, { rounds, timePerWord });
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
+    if (!listName.trim()) return alert("Veuillez entrer un nom pour cette liste.");
+    const validWords = words.filter(w => w.question.trim() && w.answer.trim());
+    if (validWords.length === 0) return alert("La liste est vide !");
+
+    setIsSaving(true);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${API_URL}/api/lists`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.uid,
+          name: listName,
+          words: validWords
+        })
+      });
+      if (res.ok) {
+        alert("Liste sauvegardée avec succès !");
+      } else {
+        alert("Erreur lors de la sauvegarde.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la sauvegarde.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -89,6 +122,26 @@ export default function Review({ vocabList, onCreateSession }) {
           + Ajouter un mot
         </button>
       </div>
+
+      {user && (
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+          <input 
+            type="text" 
+            className="input-field" 
+            placeholder="Nom de la liste (ex: Chapitre 1)" 
+            value={listName}
+            onChange={(e) => setListName(e.target.value)}
+            style={{ flex: 1 }}
+          />
+          <button 
+            className="btn btn-secondary" 
+            onClick={handleSave} 
+            disabled={isSaving || !listName.trim()}
+          >
+            {isSaving ? 'Sauvegarde...' : '💾 Archiver'}
+          </button>
+        </div>
+      )}
 
       <button className="btn btn-primary" onClick={handleStart} style={{ width: '100%', fontSize: '1.25rem' }}>
         Créer la Session
