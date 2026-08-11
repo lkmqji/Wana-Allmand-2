@@ -8,8 +8,36 @@ const pdf = require('pdf-parse');
  * @param {Buffer} dataBuffer
  * @returns {Array<{id: number, question: string, answer: string}>}
  */
+function render_page(pageData) {
+    return pageData.getTextContent().then(textContent => {
+        let lastY, lastX, text = '';
+        for (let item of textContent.items) {
+            let x = item.transform[4];
+            let y = item.transform[5];
+            // If same line, check distance
+            if (lastY === y || !lastY) {
+                // If there's a big gap (e.g. > 10 pixels), insert a tab
+                if (lastX && (x - lastX > 10)) {
+                    text += '\t';
+                }
+                text += item.str;
+            } else {
+                text += '\n' + item.str;
+            }
+            lastY = y;
+            lastX = x + item.width;
+        }
+        return text;
+    });
+}
+
+/**
+ * Parses the PDF buffer and attempts to extract vocabulary.
+ * @param {Buffer} dataBuffer
+ * @returns {Array<{id: number, question: string, answer: string}>}
+ */
 async function parsePdf(dataBuffer) {
-    const data = await pdf(dataBuffer);
+    const data = await pdf(dataBuffer, { pagerender: render_page });
     const text = data.text;
     const lines = text.split('\n').filter(line => line.trim() !== '');
 
@@ -17,30 +45,16 @@ async function parsePdf(dataBuffer) {
     let idCounter = 1;
 
     for (const line of lines) {
-        // Simple heuristic: split by multiple spaces or a single tab/separator if possible.
-        // For standard tables in PDFs, there might be multiple spaces between columns.
-        const parts = line.split(/\s{2,}|\t/);
+        // Now we can safely split by our inserted tabs
+        const parts = line.split('\t');
         
         if (parts.length >= 2) {
+            // First part is question, last part is answer
             const question = parts[0].trim();
-            const answer = parts[1].trim();
+            const answer = parts[parts.length - 1].trim(); // In case there are multiple tabs
             
-            // Basic validation to avoid empty strings
-            if (question && answer) {
-                vocabList.push({
-                    id: idCounter++,
-                    question,
-                    answer
-                });
-            }
-        } else {
-            // Fallback: try splitting by a single space if it's just two words, 
-            // but German words often have articles (e.g. "der Tisch" -> 2 words).
-            // This is a naive fallback that might need adjustment based on real PDFs.
-            const spaceParts = line.trim().split(' ');
-            if (spaceParts.length >= 2) {
-                const question = spaceParts[0];
-                const answer = spaceParts.slice(1).join(' ');
+            // Basic validation to avoid empty strings and headers
+            if (question && answer && !question.includes('Français (Mot') && !question.includes('Suite du tableau')) {
                 vocabList.push({
                     id: idCounter++,
                     question,
