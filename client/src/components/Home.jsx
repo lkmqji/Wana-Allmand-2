@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function Home({ socket }) {
+export default function Home({ socket, setVocabListForReview, playerName, setPlayerName }) {
   const [joinCode, setJoinCode] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
@@ -20,7 +20,7 @@ export default function Home({ socket }) {
       });
       const data = await res.json();
       if (data.vocabList) {
-        socket.emit('create_session', data.vocabList);
+        setVocabListForReview(data.vocabList);
       }
     } catch (err) {
       console.error(err);
@@ -33,7 +33,7 @@ export default function Home({ socket }) {
   const handleJoin = (e) => {
     e.preventDefault();
     if (joinCode.length === 4) {
-      socket.emit('join_session', joinCode.toUpperCase());
+      socket.emit('join_session', { sessionId: joinCode.toUpperCase(), playerName: playerName || 'Invité' });
     }
   };
 
@@ -43,6 +43,20 @@ export default function Home({ socket }) {
       <p className="subtitle">L'application de compétition de vocabulaire allemand</p>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        
+        {/* Choix du pseudo */}
+        <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '16px' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Ton Pseudo</label>
+          <input 
+            type="text" 
+            className="input-field" 
+            placeholder="Ex: Wail..." 
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            style={{ width: '100%', padding: '0.75rem' }}
+          />
+        </div>
+
         <div style={{ background: 'rgba(0,0,0,0.2)', padding: '2rem', borderRadius: '16px' }}>
           <h2 style={{ marginBottom: '1rem' }}>Créer une session</h2>
           <p style={{ marginBottom: '1rem', color: 'var(--text-muted)' }}>Uploadez un PDF de vocabulaire pour générer l'exercice.</p>

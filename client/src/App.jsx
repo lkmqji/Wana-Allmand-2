@@ -4,6 +4,7 @@ import Home from './components/Home';
 import Lobby from './components/Lobby';
 import Game from './components/Game';
 import Results from './components/Results';
+import Review from './components/Review';
 
 // Connect to server (uses env variable or fallback to localhost)
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -18,6 +19,14 @@ function App() {
   const [players, setPlayers] = useState({});
   const [isHost, setIsHost] = useState(false);
   const [error, setError] = useState('');
+  const [playerName, setPlayerName] = useState('');
+  const [vocabListForReview, setVocabListForReview] = useState(null);
+
+  useEffect(() => {
+    if (vocabListForReview) {
+      setView('review');
+    }
+  }, [vocabListForReview]);
 
   useEffect(() => {
     socket.on('session_created', (sessionId) => {
@@ -68,7 +77,22 @@ function App() {
         </div>
       )}
       
-      {view === 'home' && <Home socket={socket} />}
+      {view === 'home' && (
+        <Home 
+          socket={socket} 
+          setVocabListForReview={setVocabListForReview} 
+          playerName={playerName} 
+          setPlayerName={setPlayerName} 
+        />
+      )}
+      {view === 'review' && (
+        <Review 
+          vocabList={vocabListForReview} 
+          onCreateSession={(finalList, settings) => {
+            socket.emit('create_session', { vocabList: finalList, settings, playerName: playerName || 'Hôte' });
+          }} 
+        />
+      )}
       {view === 'lobby' && <Lobby socket={socket} session={session} players={players} isHost={isHost} />}
       {view === 'game' && <Game socket={socket} session={session} />}
       {view === 'results' && <Results players={players} setView={setView} />}

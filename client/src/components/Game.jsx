@@ -10,6 +10,9 @@ export default function Game({ socket, session }) {
   const [roundResult, setRoundResult] = useState(null); // { players: {}, correctAnswer: '' }
   const [players, setPlayers] = useState(session.players || {});
   
+  const [leaderId, setLeaderId] = useState(null);
+  const [overtakerId, setOvertakerId] = useState(null);
+  
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -29,6 +32,33 @@ export default function Game({ socket, session }) {
     }
     return () => clearInterval(interval);
   }, [timeRemaining, hasAnswered, roundResult]);
+
+  useEffect(() => {
+    let maxScore = -1;
+    let currentLeader = null;
+    let tie = false;
+
+    Object.values(players).forEach(p => {
+      if (p.score > maxScore) {
+        maxScore = p.score;
+        currentLeader = p.id;
+        tie = false;
+      } else if (p.score === maxScore && maxScore > 0) {
+        tie = true;
+      }
+    });
+
+    if (maxScore === 0) currentLeader = null;
+    if (tie) currentLeader = null;
+
+    if (currentLeader && leaderId !== currentLeader) {
+      if (leaderId !== null) {
+        setOvertakerId(currentLeader);
+        setTimeout(() => setOvertakerId(null), 1500);
+      }
+      setLeaderId(currentLeader);
+    }
+  }, [players, leaderId]);
 
   useEffect(() => {
     socket.on('new_question', (data) => {
@@ -72,12 +102,21 @@ export default function Game({ socket, session }) {
     <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
       {/* Scoreboard Header */}
       <div className="score-board glass-panel" style={{ padding: '1rem 2rem', marginBottom: '2rem' }}>
-        {Object.values(players).map((p, i) => (
-          <div key={p.id} className="player-score" style={{ color: p.id === socket.id ? 'var(--primary)' : 'white' }}>
-            <div className="name">{p.name} {p.id === socket.id ? '(Vous)' : ''}</div>
-            <div className="score">{p.score}</div>
-          </div>
-        ))}
+        {Object.values(players).map((p, i) => {
+          const isLeader = p.id === leaderId;
+          const isOvertaking = p.id === overtakerId;
+          return (
+            <div 
+              key={p.id} 
+              className={`player-score ${isOvertaking ? 'leader-overtake' : ''}`} 
+              style={{ color: p.id === socket.id ? 'var(--primary)' : 'white' }}
+            >
+              {isLeader && <div className="leader-crown">👑</div>}
+              <div className="name">{p.name} {p.id === socket.id ? '(Vous)' : ''}</div>
+              <div className="score">{p.score}</div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="glass-panel" style={{ textAlign: 'center', position: 'relative' }}>
