@@ -24,17 +24,8 @@ export default function Game({ socket, session }) {
   const [flashEffect, setFlashEffect] = useState(null); // 'success' | 'error' | null
 
   useEffect(() => {
-    // Rend la page immobile (empêche le scroll et le saut quand le clavier s'ouvre)
-    document.body.style.position = 'fixed';
-    document.body.style.width = '100%';
-    document.body.style.height = '100%';
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.height = '';
-      document.body.style.overflow = '';
-    };
+    // Le layout modifié suffit à empêcher les éléments de sauter (utilisation de display: block et marges fixes au lieu du flex centré).
+    // Plus besoin de modifier le body, ce qui causait un écran blanc.
   }, []);
 
   const playAudio = (text) => {
