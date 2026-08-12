@@ -302,70 +302,65 @@ export default function Game({ socket, session }) {
         })}
       </div>
 
-      <div className="glass-panel" style={{ textAlign: 'center', position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', padding: '1.5rem', marginTop: '0.5rem' }}>
+      <div className="glass-panel" style={{ textAlign: 'center', position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', padding: '1.5rem', marginTop: '1rem' }}>
         <div style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--text-muted)' }}>
           {questionIndex + 1} / {totalQuestions}
         </div>
         
-        {/* Top Section: Word to translate */}
-        <div style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>
-          <h2 style={{ fontSize: '1.1rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
-            Traduisez en allemand :
-          </h2>
-          <h1 style={{ fontSize: '2.5rem', color: 'white', wordBreak: 'break-word', margin: 0 }}>
-            {question || 'Chargement...'}
-          </h1>
-        </div>
+        <h2 style={{ fontSize: '1.2rem', color: 'var(--text-muted)', marginBottom: '0.5rem', marginTop: '1.5rem' }}>
+          Traduisez en allemand :
+        </h2>
+        
+        <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem', color: 'white', wordBreak: 'break-word' }}>
+          {question || 'Chargement...'}
+        </h1>
 
-        {/* Middle Section: Timer & Input */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          {!roundResult ? (
-            <>
-              <div className={`timer ${timeRemaining < 5 ? 'danger' : ''}`} style={{ fontSize: '3rem', margin: '0.5rem 0' }}>
-                {Math.ceil(timeRemaining)}s
+        {!roundResult ? (
+          <>
+            <div className={`timer ${timeRemaining < 5 ? 'danger' : ''}`} style={{ fontSize: '3rem', margin: '0.5rem 0' }}>
+              {Math.ceil(timeRemaining)}s
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <button 
+                onClick={handleUseJoker} 
+                disabled={jokers <= 0 || hasAnswered || jokerHint} 
+                className="btn" 
+                style={{ background: 'var(--warning)', color: 'white', padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+              >
+                💡 Joker ({jokers} restants)
+              </button>
+              {jokerHint && <div style={{ marginTop: '0.5rem', color: 'var(--warning)', fontSize: '1.2rem', fontWeight: 'bold' }}>Indice : {jokerHint}</div>}
+            </div>
+
+            {isFrozen && (
+              <div style={{ background: 'rgba(56, 189, 248, 0.2)', color: 'var(--text-light)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid #38bdf8' }}>
+                🥶 <strong>Vous êtes gelé !</strong> Votre adversaire a répondu juste 3 fois de suite !
               </div>
+            )}
 
-              <div style={{ marginBottom: '1rem' }}>
-                <button 
-                  onClick={handleUseJoker} 
-                  disabled={jokers <= 0 || hasAnswered || jokerHint} 
-                  className="btn" 
-                  style={{ background: 'var(--warning)', color: 'white', padding: '0.5rem 1rem', fontSize: '0.9rem' }}
-                >
-                  💡 Joker ({jokers} restants)
-                </button>
-                {jokerHint && <div style={{ marginTop: '0.5rem', color: 'var(--warning)', fontSize: '1.2rem', fontWeight: 'bold' }}>Indice : {jokerHint}</div>}
-              </div>
-
-              {isFrozen && (
-                <div style={{ background: 'rgba(56, 189, 248, 0.2)', color: 'var(--text-light)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid #38bdf8' }}>
-                  🥶 <strong>Vous êtes gelé !</strong> Votre adversaire a répondu juste 3 fois de suite !
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit} style={{ marginTop: '1rem', width: '100%', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  className="input-field"
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  placeholder={isFrozen ? "GELÉ..." : "Ex: der Tisch"}
-                  disabled={hasAnswered || isFrozen}
-                  style={{ flex: 1, textAlign: 'left', fontSize: '1.25rem', padding: '0.75rem', borderColor: isFrozen ? '#38bdf8' : '', margin: 0 }}
-                  autoComplete="off"
-                />
-                <button 
-                  type="submit" 
-                  className="btn btn-primary" 
-                  style={{ padding: '0.75rem 1.5rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  disabled={hasAnswered || !answer.trim() || isFrozen}
-                  title="Valider"
-                >
-                  {hasAnswered ? '...' : '➤'}
-                </button>
-              </form>
-            </>
+            <form onSubmit={handleSubmit} style={{ marginTop: '1rem', width: '100%' }}>
+              <input
+                ref={inputRef}
+                type="text"
+                className="input-field"
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+                placeholder={isFrozen ? "GELÉ..." : "Ex: der Tisch"}
+                disabled={hasAnswered || isFrozen}
+                style={{ textAlign: 'center', fontSize: '1.25rem', marginBottom: '0.5rem', padding: '0.75rem', borderColor: isFrozen ? '#38bdf8' : '' }}
+                autoComplete="off"
+              />
+              <button 
+                type="submit" 
+                className="btn btn-primary" 
+                style={{ width: '100%', padding: '0.75rem' }}
+                disabled={hasAnswered || !answer.trim() || isFrozen}
+              >
+                {hasAnswered ? 'En attente...' : 'Valider'}
+              </button>
+            </form>
+          </>
         ) : (
           <div style={{ padding: '1rem 0', animation: 'fadeIn 0.5s ease-out' }}>
             <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '12px', display: 'inline-block', marginBottom: '1rem', position: 'relative' }}>
@@ -408,7 +403,6 @@ export default function Game({ socket, session }) {
             <p style={{ marginTop: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Prochaine question imminente...</p>
           </div>
         )}
-        </div>
       </div>
     </div>
   );

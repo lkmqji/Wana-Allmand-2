@@ -40,26 +40,21 @@ body {
   font-family: 'Outfit', sans-serif;
   background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
   color: var(--text-light);
-  height: var(--app-height, 100dvh);
-  width: 100vw;
+  min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  overflow: hidden; /* Prevent page from moving */
-  position: fixed;
-  top: 0;
-  left: 0;
+  overflow-x: hidden;
 }
 
 #root {
   width: 100%;
   max-width: 1200px;
-  height: 100%;
+  min-height: 100vh;
   padding: 2rem;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  overflow-y: auto; /* Allow internal scrolling if content overflows */
 }
 
 @media (max-width: 768px) {
@@ -69,7 +64,7 @@ body {
   #root {
     justify-content: flex-start;
     padding: 1rem;
-    padding-top: 1rem;
+    padding-top: 2rem;
   }
 }
 
