@@ -302,42 +302,46 @@ export default function Game({ socket, session }) {
         })}
       </div>
 
-      <div className="glass-panel" style={{ textAlign: 'center', position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', padding: '1.5rem', marginTop: '1rem' }}>
+      <div className="glass-panel" style={{ textAlign: 'center', position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', padding: '1.5rem', marginTop: '0.5rem' }}>
         <div style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--text-muted)' }}>
           {questionIndex + 1} / {totalQuestions}
         </div>
         
-        <h2 style={{ fontSize: '1.2rem', color: 'var(--text-muted)', marginBottom: '0.5rem', marginTop: '1.5rem' }}>
-          Traduisez en allemand :
-        </h2>
-        
-        <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem', color: 'white', wordBreak: 'break-word' }}>
-          {question || 'Chargement...'}
-        </h1>
+        {/* Top Section: Word to translate */}
+        <div style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>
+          <h2 style={{ fontSize: '1.1rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
+            Traduisez en allemand :
+          </h2>
+          <h1 style={{ fontSize: '2.5rem', color: 'white', wordBreak: 'break-word', margin: 0 }}>
+            {question || 'Chargement...'}
+          </h1>
+        </div>
 
-        {!roundResult ? (
-          <>
-            <div className={`timer ${timeRemaining < 5 ? 'danger' : ''}`} style={{ fontSize: '3rem', margin: '0.5rem 0' }}>
-              {Math.ceil(timeRemaining)}s
-            </div>
-
-            <div style={{ marginBottom: '1rem' }}>
-              <button 
-                onClick={handleUseJoker} 
-                disabled={jokers <= 0 || hasAnswered || jokerHint} 
-                className="btn" 
-                style={{ background: 'var(--warning)', color: 'white', padding: '0.5rem 1rem', fontSize: '0.9rem' }}
-              >
-                💡 Joker ({jokers} restants)
-              </button>
-              {jokerHint && <div style={{ marginTop: '0.5rem', color: 'var(--warning)', fontSize: '1.2rem', fontWeight: 'bold' }}>Indice : {jokerHint}</div>}
-            </div>
-
-            {isFrozen && (
-              <div style={{ background: 'rgba(56, 189, 248, 0.2)', color: 'var(--text-light)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid #38bdf8' }}>
-                🥶 <strong>Vous êtes gelé !</strong> Votre adversaire a répondu juste 3 fois de suite !
+        {/* Middle Section: Timer & Input */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          {!roundResult ? (
+            <>
+              <div className={`timer ${timeRemaining < 5 ? 'danger' : ''}`} style={{ fontSize: '3rem', margin: '0.5rem 0' }}>
+                {Math.ceil(timeRemaining)}s
               </div>
-            )}
+
+              <div style={{ marginBottom: '1rem' }}>
+                <button 
+                  onClick={handleUseJoker} 
+                  disabled={jokers <= 0 || hasAnswered || jokerHint} 
+                  className="btn" 
+                  style={{ background: 'var(--warning)', color: 'white', padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+                >
+                  💡 Joker ({jokers} restants)
+                </button>
+                {jokerHint && <div style={{ marginTop: '0.5rem', color: 'var(--warning)', fontSize: '1.2rem', fontWeight: 'bold' }}>Indice : {jokerHint}</div>}
+              </div>
+
+              {isFrozen && (
+                <div style={{ background: 'rgba(56, 189, 248, 0.2)', color: 'var(--text-light)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid #38bdf8' }}>
+                  🥶 <strong>Vous êtes gelé !</strong> Votre adversaire a répondu juste 3 fois de suite !
+                </div>
+              )}
 
             <form onSubmit={handleSubmit} style={{ marginTop: '1rem', width: '100%' }}>
               <input
