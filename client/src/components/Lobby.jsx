@@ -1,13 +1,25 @@
-export default function Lobby({ socket, session, players, isHost }) {
+export default function Lobby({ socket, session, players, isHost, setView }) {
   const playerCount = Object.keys(players).length;
+  
+  const handleLeave = () => {
+    socket.emit('leave_session', session.id);
+    setView('home');
+  };
   
   const handleStart = () => {
     socket.emit('start_game', session.id);
   };
 
   return (
-    <div className="glass-panel" style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-      <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Salle d'attente</h2>
+    <div className="glass-panel" style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
+      <button 
+        onClick={handleLeave}
+        className="btn btn-secondary"
+        style={{ position: 'absolute', top: '1.5rem', left: '1.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+      >
+        ← Retour
+      </button>
+      <h2 style={{ fontSize: '2rem', marginBottom: '1rem', marginTop: '3rem' }}>Salle d'attente</h2>
       
       <div style={{ margin: '2rem 0', padding: '2rem', background: 'rgba(0,0,0,0.3)', borderRadius: '16px' }}>
         <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Code de session</p>

@@ -88,6 +88,24 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
     }
   }, [user]);
 
+  const saveList = async (vocabList, name) => {
+    if (!user) return;
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${API_URL}/api/lists`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.uid, name, words: vocabList })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setArchivedLists(prev => [data, ...prev]);
+      }
+    } catch (e) {
+      console.error("Erreur sauvegarde auto", e);
+    }
+  };
+
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -105,6 +123,7 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
       const data = await res.json();
       if (data.vocabList && data.vocabList.length > 0) {
         setVocabListForReview(data.vocabList);
+        await saveList(data.vocabList, `Import PDF - ${new Date().toLocaleDateString()}`);
       } else {
         alert("Aucun mot trouvé dans ce PDF.");
       }
@@ -116,21 +135,27 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
     }
   };
 
-  const handleExtractAI = async () => {
-    if (!rawText.trim()) return alert("Veuillez coller du texte.");
+  const handleExtractAI = async (e) => {
+    const file = e?.target?.files?.[0];
+    if (!rawText.trim() && !file) return alert("Veuillez coller du texte ou uploader un fichier.");
+    
     setIsExtracting(true);
+    const formData = new FormData();
+    formData.append('text', rawText);
+    if (file) formData.append('file', file);
+
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       const res = await fetch(`${API_URL}/api/extract`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: rawText })
+        body: formData
       });
       const data = await res.json();
       if (data.vocabList && data.vocabList.length > 0) {
         setVocabListForReview(data.vocabList);
+        await saveList(data.vocabList, `Extraction IA - ${new Date().toLocaleDateString()}`);
       } else {
-        alert("Aucun mot extrait. Essayez avec un format clair (ex: la table = der Tisch).");
+        alert(data.error || "Aucun mot extrait.");
       }
     } catch (err) {
       console.error(err);
@@ -319,26 +344,34 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
             </div>
           )}
 
-          {/* Tab 2: Raw Text Extraction */}
+          {/* Tab 2: Raw Text Extraction & Multimodal */}
           {prepTab === 'text' && (
             <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '16px' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                COLLEZ VOS PAIRES DE MOTS (EX: LA TABLE = DER TISCH) OU UN TEXTE BRUT :
+                COLLEZ VOS PAIRES DE MOTS OU TEXTE BRUT :
               </label>
               <textarea 
                 className="input-field" 
-                rows={6}
+                rows={4}
                 value={rawText}
                 onChange={(e) => setRawText(e.target.value)}
                 style={{ width: '100%', fontFamily: 'monospace', fontSize: '0.9rem', marginBottom: '1rem', padding: '1rem' }}
               />
+              
+              <div style={{ textAlign: 'center', margin: '1rem 0', color: 'var(--text-muted)' }}>OU</div>
+              
+              <label className="btn btn-secondary" style={{ width: '100%', padding: '0.75rem', marginBottom: '1rem', cursor: isExtracting ? 'wait' : 'pointer', display: 'block', textAlign: 'center' }}>
+                📷 UPLOADER UN FICHIER (IMAGE, AUDIO, TEXTE)
+                <input type="file" style={{ display: 'none' }} onChange={handleExtractAI} disabled={isExtracting} />
+              </label>
+
               <button 
-                onClick={handleExtractAI}
+                onClick={() => handleExtractAI()}
                 className="btn btn-primary"
                 disabled={isExtracting}
                 style={{ width: '100%', padding: '0.75rem' }}
               >
-                {isExtracting ? '✨ extraction avec l\'IA en cours...' : '✨ EXTRAIRE AVEC L\'IA'}
+                {isExtracting ? '✨ extraction avec l\'IA en cours...' : '✨ EXTRAIRE LE TEXTE CI-DESSUS'}
               </button>
             </div>
           )}

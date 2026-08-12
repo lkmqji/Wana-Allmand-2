@@ -1,10 +1,10 @@
 import { useState } from 'react';
 
-export default function Review({ vocabList, onCreateSession, user }) {
+export default function Review({ vocabList, onCreateSession, user, setView }) {
   const [words, setWords] = useState(vocabList);
   const [rounds, setRounds] = useState(Math.min(20, vocabList.length));
   const [timePerWord, setTimePerWord] = useState(15);
-  const [powerupsEnabled, setPowerupsEnabled] = useState(true);
+  const [powerupsEnabled, setPowerupsEnabled] = useState(false);
   const [listName, setListName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -62,8 +62,15 @@ export default function Review({ vocabList, onCreateSession, user }) {
   };
 
   return (
-    <div className="glass-panel" style={{ maxWidth: '800px', margin: '0 auto', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-      <h2 style={{ fontSize: '2rem', marginBottom: '1rem', textAlign: 'center' }}>Vérification de la liste</h2>
+    <div className="glass-panel" style={{ maxWidth: '800px', margin: '0 auto', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      <button 
+        onClick={() => setView('home')}
+        className="btn btn-secondary"
+        style={{ position: 'absolute', top: '1.5rem', left: '1.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+      >
+        ← Retour
+      </button>
+      <h2 style={{ fontSize: '2rem', marginBottom: '1rem', textAlign: 'center', marginTop: '3rem' }}>Vérification de la liste</h2>
       <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2rem' }}>
         Vous pouvez corriger, supprimer ou ajouter des mots avant de lancer la partie.
       </p>

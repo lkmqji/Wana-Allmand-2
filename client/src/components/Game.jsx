@@ -89,6 +89,10 @@ export default function Game({ socket, session }) {
       setHasAnswered(true);
       setRoundResult(result);
       setPlayers(result.players);
+      // Jouer le mot en allemand automatiquement
+      if (result.correctAnswer) {
+        playAudio(result.correctAnswer);
+      }
     });
 
     socket.on('joker_result', (hint) => {

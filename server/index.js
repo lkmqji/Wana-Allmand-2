@@ -44,23 +44,38 @@ app.post('/api/upload', upload.single('pdf'), async (req, res) => {
     }
 });
 
-// Endpoint for AI text extraction
-app.post('/api/extract', async (req, res) => {
+// Endpoint for AI text/file extraction
+app.post('/api/extract', upload.single('file'), async (req, res) => {
     try {
-        const { text } = req.body;
-        if (!text || !text.trim()) {
-            return res.status(400).json({ error: "Aucun texte fourni." });
+        const text = req.body.text || "";
+        const file = req.file;
+        
+        if (!text.trim() && !file) {
+            return res.status(400).json({ error: "Aucun contenu fourni." });
         }
 
         if (process.env.GEMINI_API_KEY) {
             try {
-                const prompt = `Tu es un assistant linguistique allemand. Extrais toutes les paires de mots ou phrases (Français -> Allemand avec article der/die/das si nom) du texte suivant. Renvoie STRICTEMENT un tableau JSON au format: [{"question": "mot français", "answer": "mot allemand avec article"}] sans texte additionnel.\n\nTexte:\n${text}`;
+                const prompt = `Tu es un assistant linguistique. Extrais toutes les paires de mots ou phrases (Français -> Anglais -> Allemand avec article der/die/das si nom) du contenu fourni. Renvoie STRICTEMENT un tableau JSON au format exact: [{"question": "mot français", "english": "english translation", "answer": "mot allemand avec article"}] sans texte additionnel. Si un texte t'est fourni, base toi dessus. Si une image/audio/fichier t'est fourni, extrais-en le vocabulaire.\n\nTexte supplémentaire:\n${text}`;
+                
+                const parts = [{ text: prompt }];
+                
+                if (file) {
+                    const mimeType = file.mimetype;
+                    const base64Data = file.buffer.toString('base64');
+                    parts.push({
+                        inline_data: {
+                            mime_type: mimeType,
+                            data: base64Data
+                        }
+                    });
+                }
                 
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }]
+                        contents: [{ parts: parts }]
                     })
                 });
                 
@@ -70,7 +85,12 @@ app.post('/api/extract', async (req, res) => {
                     if (rawText.startsWith('```json')) rawText = rawText.replace(/^```json/, '').replace(/```$/, '').trim();
                     if (rawText.startsWith('```')) rawText = rawText.replace(/^```/, '').replace(/```$/, '').trim();
                     const parsed = JSON.parse(rawText);
-                    const vocabList = parsed.map((item, idx) => ({ id: idx + 1, question: item.question, answer: item.answer }));
+                    const vocabList = parsed.map((item, idx) => ({ 
+                        id: idx + 1, 
+                        question: item.question, 
+                        english: item.english || "",
+                        answer: item.answer 
+                    }));
                     if (vocabList.length > 0) {
                         return res.json({ vocabList });
                     }
@@ -80,7 +100,10 @@ app.post('/api/extract', async (req, res) => {
             }
         }
 
-        // Fallback rule-based line parser
+        // Fallback rule-based line parser (only works for text)
+        if (!text) {
+             return res.status(500).json({ error: "L'IA est requise pour extraire le vocabulaire depuis un fichier média." });
+        }
         const lines = text.split('\n').filter(l => l.includes('=') || l.includes('-') || l.includes(':'));
         const vocabList = lines.map((line, idx) => {
             const sep = line.includes('=') ? '=' : line.includes('-') ? '-' : ':';

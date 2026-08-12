@@ -132,13 +132,14 @@ function App() {
         <Review 
           vocabList={vocabListForReview} 
           user={user}
+          setView={setView}
           onCreateSession={(finalList, settings) => {
             const finalName = playerName ? `${avatar} ${playerName}` : `${avatar} Hôte`;
             socket.emit('create_session', { vocabList: finalList, settings, playerName: finalName, firebaseId: user?.uid });
           }} 
         />
       )}
-      {view === 'lobby' && <Lobby socket={socket} session={session} players={players} isHost={isHost} />}
+      {view === 'lobby' && <Lobby socket={socket} session={session} players={players} isHost={isHost} setView={setView} />}
       {view === 'game' && <Game socket={socket} session={session} />}
       {view === 'results' && <Results players={players} setView={setView} socket={socket} session={session} isHost={isHost} setVocabListForReview={setVocabListForReview} />}
     </div>
