@@ -343,7 +343,7 @@ export default function Game({ socket, session }) {
                 </div>
               )}
 
-            <form onSubmit={handleSubmit} style={{ marginTop: '1rem', width: '100%' }}>
+            <form onSubmit={handleSubmit} style={{ marginTop: '1rem', width: '100%', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               <input
                 ref={inputRef}
                 type="text"
@@ -352,16 +352,17 @@ export default function Game({ socket, session }) {
                 onChange={(e) => setAnswer(e.target.value)}
                 placeholder={isFrozen ? "GELÉ..." : "Ex: der Tisch"}
                 disabled={hasAnswered || isFrozen}
-                style={{ textAlign: 'center', fontSize: '1.25rem', marginBottom: '0.5rem', padding: '0.75rem', borderColor: isFrozen ? '#38bdf8' : '' }}
+                style={{ flex: 1, textAlign: 'left', fontSize: '1.25rem', padding: '0.75rem', borderColor: isFrozen ? '#38bdf8' : '', margin: 0 }}
                 autoComplete="off"
               />
               <button 
                 type="submit" 
                 className="btn btn-primary" 
-                style={{ width: '100%', padding: '0.75rem' }}
+                style={{ padding: '0.75rem 1.5rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 disabled={hasAnswered || !answer.trim() || isFrozen}
+                title="Valider"
               >
-                {hasAnswered ? 'En attente...' : 'Valider'}
+                {hasAnswered ? '...' : '➤'}
               </button>
             </form>
           </>

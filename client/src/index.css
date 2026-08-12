@@ -40,7 +40,7 @@ body {
   font-family: 'Outfit', sans-serif;
   background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
   color: var(--text-light);
-  height: 100dvh;
+  height: var(--app-height, 100dvh);
   width: 100vw;
   display: flex;
   justify-content: center;

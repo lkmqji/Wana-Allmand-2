@@ -31,6 +31,20 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  // Fix for mobile keyboards: set exact pixel height once on mount
+  useEffect(() => {
+    const setAppHeight = () => {
+      document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+    };
+    setAppHeight();
+    window.addEventListener('resize', () => {
+      // Only update if no input is focused (meaning it's a rotation, not a keyboard opening)
+      if (document.activeElement?.tagName !== 'INPUT') {
+        setAppHeight();
+      }
+    });
+  }, []);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
