@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const wordSchema = new mongoose.Schema({
   id: Number,
   question: String,
+  english: String,
   answer: String
 });
 

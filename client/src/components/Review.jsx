@@ -51,11 +51,12 @@ export default function Review({ vocabList, onCreateSession, user, setView }) {
       if (res.ok) {
         alert("Liste sauvegardée avec succès !");
       } else {
-        alert("Erreur lors de la sauvegarde.");
+        const errData = await res.json().catch(() => ({}));
+        alert(`Erreur lors de la sauvegarde : ${errData.error || res.statusText}`);
       }
     } catch (err) {
       console.error(err);
-      alert("Erreur lors de la sauvegarde.");
+      alert(`Erreur lors de la sauvegarde : ${err.message}`);
     } finally {
       setIsSaving(false);
     }
