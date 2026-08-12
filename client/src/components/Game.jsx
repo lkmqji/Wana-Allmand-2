@@ -283,9 +283,30 @@ export default function Game({ socket, session }) {
       {/* Bouton Quitter */}
       <button 
         onClick={handleRequestTerminate}
-        style={{ position: 'absolute', top: '-10px', left: '10px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.9rem', zIndex: 10 }}
+        style={{ 
+          position: 'absolute', 
+          top: '10px', 
+          left: '10px', 
+          background: 'rgba(255,255,255,0.1)', 
+          border: '1px solid rgba(255,255,255,0.2)', 
+          color: 'var(--text-light)', 
+          cursor: 'pointer', 
+          zIndex: 10,
+          width: '40px',
+          height: '40px',
+          borderRadius: '50%',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          transition: 'all 0.2s'
+        }}
+        title="Quitter la partie"
       >
-        🚪 Quitter la partie
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
       </button>
 
       {/* Scoreboard Header */}
@@ -379,16 +400,51 @@ export default function Game({ socket, session }) {
               </button>
             </form>
 
-            <div>
+            <div style={{ position: 'relative', display: 'inline-block' }}>
               <button 
                 onClick={handleUseJoker} 
                 disabled={jokers <= 0 || hasAnswered || jokerHint} 
-                className="btn" 
-                style={{ background: 'var(--warning)', color: 'white', padding: '0.4rem 0.8rem', fontSize: '0.85rem', borderRadius: '12px' }}
+                style={{ 
+                  background: 'var(--warning)', 
+                  color: 'white', 
+                  border: 'none',
+                  width: '44px', 
+                  height: '44px', 
+                  borderRadius: '50%',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  opacity: (jokers <= 0 || hasAnswered || jokerHint) ? 0.5 : 1,
+                  boxShadow: '0 4px 10px rgba(245, 158, 11, 0.3)'
+                }}
+                title="Utiliser un Joker"
               >
-                💡 Joker ({jokers})
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 18h6"></path>
+                  <path d="M10 22h4"></path>
+                  <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .34 2.02 1.5 3.5.76.76 1.23 1.52 1.41 2.5"></path>
+                </svg>
               </button>
-              {jokerHint && <div style={{ marginTop: '0.5rem', color: 'var(--warning)', fontSize: '1.1rem', fontWeight: 'bold' }}>Indice : {jokerHint}</div>}
+              <span style={{ 
+                position: 'absolute', 
+                top: '-5px', 
+                right: '-5px', 
+                background: 'var(--danger)', 
+                color: 'white',
+                fontSize: '0.75rem', 
+                fontWeight: 'bold',
+                width: '20px',
+                height: '20px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderRadius: '50%',
+                border: '2px solid var(--bg-gradient-start)'
+              }}>
+                {jokers}
+              </span>
+              {jokerHint && <div style={{ marginTop: '0.75rem', color: 'var(--warning)', fontSize: '1.1rem', fontWeight: 'bold' }}>Indice : {jokerHint}</div>}
             </div>
 
             {isFrozen && (
