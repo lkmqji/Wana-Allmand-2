@@ -180,6 +180,15 @@ app.get('/api/leaderboard', async (req, res) => {
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
+    const handlePlayerLeave = (sessionId, playerId) => {
+        const result = gameManager.leaveSession(sessionId, playerId);
+        if (result && !result.destroyed) {
+            io.to(sessionId).emit('player_joined', result.session.players);
+            // Si l'hôte vient de changer, informez le nouveau
+            io.to(sessionId).emit('session_joined', result.session);
+        }
+    };
+
     socket.on('create_session', ({ vocabList, settings, playerName, firebaseId }) => {
         const sessionId = gameManager.createSession(socket.id, playerName, firebaseId);
         gameManager.setVocabList(sessionId, vocabList, settings);
@@ -251,6 +260,22 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('leave_session', (sessionId) => {
+        socket.leave(sessionId);
+        handlePlayerLeave(sessionId, socket.id);
+    });
+
+    socket.on('kick_player', ({ sessionId, playerId }) => {
+        const session = gameManager.getSession(sessionId);
+        if (session && session.hostId === socket.id) {
+            handlePlayerLeave(sessionId, playerId);
+            io.to(playerId).emit('kicked');
+            const sockets = io.sockets.sockets;
+            const kickedSocket = sockets.get(playerId);
+            if (kickedSocket) kickedSocket.leave(sessionId);
+        }
+    });
+
     socket.on('rematch', (sessionId) => {
         const session = gameManager.getSession(sessionId);
         if (session) {
@@ -305,6 +330,12 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.id}`);
+        // Chercher dans toutes les sessions si ce socket y était
+        for (const [sessionId, session] of gameManager.sessions.entries()) {
+            if (session.players[socket.id]) {
+                handlePlayerLeave(sessionId, socket.id);
+            }
+        }
     });
 });
 

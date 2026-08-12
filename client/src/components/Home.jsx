@@ -461,23 +461,54 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
             </div>
           )}
 
-          {/* Archived Lists for logged in user */}
-          {user && archivedLists.length > 0 && (
-            <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-              <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>📂 Mes Listes Sauvegardées</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem' }}>
-                {archivedLists.map(list => (
-                  <button 
-                    key={list._id} 
-                    className="btn"
-                    style={{ background: 'rgba(255,255,255,0.05)', textAlign: 'left', display: 'flex', justifyContent: 'space-between', padding: '0.75rem 1rem' }}
-                    onClick={() => setVocabListForReview(list.words)}
-                  >
-                    <span>{list.name}</span>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{list.words.length} mots</span>
-                  </button>
-                ))}
-              </div>
+          {/* Tab 4: Theme Generation */}
+          {prepTab === 'theme' && (
+            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '16px', textAlign: 'center' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🎨</div>
+              <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Générer avec l'IA depuis un thème</h3>
+              <input 
+                type="text" 
+                className="input-field" 
+                placeholder="Ex: Les animaux, La nourriture, Voyage..." 
+                value={themeInput}
+                onChange={(e) => setThemeInput(e.target.value)}
+                style={{ width: '100%', marginBottom: '1.5rem', textAlign: 'center', padding: '1rem', borderRadius: '8px' }}
+              />
+              <button 
+                onClick={handleGenerateTheme}
+                className="btn btn-primary"
+                disabled={isGeneratingTheme}
+                style={{ width: '100%', padding: '0.75rem' }}
+              >
+                {isGeneratingTheme ? '✨ Génération en cours...' : '✨ GÉNÉRER 15 MOTS'}
+              </button>
+            </div>
+          )}
+
+          {/* Tab 5: User Saved Lists */}
+          {prepTab === 'lists' && user && (
+            <div>
+              {archivedLists.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                  Aucune liste sauvegardée pour le moment.
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                  {archivedLists.map(list => (
+                    <div key={list._id} style={{ background: 'rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '12px' }}>
+                      <h4 style={{ margin: '0 0 0.2rem 0', fontSize: '1rem' }}>{list.name}</h4>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{list.words.length} mots • {new Date(list.createdAt).toLocaleDateString()}</span>
+                      <button 
+                        className="btn btn-secondary" 
+                        onClick={() => setVocabListForReview(list.words)}
+                        style={{ marginTop: '1rem', width: '100%', padding: '0.5rem', fontSize: '0.85rem' }}
+                      >
+                        REJOUER -&gt;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -38,6 +38,28 @@ class GameManager {
         return { success: true, session };
     }
 
+    leaveSession(sessionId, playerId) {
+        const session = this.sessions.get(sessionId);
+        if (!session) return null;
+        
+        delete session.players[playerId];
+        if (session.guestId === playerId) {
+            session.guestId = null;
+        } else if (session.hostId === playerId) {
+            // If host leaves, we might want to reassign host or destroy session.
+            // For now, just mark hostId as null or reassign to guest if needed.
+            // A simpler approach: if a player leaves, just remove them.
+            if (session.guestId) {
+                session.hostId = session.guestId; // Guest becomes host
+                session.guestId = null;
+            } else {
+                this.sessions.delete(sessionId);
+                return { destroyed: true };
+            }
+        }
+        return { session };
+    }
+
     setVocabList(sessionId, vocabList, settings) {
         const session = this.sessions.get(sessionId);
         if (session) {

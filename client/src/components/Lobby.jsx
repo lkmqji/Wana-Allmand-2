@@ -36,9 +36,34 @@ export default function Lobby({ socket, session, players, isHost, setView }) {
               padding: '1rem 2rem', 
               background: 'rgba(255,255,255,0.1)', 
               borderRadius: '12px',
-              border: `2px solid ${i === 0 ? 'var(--primary)' : 'var(--secondary)'}`
+              border: `2px solid ${i === 0 ? 'var(--primary)' : 'var(--secondary)'}`,
+              position: 'relative'
             }}>
               {p.name} {p.id === socket.id ? '(Vous)' : ''}
+              {isHost && p.id !== socket.id && (
+                <button
+                  onClick={() => socket.emit('kick_player', { sessionId: session.id, playerId: p.id })}
+                  style={{
+                    position: 'absolute',
+                    top: '-10px',
+                    right: '-10px',
+                    background: 'var(--danger)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '24px',
+                    height: '24px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px'
+                  }}
+                  title="Expulser"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           ))}
         </div>

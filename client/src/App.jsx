@@ -63,8 +63,16 @@ function App() {
     socket.on('session_joined', (sess) => {
       setSession(sess);
       setPlayers(sess.players);
-      setIsHost(false);
+      setIsHost(sess.hostId === socket.id);
       setView('lobby');
+    });
+
+    socket.on('kicked', () => {
+      alert("Vous avez été exclu de la session par l'hôte.");
+      setSession(null);
+      setPlayers({});
+      setIsHost(false);
+      setView('home');
     });
 
     socket.on('player_joined', (updatedPlayers) => {
@@ -92,6 +100,7 @@ function App() {
       socket.off('game_started');
       socket.off('game_over');
       socket.off('error');
+      socket.off('kicked');
     };
   }, []);
 

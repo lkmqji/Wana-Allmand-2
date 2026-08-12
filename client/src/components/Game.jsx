@@ -302,22 +302,22 @@ export default function Game({ socket, session }) {
         })}
       </div>
 
-      <div className="glass-panel" style={{ textAlign: 'center', position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '1.5rem' }}>
+      <div className="glass-panel" style={{ textAlign: 'center', position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', padding: '1.5rem', marginTop: '1rem' }}>
         <div style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--text-muted)' }}>
           {questionIndex + 1} / {totalQuestions}
         </div>
         
-        <h2 style={{ fontSize: '1.2rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+        <h2 style={{ fontSize: '1.2rem', color: 'var(--text-muted)', marginBottom: '0.5rem', marginTop: '1.5rem' }}>
           Traduisez en allemand :
         </h2>
         
-        <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem', color: 'white' }}>
+        <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem', color: 'white', wordBreak: 'break-word' }}>
           {question || 'Chargement...'}
         </h1>
 
         {!roundResult ? (
           <>
-            <div className={`timer ${timeRemaining < 5 ? 'danger' : ''}`} style={{ fontSize: '3rem', margin: '1rem 0' }}>
+            <div className={`timer ${timeRemaining < 5 ? 'danger' : ''}`} style={{ fontSize: '3rem', margin: '0.5rem 0' }}>
               {Math.ceil(timeRemaining)}s
             </div>
 
@@ -339,7 +339,7 @@ export default function Game({ socket, session }) {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} style={{ marginTop: 'auto' }}>
+            <form onSubmit={handleSubmit} style={{ marginTop: '1rem', width: '100%' }}>
               <input
                 ref={inputRef}
                 type="text"

@@ -57,6 +57,17 @@ body {
   justify-content: center;
 }
 
+@media (max-width: 768px) {
+  body {
+    align-items: flex-start;
+  }
+  #root {
+    justify-content: flex-start;
+    padding: 1rem;
+    padding-top: 2rem;
+  }
+}
+
 .glass-panel {
   background: var(--glass-bg);
   backdrop-filter: blur(16px);
