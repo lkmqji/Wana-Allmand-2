@@ -343,29 +343,29 @@ export default function Game({ socket, session }) {
                 </div>
               )}
 
-            <form onSubmit={handleSubmit} style={{ marginTop: '1rem', width: '100%', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <input
-                ref={inputRef}
-                type="text"
-                className="input-field"
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-                placeholder={isFrozen ? "GELÉ..." : "Ex: der Tisch"}
-                disabled={hasAnswered || isFrozen}
-                style={{ flex: 1, textAlign: 'left', fontSize: '1.25rem', padding: '0.75rem', borderColor: isFrozen ? '#38bdf8' : '', margin: 0 }}
-                autoComplete="off"
-              />
-              <button 
-                type="submit" 
-                className="btn btn-primary" 
-                style={{ padding: '0.75rem 1.5rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                disabled={hasAnswered || !answer.trim() || isFrozen}
-                title="Valider"
-              >
-                {hasAnswered ? '...' : '➤'}
-              </button>
-            </form>
-          </>
+              <form onSubmit={handleSubmit} style={{ marginTop: '1rem', width: '100%', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  className="input-field"
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  placeholder={isFrozen ? "GELÉ..." : "Ex: der Tisch"}
+                  disabled={hasAnswered || isFrozen}
+                  style={{ flex: 1, textAlign: 'left', fontSize: '1.25rem', padding: '0.75rem', borderColor: isFrozen ? '#38bdf8' : '', margin: 0 }}
+                  autoComplete="off"
+                />
+                <button 
+                  type="submit" 
+                  className="btn btn-primary" 
+                  style={{ padding: '0.75rem 1.5rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  disabled={hasAnswered || !answer.trim() || isFrozen}
+                  title="Valider"
+                >
+                  {hasAnswered ? '...' : '➤'}
+                </button>
+              </form>
+            </>
         ) : (
           <div style={{ padding: '1rem 0', animation: 'fadeIn 0.5s ease-out' }}>
             <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '12px', display: 'inline-block', marginBottom: '1rem', position: 'relative' }}>
@@ -408,6 +408,7 @@ export default function Game({ socket, session }) {
             <p style={{ marginTop: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Prochaine question imminente...</p>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
