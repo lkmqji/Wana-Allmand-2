@@ -23,6 +23,20 @@ export default function Game({ socket, session }) {
 
   const [flashEffect, setFlashEffect] = useState(null); // 'success' | 'error' | null
 
+  useEffect(() => {
+    // Rend la page immobile (empêche le scroll et le saut quand le clavier s'ouvre)
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+      document.body.style.overflow = '';
+    };
+  }, []);
+
   const playAudio = (text) => {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'de-DE'; // German
@@ -234,7 +248,7 @@ export default function Game({ socket, session }) {
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', display: 'flex', flexDirection: 'column', minHeight: '80vh', position: 'relative' }}>
+    <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', flex: 1 }}>
       
       {/* Flash Effect Overlay */}
       {flashEffect && (
@@ -302,44 +316,31 @@ export default function Game({ socket, session }) {
         })}
       </div>
 
-      <div className="glass-panel" style={{ textAlign: 'center', position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', padding: '1.5rem', marginTop: '1rem' }}>
+      <div className="glass-panel" style={{ textAlign: 'center', position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', padding: '1.5rem', marginTop: '1rem', minHeight: '380px' }}>
         <div style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--text-muted)' }}>
           {questionIndex + 1} / {totalQuestions}
         </div>
+
+        {!roundResult && (
+          <div className={`timer ${timeRemaining < 5 ? 'danger' : ''}`} style={{ position: 'absolute', top: '1rem', left: '1rem', fontSize: '1.2rem', fontWeight: 'bold', margin: 0, color: timeRemaining < 5 ? 'var(--danger)' : 'var(--warning)' }}>
+            ⏳ {Math.ceil(timeRemaining)}s
+          </div>
+        )}
         
-        <h2 style={{ fontSize: '1.2rem', color: 'var(--text-muted)', marginBottom: '0.5rem', marginTop: '1.5rem' }}>
-          Traduisez en allemand :
-        </h2>
-        
-        <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem', color: 'white', wordBreak: 'break-word' }}>
-          {question || 'Chargement...'}
-        </h1>
+        {/* EN HAUT : Le nom en fr/ang */}
+        <div style={{ marginTop: '1.5rem' }}>
+          <h2 style={{ fontSize: '1rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+            Traduisez en allemand :
+          </h2>
+          <h1 style={{ fontSize: '2.2rem', marginBottom: '0', color: 'white', wordBreak: 'break-word' }}>
+            {question || 'Chargement...'}
+          </h1>
+        </div>
 
         {!roundResult ? (
-          <>
-            <div className={`timer ${timeRemaining < 5 ? 'danger' : ''}`} style={{ fontSize: '3rem', margin: '0.5rem 0' }}>
-              {Math.ceil(timeRemaining)}s
-            </div>
-
-            <div style={{ marginBottom: '1rem' }}>
-              <button 
-                onClick={handleUseJoker} 
-                disabled={jokers <= 0 || hasAnswered || jokerHint} 
-                className="btn" 
-                style={{ background: 'var(--warning)', color: 'white', padding: '0.5rem 1rem', fontSize: '0.9rem' }}
-              >
-                💡 Joker ({jokers} restants)
-              </button>
-              {jokerHint && <div style={{ marginTop: '0.5rem', color: 'var(--warning)', fontSize: '1.2rem', fontWeight: 'bold' }}>Indice : {jokerHint}</div>}
-            </div>
-
-            {isFrozen && (
-              <div style={{ background: 'rgba(56, 189, 248, 0.2)', color: 'var(--text-light)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid #38bdf8' }}>
-                🥶 <strong>Vous êtes gelé !</strong> Votre adversaire a répondu juste 3 fois de suite !
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} style={{ marginTop: '1rem', width: '100%' }}>
+          <div style={{ display: 'block', marginTop: '2.5rem' }}>
+            {/* AU MILIEU : Champ de saisie avec flèche */}
+            <form onSubmit={handleSubmit} style={{ margin: '0 auto 1.5rem auto', width: '100%', maxWidth: '400px', position: 'relative' }}>
               <input
                 ref={inputRef}
                 type="text"
@@ -348,19 +349,63 @@ export default function Game({ socket, session }) {
                 onChange={(e) => setAnswer(e.target.value)}
                 placeholder={isFrozen ? "GELÉ..." : "Ex: der Tisch"}
                 disabled={hasAnswered || isFrozen}
-                style={{ textAlign: 'center', fontSize: '1.25rem', marginBottom: '0.5rem', padding: '0.75rem', borderColor: isFrozen ? '#38bdf8' : '' }}
+                style={{ 
+                  textAlign: 'left', 
+                  fontSize: '1.25rem', 
+                  padding: '1rem 3.5rem 1rem 1.5rem', 
+                  borderRadius: '30px',
+                  borderColor: isFrozen ? '#38bdf8' : 'rgba(255, 255, 255, 0.3)',
+                  width: '100%',
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+                }}
                 autoComplete="off"
               />
               <button 
                 type="submit" 
-                className="btn btn-primary" 
-                style={{ width: '100%', padding: '0.75rem' }}
+                className="btn-primary" 
+                style={{ 
+                  position: 'absolute',
+                  right: '6px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  border: 'none',
+                  cursor: 'pointer',
+                  opacity: (hasAnswered || !answer.trim() || isFrozen) ? 0.5 : 1,
+                  transition: 'all 0.2s'
+                }}
                 disabled={hasAnswered || !answer.trim() || isFrozen}
               >
-                {hasAnswered ? 'En attente...' : 'Valider'}
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                  <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
               </button>
             </form>
-          </>
+
+            <div>
+              <button 
+                onClick={handleUseJoker} 
+                disabled={jokers <= 0 || hasAnswered || jokerHint} 
+                className="btn" 
+                style={{ background: 'var(--warning)', color: 'white', padding: '0.4rem 0.8rem', fontSize: '0.85rem', borderRadius: '12px' }}
+              >
+                💡 Joker ({jokers})
+              </button>
+              {jokerHint && <div style={{ marginTop: '0.5rem', color: 'var(--warning)', fontSize: '1.1rem', fontWeight: 'bold' }}>Indice : {jokerHint}</div>}
+            </div>
+
+            {isFrozen && (
+              <div style={{ background: 'rgba(56, 189, 248, 0.2)', color: 'var(--text-light)', padding: '0.75rem', borderRadius: '8px', marginTop: '1rem', border: '1px solid #38bdf8', fontSize: '0.9rem' }}>
+                🥶 <strong>GELÉ !</strong> L'adversaire a répondu juste 3 fois de suite !
+              </div>
+            )}
+          </div>
         ) : (
           <div style={{ padding: '1rem 0', animation: 'fadeIn 0.5s ease-out' }}>
             <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '12px', display: 'inline-block', marginBottom: '1rem', position: 'relative' }}>
