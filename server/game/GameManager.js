@@ -6,7 +6,7 @@ class GameManager {
         this.sessions = new Map();
     }
 
-    createSession(hostId, hostName) {
+    createSession(hostId, hostName, firebaseId) {
         // Generate a random 4 letter/number code
         const sessionId = Math.random().toString(36).substring(2, 6).toUpperCase();
         
@@ -19,7 +19,7 @@ class GameManager {
             settings: { rounds: 20, timePerWord: 15 },
             currentQuestionIndex: -1,
             players: {
-                [hostId]: { id: hostId, name: hostName || 'Hôte', score: 0, answers: {} }
+                [hostId]: { id: hostId, firebaseId: firebaseId || null, name: hostName || 'Hôte', score: 0, answers: {} }
             },
             roundTimer: null,
             answersThisRound: 0
@@ -28,13 +28,13 @@ class GameManager {
         return sessionId;
     }
 
-    joinSession(sessionId, guestId, guestName) {
+    joinSession(sessionId, guestId, guestName, firebaseId) {
         const session = this.sessions.get(sessionId);
         if (!session) return { error: "Session introuvable." };
         if (session.guestId) return { error: "Session déjà pleine." };
         
         session.guestId = guestId;
-        session.players[guestId] = { id: guestId, name: guestName || 'Invité', score: 0, answers: {} };
+        session.players[guestId] = { id: guestId, firebaseId: firebaseId || null, name: guestName || 'Invité', score: 0, answers: {} };
         return { success: true, session };
     }
 
@@ -63,7 +63,7 @@ class GameManager {
         if (!session || session.status !== 'playing') return null;
 
         const currentWord = session.vocabList[session.currentQuestionIndex];
-        const score = calculateScore(currentWord.answer, answer);
+        const { score, isTypo } = calculateScore(currentWord.answer, answer);
         
         // Bonus for speed (optional)
         const bonus = (score === 100 && timeRemaining > 0) ? Math.floor(timeRemaining) : 0;
@@ -72,15 +72,30 @@ class GameManager {
         session.players[playerId].answers[session.currentQuestionIndex] = {
             answer,
             expected: currentWord.answer,
-            score: totalScore
+            score: totalScore,
+            isTypo
         };
         
         session.players[playerId].score += totalScore;
         session.answersThisRound += 1;
 
+        // Check for 3-streak
+        let streak = 0;
+        for (let i = session.currentQuestionIndex; i >= 0; i--) {
+            const ans = session.players[playerId].answers[i];
+            if (ans && ans.score >= 100) streak++;
+            else break;
+        }
+
+        let powerUpTarget = null;
+        if (streak > 0 && streak % 3 === 0) {
+            powerUpTarget = Object.keys(session.players).find(id => id !== playerId);
+        }
+
         return {
             allAnswered: session.answersThisRound === Object.keys(session.players).length,
-            playerScore: session.players[playerId].score
+            playerScore: session.players[playerId].score,
+            powerUpTarget
         };
     }
 

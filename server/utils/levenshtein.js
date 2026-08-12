@@ -47,10 +47,13 @@ function levenshteinDistance(a, b) {
 function calculateScore(expected, actual) {
     const distance = levenshteinDistance(expected.toLowerCase().trim(), actual.toLowerCase().trim());
     
-    if (distance === 0) return 100;
-    if (distance === 1) return 75;
-    if (distance === 2) return 50;
-    return 0; // Distance >= 3 or more is considered wrong for MVP
+    // Toleration: 1 mistake allowed per 5 letters, minimum 1
+    const maxTypos = Math.max(1, Math.floor(expected.length / 5));
+    
+    if (distance === 0) return { score: 100, isTypo: false };
+    if (distance <= maxTypos) return { score: 100, isTypo: true };
+    if (distance === maxTypos + 1) return { score: 50, isTypo: false };
+    return { score: 0, isTypo: false };
 }
 
 module.exports = { levenshteinDistance, calculateScore };

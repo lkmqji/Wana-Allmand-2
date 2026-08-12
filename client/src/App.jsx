@@ -22,14 +22,26 @@ function App() {
   const [isHost, setIsHost] = useState(false);
   const [error, setError] = useState('');
   const [playerName, setPlayerName] = useState('');
+  const [avatar, setAvatar] = useState('🦊');
   const [vocabListForReview, setVocabListForReview] = useState(null);
   const [user, setUser] = useState(null);
+  const [theme, setTheme] = useState('dark');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser && !playerName) {
-        setPlayerName(currentUser.displayName || '');
+      if (currentUser) {
+        if (!playerName) setPlayerName(currentUser.displayName || '');
+        // Sync with backend
+        fetch(`${API_URL}/api/users/sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ firebaseId: currentUser.uid, name: currentUser.displayName })
+        }).catch(console.error);
       }
     });
     return () => unsubscribe();
@@ -83,7 +95,19 @@ function App() {
   }, []);
 
   return (
-    <div className="app-container">
+    <div className={`app-container page-transition`}>
+      <button 
+        onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+        style={{
+          position: 'absolute', top: '1rem', left: '1rem', 
+          background: 'var(--glass-bg)', border: '1px solid var(--glass-border)',
+          color: 'var(--text-light)', padding: '0.5rem 1rem', borderRadius: '20px',
+          cursor: 'pointer', zIndex: 100
+        }}
+      >
+        {theme === 'dark' ? '☀️ Mode Clair' : '🌙 Mode Sombre'}
+      </button>
+
       {error && (
         <div style={{ background: 'var(--danger)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
           {error} <button onClick={() => setError('')}>X</button>
@@ -96,6 +120,8 @@ function App() {
           setVocabListForReview={setVocabListForReview} 
           playerName={playerName} 
           setPlayerName={setPlayerName}
+          avatar={avatar}
+          setAvatar={setAvatar}
           user={user}
           loginWithGoogle={loginWithGoogle}
           logout={logout}
@@ -106,13 +132,14 @@ function App() {
           vocabList={vocabListForReview} 
           user={user}
           onCreateSession={(finalList, settings) => {
-            socket.emit('create_session', { vocabList: finalList, settings, playerName: playerName || 'Hôte' });
+            const finalName = playerName ? `${avatar} ${playerName}` : `${avatar} Hôte`;
+            socket.emit('create_session', { vocabList: finalList, settings, playerName: finalName, firebaseId: user?.uid });
           }} 
         />
       )}
       {view === 'lobby' && <Lobby socket={socket} session={session} players={players} isHost={isHost} />}
       {view === 'game' && <Game socket={socket} session={session} />}
-      {view === 'results' && <Results players={players} setView={setView} />}
+      {view === 'results' && <Results players={players} setView={setView} socket={socket} session={session} />}
     </div>
   );
 }

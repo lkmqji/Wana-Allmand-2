@@ -7,6 +7,7 @@ const { parsePdf } = require('./utils/pdfParser');
 const gameManager = require('./game/GameManager');
 const mongoose = require('mongoose');
 const List = require('./models/List');
+const User = require('./models/User');
 require('dotenv').config();
 
 // MongoDB Connection
@@ -63,24 +64,48 @@ app.get('/api/lists/:userId', async (req, res) => {
     try {
         const lists = await List.find({ userId: req.params.userId }).sort({ createdAt: -1 });
         res.json(lists);
-    } catch (error) {
-        console.error('Error fetching lists:', error);
-        res.status(500).json({ error: 'Failed to fetch lists.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/users/sync', async (req, res) => {
+    try {
+        const { firebaseId, name } = req.body;
+        let user = await User.findOne({ firebaseId });
+        if (!user) {
+            user = await User.create({ firebaseId, name });
+        } else if (user.name !== name) {
+            user.name = name;
+            await user.save();
+        }
+        res.json(user);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/leaderboard', async (req, res) => {
+    try {
+        const topUsers = await User.find().sort({ xp: -1 }).limit(10);
+        res.json(topUsers);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
-    socket.on('create_session', ({ vocabList, settings, playerName }) => {
-        const sessionId = gameManager.createSession(socket.id, playerName);
+    socket.on('create_session', ({ vocabList, settings, playerName, firebaseId }) => {
+        const sessionId = gameManager.createSession(socket.id, playerName, firebaseId);
         gameManager.setVocabList(sessionId, vocabList, settings);
         socket.join(sessionId);
         socket.emit('session_created', sessionId);
     });
 
-    socket.on('join_session', ({ sessionId, playerName }) => {
-        const result = gameManager.joinSession(sessionId, socket.id, playerName);
+    socket.on('join_session', ({ sessionId, playerName, firebaseId }) => {
+        const result = gameManager.joinSession(sessionId, socket.id, playerName, firebaseId);
         if (result.error) {
             socket.emit('error', result.error);
         } else {
@@ -113,11 +138,42 @@ io.on('connection', (socket) => {
     socket.on('submit_answer', ({ sessionId, answer, timeRemaining }) => {
         const result = gameManager.submitAnswer(sessionId, socket.id, answer, timeRemaining);
         
+        if (result && result.powerUpTarget) {
+            io.to(result.powerUpTarget).emit('powerup_frozen', 3); // freeze for 3 seconds
+        }
+
         if (result && result.allAnswered) {
             // Both answered, clear timer and move to next
             const session = gameManager.getSession(sessionId);
             clearTimeout(session.roundTimer);
             handleRoundEnd(sessionId);
+        }
+    });
+
+    socket.on('use_joker', (sessionId) => {
+        const session = gameManager.getSession(sessionId);
+        if (session && session.status === 'playing') {
+            const word = session.vocabList[session.currentQuestionIndex].answer;
+            let jokerHint = word.charAt(0) + '...';
+            if (word.toLowerCase().startsWith('der ') || word.toLowerCase().startsWith('die ') || word.toLowerCase().startsWith('das ')) {
+                jokerHint = word.substring(0, 4) + '...'; // Show article
+            }
+            socket.emit('joker_result', jokerHint);
+        }
+    });
+
+    socket.on('rematch', (sessionId) => {
+        const session = gameManager.getSession(sessionId);
+        if (session) {
+            session.status = 'waiting';
+            session.currentQuestionIndex = -1;
+            session.answersThisRound = 0;
+            // Reset scores and answers
+            for (const pId in session.players) {
+                session.players[pId].score = 0;
+                session.players[pId].answers = {};
+            }
+            io.to(sessionId).emit('session_joined', session); // Send back to lobby
         }
     });
 
@@ -132,6 +188,41 @@ function sendNextQuestion(sessionId) {
     const session = gameManager.getSession(sessionId);
     
     if (next.finished) {
+        // Update DB stats
+        Object.values(session.players).forEach(async (p) => {
+            if (p.firebaseId) {
+                try {
+                    const dbUser = await User.findOne({ firebaseId: p.firebaseId });
+                    if (dbUser) {
+                        dbUser.xp += p.score;
+                        dbUser.gamesPlayed += 1;
+                        
+                        // Check if won
+                        const maxScore = Math.max(...Object.values(session.players).map(x => x.score));
+                        if (p.score === maxScore) {
+                            dbUser.gamesWon += 1;
+                        }
+
+                        // Level up logic: every 1000 XP = 1 level
+                        dbUser.level = Math.floor(dbUser.xp / 1000) + 1;
+                        
+                        // Update failed words
+                        Object.values(p.answers).forEach(ans => {
+                            if (ans.score < 100) {
+                                const wordEntry = dbUser.failedWords.find(w => w.word === ans.expected);
+                                if (wordEntry) wordEntry.count += 1;
+                                else dbUser.failedWords.push({ word: ans.expected, count: 1 });
+                            }
+                        });
+
+                        await dbUser.save();
+                    }
+                } catch (err) {
+                    console.error("Error updating user stats:", err);
+                }
+            }
+        });
+
         io.to(sessionId).emit('game_over', session.players);
     } else {
         io.to(sessionId).emit('new_question', {

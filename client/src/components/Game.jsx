@@ -3,17 +3,27 @@ import { useState, useEffect, useRef } from 'react';
 export default function Game({ socket, session }) {
   const [question, setQuestion] = useState('');
   const [questionIndex, setQuestionIndex] = useState(0);
-  const [totalQuestions, setTotalQuestions] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [totalQuestions, setTotalQuestions] = useState(session?.settings?.rounds || 0);
+  const [timeRemaining, setTimeRemaining] = useState(15);
   const [answer, setAnswer] = useState('');
   const [hasAnswered, setHasAnswered] = useState(false);
   const [roundResult, setRoundResult] = useState(null); // { players: {}, correctAnswer: '' }
   const [players, setPlayers] = useState(session.players || {});
   
+  const [jokers, setJokers] = useState(2);
+  const [jokerHint, setJokerHint] = useState('');
+  const [isFrozen, setIsFrozen] = useState(false);
+
   const [leaderId, setLeaderId] = useState(null);
   const [overtakerId, setOvertakerId] = useState(null);
   
   const inputRef = useRef(null);
+
+  const playAudio = (text) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'de-DE'; // German
+    window.speechSynthesis.speak(utterance);
+  };
 
   useEffect(() => {
     let interval;
@@ -68,18 +78,31 @@ export default function Game({ socket, session }) {
       setTimeRemaining(data.duration);
       setAnswer('');
       setHasAnswered(false);
+      setJokerHint('');
       setRoundResult(null);
       setTimeout(() => inputRef.current?.focus(), 100);
     });
 
-    socket.on('round_results', (data) => {
-      setRoundResult(data);
-      setPlayers(data.players);
+    socket.on('round_results', (result) => {
+      setHasAnswered(true);
+      setRoundResult(result);
+      setPlayers(result.players);
+    });
+
+    socket.on('joker_result', (hint) => {
+      setJokerHint(hint);
+    });
+
+    socket.on('powerup_frozen', (durationSeconds) => {
+      setIsFrozen(true);
+      setTimeout(() => setIsFrozen(false), durationSeconds * 1000);
     });
 
     return () => {
       socket.off('new_question');
       socket.off('round_results');
+      socket.off('joker_result');
+      socket.off('powerup_frozen');
     };
   }, [socket]);
 
@@ -91,6 +114,13 @@ export default function Game({ socket, session }) {
       answer: ans,
       timeRemaining
     });
+  };
+
+  const handleUseJoker = () => {
+    if (jokers > 0 && !hasAnswered) {
+      setJokers(j => j - 1);
+      socket.emit('use_joker', session.id);
+    }
   };
 
   const handleSubmit = (e) => {
@@ -138,6 +168,24 @@ export default function Game({ socket, session }) {
               {Math.ceil(timeRemaining)}s
             </div>
 
+            <div style={{ marginBottom: '1rem' }}>
+              <button 
+                onClick={handleUseJoker} 
+                disabled={jokers <= 0 || hasAnswered || jokerHint} 
+                className="btn" 
+                style={{ background: 'var(--warning)', color: 'white', padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+              >
+                💡 Joker ({jokers} restants)
+              </button>
+              {jokerHint && <div style={{ marginTop: '0.5rem', color: 'var(--warning)', fontSize: '1.2rem', fontWeight: 'bold' }}>Indice : {jokerHint}</div>}
+            </div>
+
+            {isFrozen && (
+              <div style={{ background: 'rgba(56, 189, 248, 0.2)', color: 'var(--text-light)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid #38bdf8' }}>
+                🥶 <strong>Vous êtes gelé !</strong> Votre adversaire a répondu juste 3 fois de suite !
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} style={{ marginTop: 'auto' }}>
               <input
                 ref={inputRef}
@@ -145,16 +193,16 @@ export default function Game({ socket, session }) {
                 className="input-field"
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
-                placeholder="Ex: der Tisch"
-                disabled={hasAnswered}
-                style={{ textAlign: 'center', fontSize: '1.25rem', marginBottom: '0.5rem', padding: '0.75rem' }}
+                placeholder={isFrozen ? "GELÉ..." : "Ex: der Tisch"}
+                disabled={hasAnswered || isFrozen}
+                style={{ textAlign: 'center', fontSize: '1.25rem', marginBottom: '0.5rem', padding: '0.75rem', borderColor: isFrozen ? '#38bdf8' : '' }}
                 autoComplete="off"
               />
               <button 
                 type="submit" 
                 className="btn btn-primary" 
                 style={{ width: '100%', padding: '0.75rem' }}
-                disabled={hasAnswered || !answer.trim()}
+                disabled={hasAnswered || !answer.trim() || isFrozen}
               >
                 {hasAnswered ? 'En attente...' : 'Valider'}
               </button>
@@ -163,9 +211,14 @@ export default function Game({ socket, session }) {
         ) : (
           <div style={{ padding: '1rem 0', animation: 'fadeIn 0.5s ease-out' }}>
             <h3 style={{ color: 'var(--success)', marginBottom: '0.5rem', fontSize: '1.5rem' }}>Temps écoulé !</h3>
-            <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '12px', display: 'inline-block', marginBottom: '1rem' }}>
+            <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '12px', display: 'inline-block', marginBottom: '1rem', position: 'relative' }}>
               <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>La bonne réponse était :</p>
-              <h2 style={{ fontSize: '2rem', margin: 0 }}>{roundResult.correctAnswer}</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center' }}>
+                <h2 style={{ fontSize: '2rem', margin: 0 }}>{roundResult.correctAnswer}</h2>
+                <button onClick={() => playAudio(roundResult.correctAnswer)} style={{ background: 'var(--primary)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '1.2rem' }}>
+                  🔊
+                </button>
+              </div>
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -173,11 +226,16 @@ export default function Game({ socket, session }) {
                 const playerAns = p.answers[questionIndex];
                 const isCorrect = playerAns?.score >= 100;
                 return (
-                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', alignItems: 'center' }}>
                     <span style={{ fontWeight: 'bold' }}>{p.name}</span>
-                    <span style={{ color: isCorrect ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }}>
-                      {playerAns?.answer || '(Aucune réponse)'}
-                    </span>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ color: isCorrect ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }}>
+                        {playerAns?.answer || '(Aucune réponse)'}
+                      </span>
+                      {playerAns?.isTypo && (
+                        <div style={{ fontSize: '0.7rem', color: 'var(--warning)' }}>Faute de frappe tolérée</div>
+                      )}
+                    </div>
                   </div>
                 );
               })}

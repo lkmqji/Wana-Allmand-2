@@ -1,7 +1,39 @@
-export default function Results({ players, setView }) {
+import { useEffect } from 'react';
+import confetti from 'canvas-confetti';
+
+export default function Results({ players, setView, socket, session }) {
   const playerArr = Object.values(players).sort((a, b) => b.score - a.score);
   const winner = playerArr[0];
   const isDraw = playerArr.length > 1 && playerArr[0].score === playerArr[1].score;
+
+  useEffect(() => {
+    if (!isDraw) {
+      const duration = 3 * 1000;
+      const end = Date.now() + duration;
+
+      const frame = () => {
+        confetti({
+          particleCount: 5,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 },
+          colors: ['#6366f1', '#ec4899', '#10b981']
+        });
+        confetti({
+          particleCount: 5,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 },
+          colors: ['#6366f1', '#ec4899', '#10b981']
+        });
+
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        }
+      };
+      frame();
+    }
+  }, [isDraw]);
 
   return (
     <div className="glass-panel" style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
@@ -36,9 +68,21 @@ export default function Results({ players, setView }) {
         ))}
       </div>
 
-      <button className="btn btn-primary" onClick={() => setView('home')} style={{ width: '100%' }}>
-        Retour à l'accueil
-      </button>
+      <div style={{ display: 'flex', gap: '1rem' }}>
+        <button className="btn btn-secondary" onClick={() => setView('home')} style={{ flex: 1 }}>
+          Accueil
+        </button>
+        <button 
+          className="btn btn-primary" 
+          onClick={() => {
+            if(session) socket.emit('rematch', session.id);
+            else alert("Revanche indisponible pour le moment.");
+          }} 
+          style={{ flex: 2 }}
+        >
+          🔄 Revanche !
+        </button>
+      </div>
     </div>
   );
 }

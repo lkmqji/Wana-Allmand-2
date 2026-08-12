@@ -1,11 +1,22 @@
 import { useState, useEffect } from 'react';
 
-export default function Home({ socket, setVocabListForReview, playerName, setPlayerName, user, loginWithGoogle, logout }) {
+export default function Home({ socket, setVocabListForReview, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout }) {
   const [joinCode, setJoinCode] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [archivedLists, setArchivedLists] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
   
   useEffect(() => {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    
+    // Fetch leaderboard
+    fetch(`${API_URL}/api/leaderboard`)
+      .then(res => res.json())
+      .then(data => {
+         if (Array.isArray(data)) setLeaderboard(data);
+      })
+      .catch(console.error);
+
     if (user) {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       fetch(`${API_URL}/api/lists/${user.uid}`)
@@ -46,7 +57,8 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
   const handleJoin = (e) => {
     e.preventDefault();
     if (joinCode.length === 4) {
-      socket.emit('join_session', { sessionId: joinCode.toUpperCase(), playerName: playerName || 'Invité' });
+      const finalName = playerName ? `${avatar} ${playerName}` : `${avatar} Invité`;
+      socket.emit('join_session', { sessionId: joinCode.toUpperCase(), playerName: finalName, firebaseId: user?.uid });
     }
   };
 
@@ -66,15 +78,32 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
         
         {/* Choix du pseudo */}
         <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '16px' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Ton Pseudo</label>
-          <input 
-            type="text" 
-            className="input-field" 
-            placeholder="Ex: Wail..." 
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-            style={{ width: '100%', padding: '0.75rem' }}
-          />
+          <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Ton Pseudo et Avatar</label>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <select 
+              className="input-field" 
+              value={avatar} 
+              onChange={(e) => setAvatar(e.target.value)}
+              style={{ padding: '0.75rem', fontSize: '1.5rem', cursor: 'pointer', flex: '0 0 auto' }}
+            >
+              <option value="🦊">🦊</option>
+              <option value="🐼">🐼</option>
+              <option value="🦁">🦁</option>
+              <option value="🐸">🐸</option>
+              <option value="🦄">🦄</option>
+              <option value="😎">😎</option>
+              <option value="👻">👻</option>
+              <option value="👑">👑</option>
+            </select>
+            <input 
+              type="text" 
+              className="input-field" 
+              placeholder="Ex: Wail..." 
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              style={{ width: '100%', padding: '0.75rem' }}
+            />
+          </div>
         </div>
 
         <div style={{ background: 'rgba(0,0,0,0.2)', padding: '2rem', borderRadius: '16px' }}>
@@ -124,6 +153,21 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
             </button>
           </form>
         </div>
+
+        {/* Classement */}
+        {leaderboard.length > 0 && (
+          <div style={{ background: 'rgba(0,0,0,0.2)', padding: '2rem', borderRadius: '16px' }}>
+            <h2 style={{ marginBottom: '1rem' }}>🏆 Classement Mondial</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {leaderboard.map((u, i) => (
+                <div key={u._id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+                  <span>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`} {u.name} (Niv. {u.level})</span>
+                  <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{u.xp} XP</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
