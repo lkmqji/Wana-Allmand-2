@@ -75,8 +75,9 @@ function App() {
       setView('game');
     });
 
-    socket.on('game_over', (finalPlayers) => {
-      setPlayers(finalPlayers);
+    socket.on('game_over', (data) => {
+      setPlayers(data.players);
+      setSession(prev => ({ ...prev, vocabList: data.vocabList }));
       setView('results');
     });
 
@@ -139,7 +140,7 @@ function App() {
       )}
       {view === 'lobby' && <Lobby socket={socket} session={session} players={players} isHost={isHost} />}
       {view === 'game' && <Game socket={socket} session={session} />}
-      {view === 'results' && <Results players={players} setView={setView} socket={socket} session={session} />}
+      {view === 'results' && <Results players={players} setView={setView} socket={socket} session={session} isHost={isHost} />}
     </div>
   );
 }

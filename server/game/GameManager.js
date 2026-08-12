@@ -88,7 +88,7 @@ class GameManager {
         }
 
         let powerUpTarget = null;
-        if (streak > 0 && streak % 3 === 0) {
+        if (session.settings.powerupsEnabled !== false && streak > 0 && streak % 3 === 0) {
             powerUpTarget = Object.keys(session.players).find(id => id !== playerId);
         }
 

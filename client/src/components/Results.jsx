@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import confetti from 'canvas-confetti';
 
-export default function Results({ players, setView, socket, session }) {
+export default function Results({ players, setView, socket, session, isHost }) {
   const playerArr = Object.values(players).sort((a, b) => b.score - a.score);
   const winner = playerArr[0];
   const isDraw = playerArr.length > 1 && playerArr[0].score === playerArr[1].score;
@@ -34,6 +34,28 @@ export default function Results({ players, setView, socket, session }) {
       frame();
     }
   }, [isDraw]);
+
+  const renderDiff = (expected, actual, isCorrect, isTypo) => {
+    if (!actual) return <span style={{ color: 'var(--danger)' }}>(Aucune réponse)</span>;
+    if (isCorrect || isTypo) return <span style={{ color: 'var(--success)' }}>{actual}</span>;
+    
+    let matchCount = 0;
+    for(let i=0; i<Math.min(expected.length, actual.length); i++) {
+      if(expected[i].toLowerCase() === actual[i].toLowerCase()) matchCount++;
+    }
+    if (matchCount < expected.length / 3) {
+      return <span style={{ color: 'var(--danger)' }}>{actual}</span>;
+    }
+    
+    return (
+      <span>
+        {actual.split('').map((char, i) => {
+          const isMatch = expected[i] && expected[i].toLowerCase() === char.toLowerCase();
+          return <span key={i} style={{ color: isMatch ? 'var(--text-light)' : 'var(--danger)' }}>{char}</span>;
+        })}
+      </span>
+    );
+  };
 
   return (
     <div className="glass-panel" style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
@@ -68,10 +90,15 @@ export default function Results({ players, setView, socket, session }) {
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem' }}>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
         <button className="btn btn-secondary" onClick={() => setView('home')} style={{ flex: 1 }}>
           Accueil
         </button>
+        {isHost && (
+          <button className="btn btn-secondary" onClick={() => setView('review')} style={{ flex: 1 }}>
+            Paramètres
+          </button>
+        )}
         <button 
           className="btn btn-primary" 
           onClick={() => {
@@ -83,6 +110,37 @@ export default function Results({ players, setView, socket, session }) {
           🔄 Revanche !
         </button>
       </div>
+
+      {/* Résumé de la partie */}
+      {session && session.vocabList && (
+        <div style={{ background: 'rgba(0,0,0,0.2)', padding: '2rem', borderRadius: '16px', textAlign: 'left' }}>
+          <h3 style={{ marginBottom: '1.5rem', textAlign: 'center' }}>📝 Résumé de la partie</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {session.vocabList.slice(0, session.currentQuestionIndex || session.vocabList.length).map((word, index) => (
+              <div key={index} style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+                <div style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{word.question}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>👉 {word.answer}</span>
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem', paddingLeft: '1rem', borderLeft: '2px solid rgba(255,255,255,0.1)' }}>
+                  {Object.values(players).map(p => {
+                    const ans = p.answers[index];
+                    return (
+                      <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                        <span>{p.name} :</span>
+                        <span>
+                          {ans ? renderDiff(ans.expected, ans.answer, ans.score >= 100, ans.isTypo) : <span style={{ color: 'var(--danger)' }}>(Non répondu)</span>}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -84,7 +84,7 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
               className="input-field" 
               value={avatar} 
               onChange={(e) => setAvatar(e.target.value)}
-              style={{ padding: '0.75rem', fontSize: '1.5rem', cursor: 'pointer', flex: '0 0 auto' }}
+              style={{ padding: '0.75rem', fontSize: '1.5rem', cursor: 'pointer', flex: '0 0 70px', textAlign: 'center' }}
             >
               <option value="🦊">🦊</option>
               <option value="🐼">🐼</option>
@@ -101,7 +101,7 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
               placeholder="Ex: Wail..." 
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
-              style={{ width: '100%', padding: '0.75rem' }}
+              style={{ width: '100%', padding: '0.75rem', flex: 1 }}
             />
           </div>
         </div>

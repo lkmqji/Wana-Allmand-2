@@ -168,7 +168,6 @@ io.on('connection', (socket) => {
             session.status = 'waiting';
             session.currentQuestionIndex = -1;
             session.answersThisRound = 0;
-            // Reset scores and answers
             for (const pId in session.players) {
                 session.players[pId].score = 0;
                 session.players[pId].answers = {};
@@ -177,9 +176,46 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('request_terminate', (sessionId) => {
+        const session = gameManager.getSession(sessionId);
+        if (!session) return;
+        const playerIds = Object.keys(session.players);
+        if (playerIds.length === 1) {
+            // Solo: End immediately
+            clearTimeout(session.roundTimer);
+            session.currentQuestionIndex = session.vocabList.length;
+            sendNextQuestion(sessionId);
+        } else {
+            // Multi: ask opponent
+            const otherId = playerIds.find(id => id !== socket.id);
+            if (otherId) {
+                io.to(otherId).emit('terminate_requested');
+            }
+        }
+    });
+
+    socket.on('accept_terminate', (sessionId) => {
+        const session = gameManager.getSession(sessionId);
+        if (session) {
+            clearTimeout(session.roundTimer);
+            session.currentQuestionIndex = session.vocabList.length;
+            sendNextQuestion(sessionId);
+        }
+    });
+
+    socket.on('refuse_terminate', (sessionId) => {
+        const session = gameManager.getSession(sessionId);
+        if (session) {
+            const playerIds = Object.keys(session.players);
+            const otherId = playerIds.find(id => id !== socket.id);
+            if (otherId) {
+                io.to(otherId).emit('terminate_refused');
+            }
+        }
+    });
+
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.id}`);
-        // Handle cleanup for MVP if needed (e.g., notify other player)
     });
 });
 
@@ -223,7 +259,7 @@ function sendNextQuestion(sessionId) {
             }
         });
 
-        io.to(sessionId).emit('game_over', session.players);
+        io.to(sessionId).emit('game_over', { players: session.players, vocabList: session.vocabList });
     } else {
         io.to(sessionId).emit('new_question', {
             question: next.question.question,

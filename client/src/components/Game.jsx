@@ -13,6 +13,8 @@ export default function Game({ socket, session }) {
   const [jokers, setJokers] = useState(2);
   const [jokerHint, setJokerHint] = useState('');
   const [isFrozen, setIsFrozen] = useState(false);
+  const [terminateRequested, setTerminateRequested] = useState(false);
+  const [terminateRefused, setTerminateRefused] = useState(false);
 
   const [leaderId, setLeaderId] = useState(null);
   const [overtakerId, setOvertakerId] = useState(null);
@@ -98,11 +100,22 @@ export default function Game({ socket, session }) {
       setTimeout(() => setIsFrozen(false), durationSeconds * 1000);
     });
 
+    socket.on('terminate_requested', () => {
+      setTerminateRequested(true);
+    });
+
+    socket.on('terminate_refused', () => {
+      setTerminateRefused(true);
+      setTimeout(() => setTerminateRefused(false), 3000);
+    });
+
     return () => {
       socket.off('new_question');
       socket.off('round_results');
       socket.off('joker_result');
       socket.off('powerup_frozen');
+      socket.off('terminate_requested');
+      socket.off('terminate_refused');
     };
   }, [socket]);
 
@@ -128,8 +141,75 @@ export default function Game({ socket, session }) {
     submitAnswer();
   };
 
+  const renderDiff = (expected, actual, isCorrect, isTypo) => {
+    if (!actual) return <span style={{ color: 'var(--danger)' }}>(Aucune réponse)</span>;
+    if (isCorrect || isTypo) return <span style={{ color: 'var(--success)' }}>{actual}</span>;
+    
+    let matchCount = 0;
+    for(let i=0; i<Math.min(expected.length, actual.length); i++) {
+      if(expected[i].toLowerCase() === actual[i].toLowerCase()) matchCount++;
+    }
+    if (matchCount < expected.length / 3) {
+      return <span style={{ color: 'var(--danger)' }}>{actual}</span>;
+    }
+    
+    return (
+      <span>
+        {actual.split('').map((char, i) => {
+          const isMatch = expected[i] && expected[i].toLowerCase() === char.toLowerCase();
+          return <span key={i} style={{ color: isMatch ? 'var(--text-light)' : 'var(--danger)' }}>{char}</span>;
+        })}
+      </span>
+    );
+  };
+
+  const handleRequestTerminate = () => {
+    if (window.confirm('Voulez-vous vraiment demander l\'arrêt de la partie ?')) {
+      socket.emit('request_terminate', session.id);
+    }
+  };
+
+  const handleAcceptTerminate = () => {
+    socket.emit('accept_terminate', session.id);
+    setTerminateRequested(false);
+  };
+
+  const handleRefuseTerminate = () => {
+    socket.emit('refuse_terminate', session.id);
+    setTerminateRequested(false);
+  };
+
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', height: '100%', padding: '0.5rem' }}>
+    <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', height: '100%', padding: '0.5rem', position: 'relative' }}>
+      {/* Terminate Requested Modal */}
+      {terminateRequested && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 100, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '2rem' }}>
+          <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center' }}>
+            <h2>⚠️ Arrêt demandé</h2>
+            <p style={{ margin: '1rem 0' }}>L'autre joueur souhaite arrêter la partie en cours.</p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+              <button onClick={handleAcceptTerminate} className="btn btn-primary" style={{ background: 'var(--danger)' }}>Accepter</button>
+              <button onClick={handleRefuseTerminate} className="btn btn-secondary">Refuser</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Terminate Refused Toast */}
+      {terminateRefused && (
+        <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', background: 'var(--danger)', padding: '0.5rem 1rem', borderRadius: '8px', zIndex: 50, color: 'white' }}>
+          L'adversaire a refusé l'arrêt de la partie.
+        </div>
+      )}
+
+      {/* Bouton Quitter */}
+      <button 
+        onClick={handleRequestTerminate}
+        style={{ position: 'absolute', top: '-10px', left: '10px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.9rem', zIndex: 10 }}
+      >
+        🚪 Quitter la partie
+      </button>
+
       {/* Scoreboard Header */}
       <div className="score-board glass-panel" style={{ padding: '0.5rem 1rem', marginBottom: '1rem' }}>
         {Object.values(players).map((p, i) => {
@@ -210,7 +290,6 @@ export default function Game({ socket, session }) {
           </>
         ) : (
           <div style={{ padding: '1rem 0', animation: 'fadeIn 0.5s ease-out' }}>
-            <h3 style={{ color: 'var(--success)', marginBottom: '0.5rem', fontSize: '1.5rem' }}>Temps écoulé !</h3>
             <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '12px', display: 'inline-block', marginBottom: '1rem', position: 'relative' }}>
               <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>La bonne réponse était :</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center' }}>
@@ -229,11 +308,18 @@ export default function Game({ socket, session }) {
                   <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', alignItems: 'center' }}>
                     <span style={{ fontWeight: 'bold' }}>{p.name}</span>
                     <div style={{ textAlign: 'right' }}>
-                      <span style={{ color: isCorrect ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }}>
-                        {playerAns?.answer || '(Aucune réponse)'}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                        <span style={{ fontWeight: 'bold' }}>
+                          {renderDiff(roundResult.correctAnswer, playerAns?.answer, isCorrect, playerAns?.isTypo)}
+                        </span>
+                        {playerAns && (
+                          <span style={{ fontSize: '0.9rem', color: 'var(--warning)', fontWeight: 'bold' }}>
+                            +{playerAns.score} pts
+                          </span>
+                        )}
+                      </div>
                       {playerAns?.isTypo && (
-                        <div style={{ fontSize: '0.7rem', color: 'var(--warning)' }}>Faute de frappe tolérée</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--warning)', marginTop: '2px' }}>Faute de frappe tolérée</div>
                       )}
                     </div>
                   </div>

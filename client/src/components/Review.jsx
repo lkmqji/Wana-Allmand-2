@@ -4,6 +4,7 @@ export default function Review({ vocabList, onCreateSession, user }) {
   const [words, setWords] = useState(vocabList);
   const [rounds, setRounds] = useState(Math.min(20, vocabList.length));
   const [timePerWord, setTimePerWord] = useState(15);
+  const [powerupsEnabled, setPowerupsEnabled] = useState(true);
   const [listName, setListName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -26,7 +27,7 @@ export default function Review({ vocabList, onCreateSession, user }) {
     const validWords = words.filter(w => w.question.trim() && w.answer.trim());
     if (validWords.length === 0) return alert("La liste est vide !");
     
-    onCreateSession(validWords, { rounds, timePerWord });
+    onCreateSession(validWords, { rounds, timePerWord, powerupsEnabled });
   };
 
   const handleSave = async () => {
@@ -88,6 +89,20 @@ export default function Review({ vocabList, onCreateSession, user }) {
             <option value={20}>20 secondes (Débutant)</option>
             <option value={30}>30 secondes (Lent)</option>
           </select>
+        </div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Pouvoirs (Glace 🥶)</label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+            <input 
+              type="checkbox" 
+              checked={powerupsEnabled} 
+              onChange={(e) => setPowerupsEnabled(e.target.checked)}
+              style={{ width: '20px', height: '20px' }}
+            />
+            <span style={{ color: powerupsEnabled ? 'var(--success)' : 'var(--text-muted)' }}>
+              {powerupsEnabled ? 'Activé' : 'Désactivé'}
+            </span>
+          </label>
         </div>
       </div>
 
