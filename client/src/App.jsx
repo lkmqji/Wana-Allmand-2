@@ -140,7 +140,7 @@ function App() {
       )}
       {view === 'lobby' && <Lobby socket={socket} session={session} players={players} isHost={isHost} />}
       {view === 'game' && <Game socket={socket} session={session} />}
-      {view === 'results' && <Results players={players} setView={setView} socket={socket} session={session} isHost={isHost} />}
+      {view === 'results' && <Results players={players} setView={setView} socket={socket} session={session} isHost={isHost} setVocabListForReview={setVocabListForReview} />}
     </div>
   );
 }

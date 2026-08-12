@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import confetti from 'canvas-confetti';
 
-export default function Results({ players, setView, socket, session, isHost }) {
+export default function Results({ players, setView, socket, session, isHost, setVocabListForReview }) {
   const playerArr = Object.values(players).sort((a, b) => b.score - a.score);
   const winner = playerArr[0];
   const isDraw = playerArr.length > 1 && playerArr[0].score === playerArr[1].score;
@@ -90,7 +90,7 @@ export default function Results({ players, setView, socket, session, isHost }) {
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
         <button className="btn btn-secondary" onClick={() => setView('home')} style={{ flex: 1 }}>
           Accueil
         </button>
@@ -99,6 +99,28 @@ export default function Results({ players, setView, socket, session, isHost }) {
             Paramètres
           </button>
         )}
+        <button 
+          className="btn btn-secondary" 
+          onClick={() => {
+            if (session && session.vocabList) {
+              const failedWords = session.vocabList.slice(0, session.currentQuestionIndex || session.vocabList.length).filter((word, index) => {
+                return Object.values(players).some(p => {
+                  const ans = p.answers[index];
+                  return !ans || ans.score < 100;
+                });
+              });
+              if (failedWords.length > 0) {
+                setVocabListForReview(failedWords);
+                setView('review');
+              } else {
+                alert("Félicitations ! Aucun mot manqué dans cette partie 🎉");
+              }
+            }
+          }} 
+          style={{ flex: 1.5, background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444' }}
+        >
+          🎯 Pratiquer les mots faux
+        </button>
         <button 
           className="btn btn-primary" 
           onClick={() => {

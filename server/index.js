@@ -44,6 +44,61 @@ app.post('/api/upload', upload.single('pdf'), async (req, res) => {
     }
 });
 
+// Endpoint for AI text extraction
+app.post('/api/extract', async (req, res) => {
+    try {
+        const { text } = req.body;
+        if (!text || !text.trim()) {
+            return res.status(400).json({ error: "Aucun texte fourni." });
+        }
+
+        if (process.env.GEMINI_API_KEY) {
+            try {
+                const prompt = `Tu es un assistant linguistique allemand. Extrais toutes les paires de mots ou phrases (Français -> Allemand avec article der/die/das si nom) du texte suivant. Renvoie STRICTEMENT un tableau JSON au format: [{"question": "mot français", "answer": "mot allemand avec article"}] sans texte additionnel.\n\nTexte:\n${text}`;
+                
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }]
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+                    let rawText = data.candidates[0].content.parts[0].text.trim();
+                    if (rawText.startsWith('```json')) rawText = rawText.replace(/^```json/, '').replace(/```$/, '').trim();
+                    if (rawText.startsWith('```')) rawText = rawText.replace(/^```/, '').replace(/```$/, '').trim();
+                    const parsed = JSON.parse(rawText);
+                    const vocabList = parsed.map((item, idx) => ({ id: idx + 1, question: item.question, answer: item.answer }));
+                    if (vocabList.length > 0) {
+                        return res.json({ vocabList });
+                    }
+                }
+            } catch (aiErr) {
+                console.error("Gemini API call error, falling back to line parsing:", aiErr);
+            }
+        }
+
+        // Fallback rule-based line parser
+        const lines = text.split('\n').filter(l => l.includes('=') || l.includes('-') || l.includes(':'));
+        const vocabList = lines.map((line, idx) => {
+            const sep = line.includes('=') ? '=' : line.includes('-') ? '-' : ':';
+            const parts = line.split(sep);
+            return {
+                id: idx + 1,
+                question: parts[0]?.trim() || '',
+                answer: parts[1]?.trim() || ''
+            };
+        }).filter(w => w.question && w.answer);
+
+        res.json({ vocabList });
+    } catch (err) {
+        console.error("Extract route error:", err);
+        res.status(500).json({ error: "Erreur lors de l'extraction." });
+    }
+});
+
 // Endpoint to save a list
 app.post('/api/lists', async (req, res) => {
     try {
@@ -154,9 +209,15 @@ io.on('connection', (socket) => {
         const session = gameManager.getSession(sessionId);
         if (session && session.status === 'playing') {
             const word = session.vocabList[session.currentQuestionIndex].answer;
+            const parts = word.trim().split(' ');
             let jokerHint = word.charAt(0) + '...';
-            if (word.toLowerCase().startsWith('der ') || word.toLowerCase().startsWith('die ') || word.toLowerCase().startsWith('das ')) {
-                jokerHint = word.substring(0, 4) + '...'; // Show article
+            if (parts.length > 1 && ['der', 'die', 'das'].includes(parts[0].toLowerCase())) {
+                const article = parts[0];
+                const noun = parts.slice(1).join(' ');
+                const nounLetters = noun.substring(0, Math.min(2, noun.length));
+                jokerHint = `${article} ${nounLetters}...`;
+            } else if (word.length > 2) {
+                jokerHint = word.substring(0, 2) + '...';
             }
             socket.emit('joker_result', jokerHint);
         }
