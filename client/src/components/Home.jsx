@@ -136,7 +136,8 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
   };
 
   const handleExtractAI = async (e) => {
-    const file = e?.target?.files?.[0];
+    const fileInput = e?.target;
+    const file = fileInput?.files?.[0];
     if (!rawText.trim() && !file) return alert("Veuillez coller du texte ou uploader un fichier.");
     
     setIsExtracting(true);
@@ -162,6 +163,36 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
       alert("Erreur lors de l'extraction par l'IA.");
     } finally {
       setIsExtracting(false);
+      if (fileInput) fileInput.value = null; // Clear the file input
+    }
+  };
+
+  const [themeInput, setThemeInput] = useState('');
+  const [isGeneratingTheme, setIsGeneratingTheme] = useState(false);
+
+  const handleGenerateTheme = async () => {
+    if (!themeInput.trim()) return alert("Veuillez entrer un thème.");
+    setIsGeneratingTheme(true);
+    try {
+      const formData = new FormData();
+      formData.append('text', `THEME: ${themeInput}`);
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${API_URL}/api/extract`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.vocabList && data.vocabList.length > 0) {
+        setVocabListForReview(data.vocabList);
+        await saveList(data.vocabList, `Thème: ${themeInput}`);
+      } else {
+        alert(data.error || "Aucun mot extrait.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la génération du thème.");
+    } finally {
+      setIsGeneratingTheme(false);
     }
   };
 
@@ -325,8 +356,40 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
                 fontSize: '0.85rem'
               }}
             >
-              📚 LISTES D'EXEMPLE
+              📚 EXEMPLES
             </button>
+            <button 
+              onClick={() => setPrepTab('theme')}
+              style={{
+                padding: '0.6rem 1.2rem',
+                borderRadius: '8px',
+                border: 'none',
+                background: prepTab === 'theme' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                color: prepTab === 'theme' ? '#fff' : 'var(--text-muted)',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '0.85rem'
+              }}
+            >
+              🎨 THÈME IA
+            </button>
+            {user && (
+              <button 
+                onClick={() => setPrepTab('lists')}
+                style={{
+                  padding: '0.6rem 1.2rem',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: prepTab === 'lists' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                  color: prepTab === 'lists' ? '#fff' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '0.85rem'
+                }}
+              >
+                📂 MES LISTES
+              </button>
+            )}
           </div>
 
           {/* Tab 1: PDF Upload */}

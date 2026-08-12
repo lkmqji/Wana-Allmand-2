@@ -21,10 +21,42 @@ export default function Game({ socket, session }) {
   
   const inputRef = useRef(null);
 
+  const [flashEffect, setFlashEffect] = useState(null); // 'success' | 'error' | null
+
   const playAudio = (text) => {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'de-DE'; // German
     window.speechSynthesis.speak(utterance);
+  };
+
+  const playFeedbackSound = (isSuccess) => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      if (isSuccess) {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(500, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1000, ctx.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      } else {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(300, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2);
+        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      }
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   useEffect(() => {
@@ -89,9 +121,27 @@ export default function Game({ socket, session }) {
       setHasAnswered(true);
       setRoundResult(result);
       setPlayers(result.players);
+      
+      // Check success for sound and visual flash
+      const myPlayer = result.players[socket.id];
+      if (myPlayer) {
+        // the last answer is at questionIndex (since questionIndex hasn't updated yet)
+        // Wait, questionIndex from state is the current one
+        setQuestionIndex(prevIndex => {
+            const myAns = myPlayer.answers[prevIndex];
+            if (myAns) {
+                const isSuccess = myAns.score >= 50; // Typo or perfect
+                setFlashEffect(isSuccess ? 'success' : 'error');
+                playFeedbackSound(isSuccess);
+                setTimeout(() => setFlashEffect(null), 1000);
+            }
+            return prevIndex;
+        });
+      }
+
       // Jouer le mot en allemand automatiquement
       if (result.correctAnswer) {
-        playAudio(result.correctAnswer);
+        setTimeout(() => playAudio(result.correctAnswer), 500); // delay audio slightly after beep
       }
     });
 
@@ -184,7 +234,26 @@ export default function Game({ socket, session }) {
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', height: '100%', padding: '0.5rem', position: 'relative' }}>
+    <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', display: 'flex', flexDirection: 'column', minHeight: '80vh', position: 'relative' }}>
+      
+      {/* Flash Effect Overlay */}
+      {flashEffect && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          pointerEvents: 'none',
+          backgroundColor: flashEffect === 'success' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+          zIndex: 9999,
+          animation: 'fadeOut 1s forwards'
+        }} />
+      )}
+      <style>{`
+        @keyframes fadeOut {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
+      `}</style>
+
       {/* Terminate Requested Modal */}
       {terminateRequested && (
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 100, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '2rem' }}>
