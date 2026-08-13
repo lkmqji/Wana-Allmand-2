@@ -1,13 +1,15 @@
 import { useState } from 'react';
 
-export default function Review({ vocabList, onCreateSession, user, setView }) {
+export default function Review({ vocabList, onCreateSession, user, setView, editingListInfo }) {
   const [words, setWords] = useState(vocabList);
   const [rounds, setRounds] = useState(Math.min(20, vocabList.length));
   const [timePerWord, setTimePerWord] = useState(15);
   const [powerupsEnabled, setPowerupsEnabled] = useState(false);
-  const [listName, setListName] = useState('');
+  const [listName, setListName] = useState(editingListInfo?.name || '');
   const [isSaving, setIsSaving] = useState(false);
   const [step, setStep] = useState('words'); // 'words' or 'settings'
+  const isEditing = !!(editingListInfo?.id);
+  const isMerge = editingListInfo?.id === null && editingListInfo?.name;
 
   const handleEdit = (id, field, value) => {
     setWords(words.map(w => w.id === id ? { ...w, [field]: value } : w));
@@ -40,24 +42,27 @@ export default function Review({ vocabList, onCreateSession, user, setView }) {
     setIsSaving(true);
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      const res = await fetch(`${API_URL}/api/lists`, {
-        method: 'POST',
+      // If editing an existing list, use PUT; otherwise POST a new one
+      const url = isEditing ? `${API_URL}/api/lists/${editingListInfo.id}` : `${API_URL}/api/lists`;
+      const method = isEditing ? 'PUT' : 'POST';
+      const body = isEditing
+        ? JSON.stringify({ name: listName, words: validWords })
+        : JSON.stringify({ userId: user.uid, name: listName, words: validWords });
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.uid,
-          name: listName,
-          words: validWords
-        })
+        body
       });
       if (res.ok) {
-        alert("Liste sauvegardée avec succès !");
+        alert(isEditing ? 'Liste mise à jour avec succès !' : 'Liste sauvegardée avec succès !');
       } else {
         const errData = await res.json().catch(() => ({}));
-        alert(`Erreur lors de la sauvegarde : ${errData.error || res.statusText}`);
+        alert(`Erreur : ${errData.error || res.statusText}`);
       }
     } catch (err) {
       console.error(err);
-      alert(`Erreur lors de la sauvegarde : ${err.message}`);
+      alert(`Erreur : ${err.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -76,7 +81,16 @@ export default function Review({ vocabList, onCreateSession, user, setView }) {
             >
               ← Retour
             </button>
-            <h2 style={{ fontSize: '1.8rem', margin: 0, flex: 1, textAlign: 'center' }}>Vérification de la liste</h2>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <h2 style={{ fontSize: '1.8rem', margin: 0 }}>
+                {isEditing ? 'Modifier la liste' : isMerge ? 'Fusion de listes' : 'Vérification de la liste'}
+              </h2>
+              {(isEditing || isMerge) && (
+                <span style={{ fontSize: '0.75rem', color: 'var(--primary)', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', padding: '0.1rem 0.6rem', borderRadius: '20px' }}>
+                  {isEditing ? `✏️ Édition : ${editingListInfo.name}` : `🔄 Fusion`}
+                </span>
+              )}
+            </div>
             <div style={{ width: '80px' }}></div>
           </div>
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
@@ -122,7 +136,7 @@ export default function Review({ vocabList, onCreateSession, user, setView }) {
               <input 
                 type="text" 
                 className="input-field" 
-                placeholder="Nom de la liste (ex: Chapitre 1)" 
+                placeholder={isEditing ? 'Nom de la liste' : 'Nom de la liste (ex: Chapitre 1)'}
                 value={listName}
                 onChange={(e) => setListName(e.target.value)}
                 style={{ flex: 1 }}
@@ -132,7 +146,7 @@ export default function Review({ vocabList, onCreateSession, user, setView }) {
                 onClick={handleSave} 
                 disabled={isSaving || !listName.trim()}
               >
-                {isSaving ? 'Sauvegarde...' : '💾 Archiver'}
+                {isSaving ? 'En cours...' : isEditing ? '💾 Mettre à jour' : isMerge ? '💾 Sauvegarder la fusion' : '💾 Archiver'}
               </button>
             </div>
           )}

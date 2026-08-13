@@ -152,6 +152,35 @@ app.get('/api/lists/:userId', async (req, res) => {
     }
 });
 
+// Endpoint to update a list
+app.put('/api/lists/:id', async (req, res) => {
+    try {
+        const { name, words } = req.body;
+        const updatedList = await List.findByIdAndUpdate(
+            req.params.id, 
+            { name, words },
+            { new: true }
+        );
+        if (!updatedList) return res.status(404).json({ error: 'List not found' });
+        res.json(updatedList);
+    } catch (error) {
+        console.error('Error updating list:', error);
+        res.status(500).json({ error: 'Failed to update list.' });
+    }
+});
+
+// Endpoint to delete a list
+app.delete('/api/lists/:id', async (req, res) => {
+    try {
+        const deletedList = await List.findByIdAndDelete(req.params.id);
+        if (!deletedList) return res.status(404).json({ error: 'List not found' });
+        res.json({ message: 'List deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting list:', error);
+        res.status(500).json({ error: 'Failed to delete list.' });
+    }
+});
+
 app.post('/api/users/sync', async (req, res) => {
     try {
         const { firebaseId, name } = req.body;

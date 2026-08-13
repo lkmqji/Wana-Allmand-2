@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export default function Home({ socket, setVocabListForReview, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout }) {
+export default function Home({ socket, setVocabListForReview, setEditingListInfo, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout }) {
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
   const [prepTab, setPrepTab] = useState('pdf'); // 'pdf', 'text', 'examples'
   const [joinCode, setJoinCode] = useState('');
@@ -10,6 +10,7 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
   const [archivedLists, setArchivedLists] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
   const [isConnected, setIsConnected] = useState(true);
+  const [selectedListIds, setSelectedListIds] = useState(new Set());
 
   const exampleLists = [
     {
@@ -194,6 +195,52 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
     } finally {
       setIsGeneratingTheme(false);
     }
+  };
+
+  const deleteList = async (listId) => {
+    if (!window.confirm('Supprimer définitivement cette liste ?')) return;
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${API_URL}/api/lists/${listId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setArchivedLists(prev => prev.filter(l => l._id !== listId));
+        setSelectedListIds(prev => { const next = new Set(prev); next.delete(listId); return next; });
+      } else {
+        alert('Erreur lors de la suppression.');
+      }
+    } catch (e) {
+      alert('Erreur lors de la suppression.');
+    }
+  };
+
+  const handleEditList = (list) => {
+    setEditingListInfo({ id: list._id, name: list.name });
+    setVocabListForReview(list.words);
+  };
+
+  const toggleListSelection = (listId) => {
+    setSelectedListIds(prev => {
+      const next = new Set(prev);
+      if (next.has(listId)) next.delete(listId);
+      else next.add(listId);
+      return next;
+    });
+  };
+
+  const handleMergeLists = () => {
+    const listsToMerge = archivedLists.filter(l => selectedListIds.has(l._id));
+    const seen = new Set();
+    const merged = [];
+    listsToMerge.forEach(list => {
+      list.words.forEach(w => {
+        const key = `${w.question?.toLowerCase()}__${w.answer?.toLowerCase()}`;
+        if (!seen.has(key)) { seen.add(key); merged.push({ ...w, id: merged.length + 1 }); }
+      });
+    });
+    const mergedNames = listsToMerge.map(l => l.name).join(' + ');
+    setEditingListInfo({ id: null, name: `Fusion: ${mergedNames}` });
+    setVocabListForReview(merged);
+    setSelectedListIds(new Set());
   };
 
   const handleJoin = (e) => {
@@ -498,21 +545,92 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
                   Aucune liste sauvegardée pour le moment.
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
-                  {archivedLists.map(list => (
-                    <div key={list._id} style={{ background: 'rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '12px' }}>
-                      <h4 style={{ margin: '0 0 0.2rem 0', fontSize: '1rem' }}>{list.name}</h4>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{list.words.length} mots • {new Date(list.createdAt).toLocaleDateString()}</span>
-                      <button 
-                        className="btn btn-secondary" 
-                        onClick={() => setVocabListForReview(list.words)}
-                        style={{ marginTop: '1rem', width: '100%', padding: '0.5rem', fontSize: '0.85rem' }}
-                      >
-                        REJOUER -&gt;
-                      </button>
+                <>
+                  {/* Merge Bar */}
+                  {selectedListIds.size >= 2 && (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      background: 'rgba(99,102,241,0.15)', border: '1px solid var(--primary)',
+                      borderRadius: '12px', padding: '0.8rem 1.2rem', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem'
+                    }}>
+                      <span style={{ color: 'var(--text-light)', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                        {selectedListIds.size} listes sélectionnées
+                      </span>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button onClick={() => setSelectedListIds(new Set())}
+                          style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'var(--text-muted)', padding: '0.4rem 0.8rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem' }}>
+                          Annuler
+                        </button>
+                        <button onClick={handleMergeLists}
+                          style={{ background: 'var(--primary)', border: 'none', color: '#fff', padding: '0.4rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                          🔄 Fusionner
+                        </button>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  )}
+
+                  {selectedListIds.size < 2 && selectedListIds.size > 0 && (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem', textAlign: 'center' }}>
+                      Sélectionnez au moins 2 listes pour les fusionner
+                    </div>
+                  )}
+
+                  {selectedListIds.size === 0 && (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem', textAlign: 'center' }}>
+                      Cochez des listes pour les fusionner, ou utilisez les boutons ci-dessous
+                    </div>
+                  )}
+
+                  <div className="mobile-grid-1" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                    {archivedLists.map(list => {
+                      const isSelected = selectedListIds.has(list._id);
+                      return (
+                        <div key={list._id} style={{
+                          background: isSelected ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.05)',
+                          padding: '1.2rem', borderRadius: '12px',
+                          border: isSelected ? '1px solid var(--primary)' : '1px solid transparent',
+                          transition: 'all 0.2s'
+                        }}>
+                          {/* Header row: checkbox + name */}
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', marginBottom: '0.4rem' }}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleListSelection(list._id)}
+                              style={{ width: '18px', height: '18px', cursor: 'pointer', flexShrink: 0, marginTop: '2px' }}
+                            />
+                            <h4 style={{ margin: 0, fontSize: '0.95rem', flex: 1, lineHeight: '1.3' }}>{list.name}</h4>
+                          </div>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.8rem', paddingLeft: '24px' }}>
+                            {list.words.length} mots • {new Date(list.createdAt).toLocaleDateString()}
+                          </span>
+
+                          {/* Action buttons */}
+                          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                            <button
+                              onClick={() => setVocabListForReview(list.words)}
+                              style={{ flex: 1, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', color: '#10b981', padding: '0.4rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold' }}
+                            >
+                              ▶ Jouer
+                            </button>
+                            <button
+                              onClick={() => handleEditList(list)}
+                              style={{ flex: 1, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', color: 'var(--primary)', padding: '0.4rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold' }}
+                            >
+                              ✏️ Modifier
+                            </button>
+                            <button
+                              onClick={() => deleteList(list._id)}
+                              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '0.4rem 0.6rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem' }}
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </div>
           )}

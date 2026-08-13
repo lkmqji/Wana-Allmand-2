@@ -24,6 +24,7 @@ function App() {
   const [playerName, setPlayerName] = useState('');
   const [avatar, setAvatar] = useState('🦊');
   const [vocabListForReview, setVocabListForReview] = useState(null);
+  const [editingListInfo, setEditingListInfo] = useState(null);
   const [user, setUser] = useState(null);
   const [theme, setTheme] = useState('dark');
 
@@ -146,6 +147,7 @@ function App() {
         <Home 
           socket={socket} 
           setVocabListForReview={setVocabListForReview} 
+          setEditingListInfo={setEditingListInfo}
           playerName={playerName} 
           setPlayerName={setPlayerName}
           avatar={avatar}
@@ -158,6 +160,7 @@ function App() {
       {view === 'review' && (
         <Review 
           vocabList={vocabListForReview} 
+          editingListInfo={editingListInfo}
           user={user}
           setView={setView}
           onCreateSession={(finalList, settings) => {
