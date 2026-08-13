@@ -14,6 +14,7 @@ export default function Layout({
     { id: 'learn', label: 'Apprendre', icon: '🏠' },
     { id: 'lists', label: 'Mes Listes', icon: '📂' },
     { id: 'community', label: 'Communauté', icon: '🌍' },
+    { id: 'stats', label: 'Classement', icon: '🏆' },
     { id: 'profile', label: 'Profil', icon: '👤' }
   ];
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export default function Home({ socket, setVocabListForReview, setEditingListInfo, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout, deleteAccount, activeTab }) {
+export default function Home({ socket, setVocabListForReview, setEditingListInfo, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout, deleteAccount, activeTab, leaderboard }) {
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
   const [prepTab, setPrepTab] = useState('pdf'); // 'pdf', 'text', 'examples', 'settings'
   const [joinCode, setJoinCode] = useState('');
@@ -9,7 +9,6 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
   const [isExtracting, setIsExtracting] = useState(false);
   const [archivedLists, setArchivedLists] = useState([]);
   const [publicLists, setPublicLists] = useState([]);
-  const [leaderboard, setLeaderboard] = useState([]);
   const [isConnected, setIsConnected] = useState(true);
   const [selectedListIds, setSelectedListIds] = useState(new Set());
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(() => {
@@ -99,13 +98,6 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
 
   useEffect(() => {
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
-    fetch(`${API_URL}/api/leaderboard`)
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) setLeaderboard(data);
-      })
-      .catch(() => setIsConnected(false));
 
     fetch(`${API_URL}/api/lists/public`)
       .then(res => res.json())
@@ -359,7 +351,10 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
                 </label>
               </div>
 
-              <div className="card" style={{ flex: 1 }}>
+              <div className="card" style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
+                </div>
                 <h4 style={{ marginBottom: '1rem' }}>🎨 Génération IA</h4>
                 <input 
                   type="text" 
@@ -379,7 +374,10 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
               </div>
             </div>
 
-            <div className="card">
+            <div className="card" style={{ position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
+              </div>
               <h4 style={{ marginBottom: '1rem' }}>📝 Coller du Texte</h4>
               <textarea 
                 className="input-field" 
@@ -485,6 +483,32 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
         </>
       )}
 
+      {/* ------------------- STATS TAB ------------------- */}
+      {activeTab === 'stats' && (
+        <>
+          <h2 style={{ marginBottom: '1rem' }}>Classement Mondial 🏆</h2>
+          {(!leaderboard || leaderboard.length === 0) ? (
+             <div className="card text-muted text-center">Aucune donnée de classement pour le moment.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {leaderboard.map((player, idx) => (
+                <div key={player._id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: idx === 0 ? 'rgba(251, 191, 36, 0.1)' : idx === 1 ? 'rgba(156, 163, 175, 0.1)' : idx === 2 ? 'rgba(180, 83, 9, 0.1)' : 'var(--bg-surface)' }}>
+                  <span style={{ fontSize: '2rem', fontWeight: 'bold', color: idx === 0 ? '#f59e0b' : idx === 1 ? '#9ca3af' : idx === 2 ? '#b45309' : 'var(--text-muted)', minWidth: '40px', textAlign: 'center' }}>
+                    #{idx + 1}
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{player.name}</h3>
+                  </div>
+                  <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)' }}>
+                    {player.score} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>pts</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
       {/* ------------------- PROFILE TAB ------------------- */}
       {activeTab === 'profile' && (
         <>
@@ -537,9 +561,14 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
           {user && (
             <div className="card" style={{ borderColor: 'var(--danger)' }}>
               <h3 style={{ color: 'var(--danger)', marginBottom: '1rem' }}>Zone de Danger</h3>
-              <button onClick={handleDeleteAccount} className="btn btn-secondary" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}>
-                SUPPRIMER MON COMPTE
-              </button>
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                <button onClick={logout} className="btn btn-secondary" style={{ flex: 1, borderColor: 'var(--warning)', color: 'var(--warning)' }}>
+                  SE DÉCONNECTER
+                </button>
+                <button onClick={handleDeleteAccount} className="btn btn-secondary" style={{ flex: 1, color: 'var(--danger)', borderColor: 'var(--danger)' }}>
+                  SUPPRIMER MON COMPTE
+                </button>
+              </div>
             </div>
           )}
         </>
