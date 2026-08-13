@@ -411,6 +411,29 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('ready_for_next', (sessionId) => {
+        const session = gameManager.getSession(sessionId);
+        if (!session || session.status !== 'showing_results') return;
+
+        // Mark this player as ready
+        if (!session.readyPlayers) session.readyPlayers = new Set();
+        session.readyPlayers.add(socket.id);
+
+        const totalPlayers = Object.keys(session.players).length;
+        const readyCount = session.readyPlayers.size;
+
+        // Broadcast how many are ready
+        io.to(sessionId).emit('ready_count', { ready: readyCount, total: totalPlayers });
+
+        if (readyCount >= totalPlayers) {
+            // All players ready → go to next question
+            clearTimeout(session.autoAdvanceTimer);
+            session.status = 'playing';
+            session.readyPlayers = new Set();
+            sendNextQuestion(sessionId);
+        }
+    });
+
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.id}`);
         // Chercher dans toutes les sessions si ce socket y était
@@ -481,16 +504,24 @@ function sendNextQuestion(sessionId) {
 function handleRoundEnd(sessionId) {
     const session = gameManager.getSession(sessionId);
     
-    // Send round results before next question
+    // Reset ready players
+    session.readyPlayers = new Set();
+    session.status = 'showing_results';
+
+    // Send round results
     io.to(sessionId).emit('round_results', {
         players: session.players,
         correctAnswer: session.vocabList[session.currentQuestionIndex].answer
     });
 
-    // Wait a few seconds then send next question
-    setTimeout(() => {
-        sendNextQuestion(sessionId);
-    }, 4000);
+    // Fallback: auto-advance after 1s if no one presses ready
+    session.autoAdvanceTimer = setTimeout(() => {
+        if (session.status === 'showing_results') {
+            session.status = 'playing';
+            session.readyPlayers = new Set();
+            sendNextQuestion(sessionId);
+        }
+    }, 1000);
 }
 
 const PORT = process.env.PORT || 3001;

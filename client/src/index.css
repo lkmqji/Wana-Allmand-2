@@ -356,3 +356,8 @@ h1, h2, h3, h4 {
   font-weight: 800;
   color: var(--success);
 }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(0.97); }
+}

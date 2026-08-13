@@ -15,6 +15,8 @@ export default function Game({ socket, session }) {
   const [isFrozen, setIsFrozen] = useState(false);
   const [terminateRequested, setTerminateRequested] = useState(false);
   const [terminateRefused, setTerminateRefused] = useState(false);
+  const [readyCount, setReadyCount] = useState({ ready: 0, total: 0 });
+  const [iAmReady, setIAmReady] = useState(false);
 
   const [leaderId, setLeaderId] = useState(null);
   const [overtakerId, setOvertakerId] = useState(null);
@@ -119,6 +121,8 @@ export default function Game({ socket, session }) {
       setHasAnswered(false);
       setJokerHint('');
       setRoundResult(null);
+      setIAmReady(false);
+      setReadyCount({ ready: 0, total: 0 });
       setTimeout(() => inputRef.current?.focus(), 100);
     });
 
@@ -168,9 +172,14 @@ export default function Game({ socket, session }) {
       setTimeout(() => setTerminateRefused(false), 3000);
     });
 
+    socket.on('ready_count', (data) => {
+      setReadyCount(data);
+    });
+
     return () => {
       socket.off('new_question');
       socket.off('round_results');
+      socket.off('ready_count');
       socket.off('joker_result');
       socket.off('powerup_frozen');
       socket.off('terminate_requested');
@@ -197,7 +206,18 @@ export default function Game({ socket, session }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (roundResult) {
+      // During result phase: press Enter = ready for next
+      handleReadyForNext();
+      return;
+    }
     submitAnswer();
+  };
+
+  const handleReadyForNext = () => {
+    if (iAmReady) return;
+    setIAmReady(true);
+    socket.emit('ready_for_next', session.id);
   };
 
   const renderDiff = (expected, actual, isCorrect, isTypo) => {
@@ -455,46 +475,64 @@ export default function Game({ socket, session }) {
             )}
           </div>
         ) : (
-          <div style={{ padding: '1rem 0', animation: 'fadeIn 0.5s ease-out' }}>
-            <div style={{ background: 'var(--bg-main)', border: '2px solid var(--border-color)', padding: '1rem', borderRadius: '12px', display: 'inline-block', marginBottom: '1rem', position: 'relative' }}>
-              <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>La bonne réponse était :</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center' }}>
-                <h2 style={{ fontSize: '2rem', margin: 0, color: 'var(--text-main)' }}>{roundResult.correctAnswer}</h2>
-                <button onClick={() => playAudio(roundResult.correctAnswer)} style={{ background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '1.2rem' }}>
-                  🔊
-                </button>
+            <div 
+              style={{ padding: '1rem 0', animation: 'fadeIn 0.5s ease-out', cursor: 'pointer' }}
+              onClick={handleReadyForNext}
+            >
+              <div style={{ background: 'var(--bg-main)', border: '2px solid var(--border-color)', padding: '1rem', borderRadius: '12px', display: 'inline-block', marginBottom: '1rem', position: 'relative' }}>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>La bonne réponse était :</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center' }}>
+                  <h2 style={{ fontSize: '2rem', margin: 0, color: 'var(--text-main)' }}>{roundResult.correctAnswer}</h2>
+                  <button onClick={(e) => { e.stopPropagation(); playAudio(roundResult.correctAnswer); }} style={{ background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '1.2rem' }}>
+                    🔊
+                  </button>
+                </div>
               </div>
-            </div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {Object.values(roundResult.players).map(p => {
-                const playerAns = p.answers[questionIndex];
-                const isCorrect = playerAns?.score >= 100;
-                return (
-                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-surface-hover)', borderRadius: '12px', border: '2px solid var(--border-color)', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{p.name}</span>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                        <span style={{ fontWeight: 'bold' }}>
-                          {renderDiff(roundResult.correctAnswer, playerAns?.answer, isCorrect, playerAns?.isTypo)}
-                        </span>
-                        {playerAns && (
-                          <span style={{ fontSize: '1rem', color: 'var(--warning)', fontWeight: 'bold' }}>
-                            +{playerAns.score} pts
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {Object.values(roundResult.players).map(p => {
+                  const playerAns = p.answers[questionIndex];
+                  const isCorrect = playerAns?.score >= 100;
+                  return (
+                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-surface-hover)', borderRadius: '12px', border: '2px solid var(--border-color)', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{p.name}</span>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                          <span style={{ fontWeight: 'bold' }}>
+                            {renderDiff(roundResult.correctAnswer, playerAns?.answer, isCorrect, playerAns?.isTypo)}
                           </span>
+                          {playerAns && (
+                            <span style={{ fontSize: '1rem', color: 'var(--warning)', fontWeight: 'bold' }}>
+                              +{playerAns.score} pts
+                            </span>
+                          )}
+                        </div>
+                        {playerAns?.isTypo && (
+                          <div style={{ fontSize: '0.8rem', color: 'var(--warning)', marginTop: '2px' }}>Faute de frappe tolérée</div>
                         )}
                       </div>
-                      {playerAns?.isTypo && (
-                        <div style={{ fontSize: '0.8rem', color: 'var(--warning)', marginTop: '2px' }}>Faute de frappe tolérée</div>
-                      )}
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+              
+              {/* Tap anywhere to continue */}
+              <div style={{ marginTop: '1.5rem' }}>
+                {iAmReady ? (
+                  readyCount.total > 1 ? (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                      ⏳ En attente de l'adversaire... ({readyCount.ready}/{readyCount.total})
+                    </p>
+                  ) : (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>⏳</p>
+                  )
+                ) : (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', opacity: 0.7 }}>
+                    Appuyez sur Entrée ou touchez l'écran
+                  </p>
+                )}
+              </div>
             </div>
-            
-            <p style={{ marginTop: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Prochaine question imminente...</p>
-          </div>
         )}
       </div>
     </div>
