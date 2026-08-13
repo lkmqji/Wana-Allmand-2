@@ -21,16 +21,16 @@ export default function Lobby({ socket, session, players, isHost, setView }) {
       </button>
       <h2 style={{ fontSize: '2rem', marginBottom: '1rem', marginTop: '3rem' }}>Salle d'attente</h2>
       
-      <div style={{ margin: '2rem 0', padding: '2rem', background: 'rgba(0,0,0,0.3)', borderRadius: '16px' }}>
+      <div style={{ margin: '2rem 0', padding: '1.5rem', background: 'rgba(0,0,0,0.3)', borderRadius: '16px' }}>
         <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Code de session</p>
-        <h1 style={{ fontSize: '4rem', letterSpacing: '0.2em', margin: 0, color: 'var(--primary)' }}>
+        <h1 style={{ fontSize: 'clamp(2.5rem, 8vw, 4rem)', letterSpacing: '0.2em', margin: 0, color: 'var(--primary)' }}>
           {session.id}
         </h1>
       </div>
 
       <div style={{ marginBottom: '2rem' }}>
         <h3 style={{ marginBottom: '1rem', color: 'var(--text-muted)' }}>Joueurs connectés ({playerCount}/2)</h3>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem' }}>
+        <div className="mobile-stack" style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
           {Object.values(players).map((p, i) => (
             <div key={p.id} style={{ 
               padding: '1rem 2rem', 

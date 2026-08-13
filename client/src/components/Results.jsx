@@ -75,7 +75,7 @@ export default function Results({ players, setView, socket, session, isHost, set
             display: 'flex', 
             justifyContent: 'space-between', 
             alignItems: 'center',
-            padding: '1.5rem 2rem',
+            padding: '1rem',
             background: i === 0 && !isDraw ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255,255,255,0.1)',
             borderRadius: '12px',
             border: i === 0 && !isDraw ? '1px solid var(--success)' : 'none'
@@ -90,7 +90,7 @@ export default function Results({ players, setView, socket, session, isHost, set
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
+      <div className="mobile-stack" style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
         <button className="btn btn-secondary" onClick={() => setView('home')} style={{ flex: 1 }}>
           Accueil
         </button>

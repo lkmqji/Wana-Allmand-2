@@ -344,7 +344,7 @@ export default function Game({ socket, session }) {
           <h2 style={{ fontSize: '1rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
             Traduisez en allemand :
           </h2>
-          <h1 style={{ fontSize: '2.2rem', marginBottom: '0', color: 'white', wordBreak: 'break-word' }}>
+          <h1 style={{ fontSize: 'clamp(1.5rem, 6vw, 2.5rem)', marginBottom: '0', color: 'white', wordBreak: 'break-word' }}>
             {question || 'Chargement...'}
           </h1>
         </div>

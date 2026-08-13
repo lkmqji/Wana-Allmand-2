@@ -207,7 +207,7 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1rem', width: '100%' }}>
       {/* Header Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="mobile-stack" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{ background: '#d97706', color: '#fff', padding: '0.6rem 1rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '1.4rem' }}>
             DE
@@ -237,7 +237,7 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
       </div>
 
       {/* Pseudo & Avatar Selection Bar */}
-      <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', padding: '1rem', borderRadius: '14px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+      <div className="mobile-stack" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', padding: '1rem', borderRadius: '14px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
         <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'bold' }}>VOTRE PROFIL :</span>
         <select 
           className="input-field" 
@@ -265,7 +265,7 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
       </div>
 
       {/* Main Steps Navigation Tabs */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+      <div className="mobile-stack" style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
         <button 
           onClick={() => setMainStep(1)}
           style={{ 
@@ -312,8 +312,9 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
           </div>
 
           {/* Sub-tabs */}
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+          <div className="mobile-stack" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
             <button 
+              className="sub-tab-btn"
               onClick={() => setPrepTab('pdf')}
               style={{
                 padding: '0.6rem 1.2rem',
@@ -329,6 +330,7 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
               📤 IMPORTER UN PDF
             </button>
             <button 
+              className="sub-tab-btn"
               onClick={() => setPrepTab('text')}
               style={{
                 padding: '0.6rem 1.2rem',
@@ -344,6 +346,7 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
               📝 COLLER DU TEXTE
             </button>
             <button 
+              className="sub-tab-btn"
               onClick={() => setPrepTab('examples')}
               style={{
                 padding: '0.6rem 1.2rem',
@@ -359,6 +362,7 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
               📚 EXEMPLES
             </button>
             <button 
+              className="sub-tab-btn"
               onClick={() => setPrepTab('theme')}
               style={{
                 padding: '0.6rem 1.2rem',
@@ -375,6 +379,7 @@ export default function Home({ socket, setVocabListForReview, playerName, setPla
             </button>
             {user && (
               <button 
+                className="sub-tab-btn"
                 onClick={() => setPrepTab('lists')}
                 style={{
                   padding: '0.6rem 1.2rem',

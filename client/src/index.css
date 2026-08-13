@@ -63,8 +63,55 @@ body {
   }
   #root {
     justify-content: flex-start;
-    padding: 1rem;
-    padding-top: 2rem;
+    padding: 0.5rem;
+    padding-top: 1rem;
+  }
+  
+  .glass-panel {
+    padding: 1.5rem !important;
+    border-radius: 16px;
+  }
+
+  .title {
+    font-size: 2rem !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  .subtitle {
+    font-size: 1rem !important;
+    margin-bottom: 2rem !important;
+  }
+
+  .btn {
+    padding: 0.8rem 1.2rem;
+    font-size: 1rem;
+  }
+
+  .timer {
+    font-size: 2.5rem !important;
+  }
+
+  .mobile-stack {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  
+  .mobile-grid-1 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .btn {
+    width: 100%;
+  }
+
+  .nav-btn {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+
+  .sub-tab-btn {
+    flex: 1 1 100% !important;
+    text-align: center;
   }
 }
 

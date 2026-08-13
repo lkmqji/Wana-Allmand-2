@@ -77,7 +77,7 @@ export default function Review({ vocabList, onCreateSession, user, setView }) {
       </p>
 
       {/* Paramètres de jeu */}
-      <div style={{ display: 'flex', gap: '2rem', marginBottom: '2rem', background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '16px' }}>
+      <div className="mobile-stack" style={{ display: 'flex', gap: '2rem', marginBottom: '2rem', background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '16px' }}>
         <div style={{ flex: 1 }}>
           <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Mots par partie (Rounds)</label>
           <input 
@@ -117,7 +117,7 @@ export default function Review({ vocabList, onCreateSession, user, setView }) {
       {/* Tableau des mots */}
       <div style={{ overflowY: 'auto', flex: 1, marginBottom: '2rem', paddingRight: '0.5rem' }}>
         {words.map((word, index) => (
-          <div key={word.id} style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', alignItems: 'center' }}>
+          <div key={word.id} className="mobile-stack" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '0.5rem', borderRadius: '8px' }}>
             <span style={{ color: 'var(--text-muted)', width: '20px' }}>{index + 1}</span>
             <input
               type="text"
@@ -147,7 +147,7 @@ export default function Review({ vocabList, onCreateSession, user, setView }) {
       </div>
 
       {user && (
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+        <div className="mobile-stack" style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
           <input 
             type="text" 
             className="input-field" 
