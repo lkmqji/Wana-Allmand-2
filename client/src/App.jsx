@@ -172,7 +172,13 @@ function App() {
   return (
     <Layout 
       activeTab={activeTab} 
-      onNavigate={setActiveTab}
+      onNavigate={(tab) => {
+        setActiveTab(tab);
+        // If on results/lobby/review, go back to home when navigating
+        if (['results', 'lobby', 'review'].includes(view)) {
+          setView('home');
+        }
+      }}
       user={user}
       loginWithGoogle={loginWithGoogle}
       logout={logout}

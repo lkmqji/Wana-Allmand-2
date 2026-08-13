@@ -521,7 +521,7 @@ function handleRoundEnd(sessionId) {
             session.readyPlayers = new Set();
             sendNextQuestion(sessionId);
         }
-    }, 1000);
+    }, 2000);
 }
 
 const PORT = process.env.PORT || 3001;
