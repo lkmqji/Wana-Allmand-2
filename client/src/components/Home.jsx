@@ -324,7 +324,7 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
     const count = Math.max(1, Math.min(parseInt(soloWordCount) || 10, allWords.length));
     const selectedWords = shuffled.slice(0, count).map((w, idx) => ({ ...w, id: idx + 1 }));
     
-    setEditingListInfo({ id: null, name: `Mode Solo (${count} mots)` });
+    setEditingListInfo(null);
     setVocabListForReview(selectedWords);
   };
 

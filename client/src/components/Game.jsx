@@ -373,7 +373,6 @@ export default function Game({ socket, session }) {
               />
               <button 
                 type="submit" 
-                className="btn btn-primary" 
                 style={{ 
                   position: 'absolute',
                   right: '6px',
@@ -386,12 +385,16 @@ export default function Game({ socket, session }) {
                   justifyContent: 'center',
                   alignItems: 'center',
                   padding: 0,
+                  background: 'var(--primary)',
+                  border: 'none',
+                  cursor: 'pointer',
                   opacity: (hasAnswered || !answer.trim() || isFrozen) ? 0.5 : 1,
-                  transition: 'all 0.2s'
+                  transition: 'all 0.2s',
+                  flexShrink: 0,
                 }}
                 disabled={hasAnswered || !answer.trim() || isFrozen}
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="5" y1="12" x2="19" y2="12"></line>
                   <polyline points="12 5 19 12 12 19"></polyline>
                 </svg>
