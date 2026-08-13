@@ -546,4 +546,5 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
       )}
 
     </div>
+  );
 }
