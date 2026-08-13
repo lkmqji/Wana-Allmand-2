@@ -145,8 +145,19 @@ app.post('/api/lists', async (req, res) => {
 // Endpoint to get all public lists
 app.get('/api/lists/public', async (req, res) => {
     try {
-        const publicLists = await List.find({ isPublic: true }).sort({ createdAt: -1 }).limit(50);
-        res.json(publicLists);
+        const publicLists = await List.find({ isPublic: true }).sort({ createdAt: -1 }).limit(50).lean();
+        
+        const firebaseIds = publicLists.map(l => l.userId);
+        const users = await User.find({ firebaseId: { $in: firebaseIds } });
+        const userMap = {};
+        users.forEach(u => userMap[u.firebaseId] = u.name);
+        
+        const listsWithCreator = publicLists.map(l => ({
+            ...l,
+            creatorName: userMap[l.userId] || '?'
+        }));
+
+        res.json(listsWithCreator);
     } catch (err) {
         console.error('Error fetching public lists:', err);
         res.status(500).json({ error: 'Failed to fetch public lists' });

@@ -473,8 +473,15 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
               {publicLists.map(list => (
                 <div key={list._id} className="card" style={{ borderColor: 'var(--warning)' }}>
-                  <h4>{list.name}</h4>
-                  <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>{list.words.length} mots</p>
+                  <h4>
+                    {list.creatorName && (
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginRight: '0.5rem', background: 'rgba(255,255,255,0.1)', padding: '0.2rem 0.4rem', borderRadius: '4px' }}>
+                        {list.creatorName.substring(0, 2).toUpperCase()}
+                      </span>
+                    )}
+                    {list.name}
+                  </h4>
+                  <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '1rem', marginTop: '0.5rem' }}>{list.words.length} mots</p>
                   <button onClick={() => setVocabListForReview(list.words)} className="btn btn-secondary" style={{ color: 'var(--warning)', borderColor: 'var(--warning)' }}>JOUER</button>
                 </div>
               ))}
@@ -500,7 +507,7 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
                     <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{player.name}</h3>
                   </div>
                   <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)' }}>
-                    {player.score} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>pts</span>
+                    {player.xp || 0} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>pts</span>
                   </span>
                 </div>
               ))}

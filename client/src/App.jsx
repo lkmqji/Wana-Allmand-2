@@ -139,7 +139,7 @@ function App() {
               <div key={player._id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem', background: idx === 0 ? 'rgba(251, 191, 36, 0.1)' : 'var(--bg-surface)' }}>
                 <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: idx === 0 ? '#f59e0b' : 'var(--text-muted)' }}>#{idx + 1}</span>
                 <span style={{ flex: 1, fontWeight: 'bold' }}>{player.name}</span>
-                <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{player.score} pts</span>
+                <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{player.xp || 0} pts</span>
               </div>
             ))}
           </div>
