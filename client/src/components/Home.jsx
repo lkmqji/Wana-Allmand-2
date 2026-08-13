@@ -1,16 +1,44 @@
 import { useState, useEffect } from 'react';
 
-export default function Home({ socket, setVocabListForReview, setEditingListInfo, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout }) {
+export default function Home({ socket, setVocabListForReview, setEditingListInfo, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout, deleteAccount }) {
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
-  const [prepTab, setPrepTab] = useState('pdf'); // 'pdf', 'text', 'examples'
+  const [prepTab, setPrepTab] = useState('pdf'); // 'pdf', 'text', 'examples', 'settings'
   const [joinCode, setJoinCode] = useState('');
   const [rawText, setRawText] = useState('la table = der Tisch\nla chaise = der Stuhl\nla maison = das Haus');
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [archivedLists, setArchivedLists] = useState([]);
+  const [publicLists, setPublicLists] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
   const [isConnected, setIsConnected] = useState(true);
   const [selectedListIds, setSelectedListIds] = useState(new Set());
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(() => {
+    const saved = localStorage.getItem('autoSaveEnabled');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
+  const toggleAutoSave = () => {
+    const newVal = !autoSaveEnabled;
+    setAutoSaveEnabled(newVal);
+    localStorage.setItem('autoSaveEnabled', JSON.stringify(newVal));
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    const confirm1 = window.confirm("ATTENTION : Vous êtes sur le point de supprimer votre compte et TOUTES vos listes. Continuer ?");
+    if (!confirm1) return;
+    const confirm2 = window.confirm("Êtes-vous ABSOLUMENT certain ? Cette action est irréversible.");
+    if (!confirm2) return;
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      await fetch(`${API_URL}/api/users/${user.uid}`, { method: 'DELETE' });
+      await deleteAccount(user);
+    } catch (e) {
+      console.error(e);
+      alert("Erreur lors de la suppression. Vous devez peut-être vous reconnecter d'abord.");
+    }
+  };
 
   const exampleLists = [
     {
@@ -79,6 +107,13 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
       })
       .catch(() => setIsConnected(false));
 
+    fetch(`${API_URL}/api/lists/public`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setPublicLists(data);
+      })
+      .catch(console.error);
+
     if (user) {
       fetch(`${API_URL}/api/lists/${user.uid}`)
         .then(res => res.json())
@@ -124,7 +159,9 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
       const data = await res.json();
       if (data.vocabList && data.vocabList.length > 0) {
         setVocabListForReview(data.vocabList);
-        await saveList(data.vocabList, `Import PDF - ${new Date().toLocaleDateString()}`);
+        if (autoSaveEnabled) {
+          await saveList(data.vocabList, `Import PDF - ${new Date().toLocaleDateString()}`);
+        }
       } else {
         alert("Aucun mot trouvé dans ce PDF.");
       }
@@ -155,7 +192,9 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
       const data = await res.json();
       if (data.vocabList && data.vocabList.length > 0) {
         setVocabListForReview(data.vocabList);
-        await saveList(data.vocabList, `Extraction IA - ${new Date().toLocaleDateString()}`);
+        if (autoSaveEnabled) {
+          await saveList(data.vocabList, `Extraction IA - ${new Date().toLocaleDateString()}`);
+        }
       } else {
         alert(data.error || "Aucun mot extrait.");
       }
@@ -185,7 +224,9 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
       const data = await res.json();
       if (data.vocabList && data.vocabList.length > 0) {
         setVocabListForReview(data.vocabList);
-        await saveList(data.vocabList, `Thème: ${themeInput}`);
+        if (autoSaveEnabled) {
+          await saveList(data.vocabList, `Thème: ${themeInput}`);
+        }
       } else {
         alert(data.error || "Aucun mot extrait.");
       }
@@ -210,6 +251,31 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
       }
     } catch (e) {
       alert('Erreur lors de la suppression.');
+    }
+  };
+
+  const togglePublicList = async (listId, currentStatus) => {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${API_URL}/api/lists/${listId}/public`, { 
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPublic: !currentStatus })
+      });
+      if (res.ok) {
+        const updatedList = await res.json();
+        setArchivedLists(prev => prev.map(l => l._id === listId ? updatedList : l));
+        // Update publicLists state if necessary
+        if (!currentStatus) {
+          setPublicLists(prev => [updatedList, ...prev]);
+        } else {
+          setPublicLists(prev => prev.filter(l => l._id !== listId));
+        }
+      } else {
+        alert('Erreur lors de la modification du statut public.');
+      }
+    } catch (e) {
+      alert('Erreur réseau.');
     }
   };
 
@@ -442,6 +508,24 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
                 📂 MES LISTES
               </button>
             )}
+            {user && (
+              <button 
+                className="sub-tab-btn"
+                onClick={() => setPrepTab('settings')}
+                style={{
+                  padding: '0.6rem 1.2rem',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: prepTab === 'settings' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                  color: prepTab === 'settings' ? '#fff' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '0.85rem'
+                }}
+              >
+                ⚙️ PARAMÈTRES
+              </button>
+            )}
           </div>
 
           {/* Tab 1: PDF Upload */}
@@ -493,23 +577,51 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
 
           {/* Tab 3: Example Lists */}
           {prepTab === 'examples' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
-              {exampleLists.map(list => (
-                <div key={list.id} style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div>
-                    <h4 style={{ margin: '0 0 0.2rem 0', fontSize: '1rem' }}>{list.title}</h4>
-                    <p style={{ margin: '0 0 0.5rem 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>{list.subtitle}</p>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{list.count}</span>
+            <div>
+              <h3 style={{ marginTop: 0, marginBottom: '1rem', color: 'var(--text-light)', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Listes par défaut</h3>
+              <div className="mobile-grid-1" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+                {exampleLists.map(list => (
+                  <div key={list.id} style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div>
+                      <h4 style={{ margin: '0 0 0.2rem 0', fontSize: '1rem' }}>{list.title}</h4>
+                      <p style={{ margin: '0 0 0.5rem 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>{list.subtitle}</p>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{list.count}</span>
+                    </div>
+                    <button 
+                      className="btn btn-secondary" 
+                      onClick={() => setVocabListForReview(list.words)}
+                      style={{ marginTop: '1rem', width: '100%', padding: '0.5rem', fontSize: '0.85rem' }}
+                    >
+                      UTILISER CETTE LISTE -&gt;
+                    </button>
                   </div>
-                  <button 
-                    className="btn btn-secondary" 
-                    onClick={() => setVocabListForReview(list.words)}
-                    style={{ marginTop: '1rem', width: '100%', padding: '0.5rem', fontSize: '0.85rem' }}
-                  >
-                    UTILISER CETTE LISTE -&gt;
-                  </button>
+                ))}
+              </div>
+
+              <h3 style={{ marginTop: 0, marginBottom: '1rem', color: 'var(--primary)', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>🌍 Listes Publiques (Communauté)</h3>
+              {publicLists.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem' }}>
+                  Aucune liste publique pour le moment.
                 </div>
-              ))}
+              ) : (
+                <div className="mobile-grid-1" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                  {publicLists.map(list => (
+                    <div key={list._id} style={{ background: 'rgba(234,179,8,0.05)', border: '1px solid rgba(234,179,8,0.2)', padding: '1.5rem', borderRadius: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <div>
+                        <h4 style={{ margin: '0 0 0.2rem 0', fontSize: '1rem', color: '#eab308' }}>{list.name}</h4>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{list.words.length} mots • {new Date(list.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <button 
+                        className="btn btn-secondary" 
+                        onClick={() => setVocabListForReview(list.words)}
+                        style={{ marginTop: '1rem', width: '100%', padding: '0.5rem', fontSize: '0.85rem' }}
+                      >
+                        JOUER CETTE LISTE -&gt;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -620,6 +732,13 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
                               ✏️ Modifier
                             </button>
                             <button
+                              onClick={() => togglePublicList(list._id, list.isPublic)}
+                              title={list.isPublic ? "Rendre privée" : "Rendre publique"}
+                              style={{ background: list.isPublic ? 'rgba(234,179,8,0.2)' : 'rgba(255,255,255,0.05)', border: list.isPublic ? '1px solid rgba(234,179,8,0.4)' : '1px solid rgba(255,255,255,0.2)', color: list.isPublic ? '#eab308' : 'var(--text-muted)', padding: '0.4rem 0.6rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem' }}
+                            >
+                              🌍 {list.isPublic ? 'Publique' : 'Privée'}
+                            </button>
+                            <button
                               onClick={() => deleteList(list._id)}
                               style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '0.4rem 0.6rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem' }}
                             >
@@ -632,6 +751,60 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {/* Tab 6: Settings */}
+          {prepTab === 'settings' && user && (
+            <div style={{ maxWidth: '500px', margin: '0 auto', background: 'rgba(255,255,255,0.05)', padding: '2rem', borderRadius: '12px' }}>
+              <h3 style={{ marginTop: 0, marginBottom: '1.5rem', color: 'var(--text-light)' }}>Préférences</h3>
+              
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
+                <div>
+                  <div style={{ fontWeight: 'bold' }}>Sauvegarde Automatique</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Enregistrer les listes après une extraction IA ou PDF.</div>
+                </div>
+                <button 
+                  onClick={toggleAutoSave}
+                  style={{
+                    background: autoSaveEnabled ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                    border: 'none',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '20px',
+                    color: 'white',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {autoSaveEnabled ? 'ACTIVÉE' : 'DÉSACTIVÉE'}
+                </button>
+              </div>
+
+              <h3 style={{ color: '#ef4444', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1.5rem', marginTop: '1.5rem', marginBottom: '1.5rem' }}>Zone de Danger</h3>
+              
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                La suppression de votre compte effacera toutes vos données personnelles ainsi que toutes les listes que vous avez enregistrées. 
+                Cette action ne peut pas être annulée.
+              </p>
+              <button 
+                onClick={handleDeleteAccount}
+                style={{
+                  width: '100%',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid #ef4444',
+                  color: '#ef4444',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = '#fff'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'; e.currentTarget.style.color = '#ef4444'; }}
+              >
+                SUPPRIMER MON COMPTE
+              </button>
             </div>
           )}
         </div>

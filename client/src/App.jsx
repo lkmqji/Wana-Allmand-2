@@ -5,7 +5,7 @@ import Lobby from './components/Lobby';
 import Game from './components/Game';
 import Results from './components/Results';
 import Review from './components/Review';
-import { auth, loginWithGoogle, logout } from './firebase';
+import { auth, loginWithGoogle, logout, deleteAccount } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 // Connect to server (uses env variable or fallback to localhost)
@@ -155,6 +155,7 @@ function App() {
           user={user}
           loginWithGoogle={loginWithGoogle}
           logout={logout}
+          deleteAccount={deleteAccount}
         />
       )}
       {view === 'review' && (

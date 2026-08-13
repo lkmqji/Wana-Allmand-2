@@ -11,6 +11,7 @@ const listSchema = new mongoose.Schema({
   userId: { type: String, required: true },
   name: { type: String, required: true },
   words: [wordSchema],
+  isPublic: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });
 

@@ -142,6 +142,17 @@ app.post('/api/lists', async (req, res) => {
     }
 });
 
+// Endpoint to get all public lists
+app.get('/api/lists/public', async (req, res) => {
+    try {
+        const publicLists = await List.find({ isPublic: true }).sort({ createdAt: -1 }).limit(50);
+        res.json(publicLists);
+    } catch (err) {
+        console.error('Error fetching public lists:', err);
+        res.status(500).json({ error: 'Failed to fetch public lists' });
+    }
+});
+
 // Endpoint to get lists for a user
 app.get('/api/lists/:userId', async (req, res) => {
     try {
@@ -169,6 +180,23 @@ app.put('/api/lists/:id', async (req, res) => {
     }
 });
 
+// Endpoint to toggle public status of a list
+app.put('/api/lists/:id/public', async (req, res) => {
+    try {
+        const { isPublic } = req.body;
+        const updatedList = await List.findByIdAndUpdate(
+            req.params.id, 
+            { isPublic },
+            { new: true }
+        );
+        if (!updatedList) return res.status(404).json({ error: 'List not found' });
+        res.json(updatedList);
+    } catch (error) {
+        console.error('Error updating public status:', error);
+        res.status(500).json({ error: 'Failed to update public status.' });
+    }
+});
+
 // Endpoint to delete a list
 app.delete('/api/lists/:id', async (req, res) => {
     try {
@@ -178,6 +206,21 @@ app.delete('/api/lists/:id', async (req, res) => {
     } catch (error) {
         console.error('Error deleting list:', error);
         res.status(500).json({ error: 'Failed to delete list.' });
+    }
+});
+
+// Endpoint to delete a user and all their lists
+app.delete('/api/users/:firebaseId', async (req, res) => {
+    try {
+        const { firebaseId } = req.params;
+        // Delete all lists belonging to the user
+        await List.deleteMany({ userId: firebaseId });
+        // Delete the user from DB
+        await User.findOneAndDelete({ firebaseId });
+        res.json({ message: 'User and associated data deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        res.status(500).json({ error: 'Failed to delete user.' });
     }
 });
 
