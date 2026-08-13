@@ -285,8 +285,8 @@ export default function Game({ socket, session }) {
         onClick={handleRequestTerminate}
         style={{ 
           position: 'absolute', 
-          top: '10px', 
-          left: '10px', 
+          top: '1rem', 
+          left: '1rem', 
           background: 'rgba(255,255,255,0.1)', 
           border: '1px solid rgba(255,255,255,0.2)', 
           color: 'var(--text-light)', 

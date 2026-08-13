@@ -12,14 +12,17 @@ export default function Lobby({ socket, session, players, isHost, setView }) {
 
   return (
     <div className="glass-panel" style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-      <button 
-        onClick={handleLeave}
-        className="btn btn-secondary"
-        style={{ position: 'absolute', top: '1.5rem', left: '1.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem' }}
-      >
-        ← Retour
-      </button>
-      <h2 style={{ fontSize: '2rem', marginBottom: '1rem', marginTop: '3rem' }}>Salle d'attente</h2>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2rem' }}>
+        <button 
+          onClick={handleLeave}
+          className="btn btn-secondary"
+          style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+        >
+          ← Retour
+        </button>
+        <h2 style={{ fontSize: '1.8rem', margin: 0, flex: 1, textAlign: 'center' }}>Salle d'attente</h2>
+        <div style={{ width: '80px' }}></div> {/* Spacer to balance the back button */}
+      </div>
       
       <div style={{ margin: '2rem 0', padding: '1.5rem', background: 'rgba(0,0,0,0.3)', borderRadius: '16px' }}>
         <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Code de session</p>
