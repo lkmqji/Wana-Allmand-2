@@ -10,6 +10,7 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
   const [archivedLists, setArchivedLists] = useState([]);
   const [publicLists, setPublicLists] = useState([]);
   const [isConnected, setIsConnected] = useState(true);
+  const [soloWordCount, setSoloWordCount] = useState(10);
   const [selectedListIds, setSelectedListIds] = useState(new Set());
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(() => {
     const saved = localStorage.getItem('autoSaveEnabled');
@@ -309,6 +310,24 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
     }
   };
 
+  const handlePlaySolo = () => {
+    const allWords = [];
+    exampleLists.forEach(list => allWords.push(...list.words));
+    publicLists.forEach(list => allWords.push(...list.words));
+    
+    if (allWords.length === 0) {
+      alert("Aucun mot disponible !");
+      return;
+    }
+
+    const shuffled = allWords.sort(() => 0.5 - Math.random());
+    const count = Math.max(1, Math.min(parseInt(soloWordCount) || 10, allWords.length));
+    const selectedWords = shuffled.slice(0, count).map((w, idx) => ({ ...w, id: idx + 1 }));
+    
+    setEditingListInfo({ id: null, name: `Mode Solo (${count} mots)` });
+    setVocabListForReview(selectedWords);
+  };
+
   return (
     <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       
@@ -337,6 +356,22 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
                 REJOINDRE
               </button>
             </form>
+
+            <div style={{ width: '100%', maxWidth: '300px', marginTop: '1rem', borderTop: '2px dashed rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <input 
+                  type="number" 
+                  min="1" 
+                  max="100" 
+                  value={soloWordCount}
+                  onChange={(e) => setSoloWordCount(e.target.value)}
+                  style={{ width: '60px', padding: '0.8rem 0', borderRadius: '12px', border: 'none', background: 'rgba(255,255,255,0.1)', color: 'white', textAlign: 'center', fontSize: '1rem', fontWeight: 'bold' }}
+                />
+                <button className="btn btn-success" onClick={handlePlaySolo} style={{ flex: 1, padding: '0.8rem' }}>
+                  JOUER SOLO
+                </button>
+              </div>
+            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
