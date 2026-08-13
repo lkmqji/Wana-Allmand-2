@@ -86,14 +86,13 @@ body {
   flex: 1;
   height: 100vh;
   overflow-y: auto;
-  display: flex;
-  justify-content: center;
   position: relative;
 }
 
 .main-content {
   width: 100%;
   max-width: var(--max-content-width);
+  margin: 0 auto;
   padding: 2rem 1rem;
   padding-bottom: calc(2rem + var(--bottom-nav-height)); /* Extra padding for mobile nav */
 }

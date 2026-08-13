@@ -491,10 +491,10 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
              <div className="card text-muted text-center">Aucune donnée de classement pour le moment.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {leaderboard.map((player, idx) => (
-                <div key={player._id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: idx === 0 ? 'rgba(251, 191, 36, 0.1)' : idx === 1 ? 'rgba(156, 163, 175, 0.1)' : idx === 2 ? 'rgba(180, 83, 9, 0.1)' : 'var(--bg-surface)' }}>
-                  <span style={{ fontSize: '2rem', fontWeight: 'bold', color: idx === 0 ? '#f59e0b' : idx === 1 ? '#9ca3af' : idx === 2 ? '#b45309' : 'var(--text-muted)', minWidth: '40px', textAlign: 'center' }}>
-                    #{idx + 1}
+              {leaderboard.slice(0, 10).map((player, idx) => (
+                <div key={player._id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: idx === 0 ? 'rgba(255, 215, 0, 0.15)' : idx === 1 ? 'rgba(192, 192, 192, 0.15)' : idx === 2 ? 'rgba(205, 127, 50, 0.15)' : 'var(--bg-surface)' }}>
+                  <span style={{ fontSize: '2rem', fontWeight: 'bold', color: idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : 'var(--text-muted)', minWidth: '40px', textAlign: 'center' }}>
+                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
                   </span>
                   <div style={{ flex: 1 }}>
                     <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{player.name}</h3>
