@@ -342,7 +342,13 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
             {isConnected ? 'EN LIGNE' : 'HORS LIGNE'}
           </span>
           {user ? (
-            <button onClick={logout} className="btn" style={{ background: 'rgba(255,255,255,0.1)', padding: '0.5rem 1rem', fontSize: '0.85rem' }}>Déconnexion</button>
+            <img 
+              src={user.photoURL} 
+              alt="Profil" 
+              onClick={logout} 
+              title="Se déconnecter"
+              style={{ width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', border: '2px solid rgba(255,255,255,0.2)' }} 
+            />
           ) : (
             <button onClick={loginWithGoogle} className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}>Se connecter</button>
           )}
