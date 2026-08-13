@@ -11,36 +11,37 @@ export default function Lobby({ socket, session, players, isHost, setView }) {
   };
 
   return (
-    <div className="glass-panel" style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
+    <div className="card" style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2rem' }}>
         <button 
           onClick={handleLeave}
           className="btn btn-secondary"
-          style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+          style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', width: 'auto' }}
         >
           ← Retour
         </button>
-        <h2 style={{ fontSize: '1.8rem', margin: 0, flex: 1, textAlign: 'center' }}>Salle d'attente</h2>
-        <div style={{ width: '80px' }}></div> {/* Spacer to balance the back button */}
+        <h2 style={{ fontSize: '1.5rem', margin: 0, flex: 1, textAlign: 'center' }}>Salle d'attente</h2>
+        <div style={{ width: '80px' }}></div>
       </div>
       
-      <div style={{ margin: '2rem 0', padding: '1.5rem', background: 'rgba(0,0,0,0.3)', borderRadius: '16px' }}>
-        <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Code de session</p>
+      <div style={{ margin: '2rem 0', padding: '1.5rem', background: 'var(--bg-main)', borderRadius: '16px', border: '2px solid var(--border-color)' }}>
+        <p className="text-muted" style={{ marginBottom: '0.5rem', fontWeight: 'bold' }}>Code de session</p>
         <h1 style={{ fontSize: 'clamp(2.5rem, 8vw, 4rem)', letterSpacing: '0.2em', margin: 0, color: 'var(--primary)' }}>
           {session.id}
         </h1>
       </div>
 
       <div style={{ marginBottom: '2rem' }}>
-        <h3 style={{ marginBottom: '1rem', color: 'var(--text-muted)' }}>Joueurs connectés ({playerCount}/2)</h3>
+        <h3 className="text-muted" style={{ marginBottom: '1rem' }}>Joueurs connectés ({playerCount}/2)</h3>
         <div className="mobile-stack" style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
           {Object.values(players).map((p, i) => (
             <div key={p.id} style={{ 
               padding: '1rem 2rem', 
-              background: 'rgba(255,255,255,0.1)', 
+              background: 'var(--bg-surface-hover)', 
               borderRadius: '12px',
-              border: `2px solid ${i === 0 ? 'var(--primary)' : 'var(--secondary)'}`,
-              position: 'relative'
+              border: `2px solid ${i === 0 ? 'var(--primary)' : 'var(--border-color)'}`,
+              position: 'relative',
+              fontWeight: 'bold'
             }}>
               {p.name} {p.id === socket.id ? '(Vous)' : ''}
               {isHost && p.id !== socket.id && (
@@ -76,12 +77,11 @@ export default function Lobby({ socket, session, players, isHost, setView }) {
         <button 
           className="btn btn-primary" 
           onClick={handleStart} 
-          style={{ width: '100%', fontSize: '1.25rem' }}
         >
           {playerCount === 1 ? 'Jouer en Solo' : 'Démarrer la partie !'}
         </button>
       ) : (
-        <div style={{ padding: '1rem', color: 'var(--warning)' }}>
+        <div style={{ padding: '1rem', color: 'var(--warning)', fontWeight: 'bold' }}>
           En attente de l'hôte pour démarrer...
         </div>
       )}

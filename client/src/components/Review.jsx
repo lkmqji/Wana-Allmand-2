@@ -69,41 +69,39 @@ export default function Review({ vocabList, onCreateSession, user, setView, edit
   };
 
   return (
-    <div className="glass-panel" style={{ maxWidth: '800px', margin: '0 auto', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+    <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
       
       {step === 'words' ? (
-        <>
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', maxHeight: '85vh' }}>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2rem' }}>
             <button 
               onClick={() => setView('home')}
               className="btn btn-secondary"
-              style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+              style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', width: 'auto' }}
             >
               ← Retour
             </button>
             <div style={{ flex: 1, textAlign: 'center' }}>
-              <h2 style={{ fontSize: '1.8rem', margin: 0 }}>
+              <h2 style={{ fontSize: '1.5rem', margin: 0 }}>
                 {isEditing ? 'Modifier la liste' : isMerge ? 'Fusion de listes' : 'Vérification de la liste'}
               </h2>
               {(isEditing || isMerge) && (
-                <span style={{ fontSize: '0.75rem', color: 'var(--primary)', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', padding: '0.1rem 0.6rem', borderRadius: '20px' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--primary)' }}>
                   {isEditing ? `✏️ Édition : ${editingListInfo.name}` : `🔄 Fusion`}
                 </span>
               )}
             </div>
             <div style={{ width: '80px' }}></div>
           </div>
-          <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-            Vous pouvez corriger, supprimer ou ajouter des mots avant de configurer la partie.
+          <p className="text-muted" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+            Vérifiez, corrigez ou ajoutez des mots avant de démarrer.
           </p>
 
-
-
           {/* Tableau des mots */}
-          <div style={{ overflowY: 'auto', flex: 1, marginBottom: '2rem', paddingRight: '0.5rem' }}>
+          <div style={{ overflowY: 'auto', flex: 1, marginBottom: '1rem', paddingRight: '0.5rem' }}>
             {words.map((word, index) => (
-              <div key={word.id} className="mobile-stack" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '0.5rem', borderRadius: '8px' }}>
-                <span style={{ color: 'var(--text-muted)', width: '20px' }}>{index + 1}</span>
+              <div key={word.id} className="mobile-stack" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', alignItems: 'center' }}>
+                <span className="text-muted" style={{ width: '20px', fontWeight: 'bold' }}>{index + 1}</span>
                 <input
                   type="text"
                   className="input-field"
@@ -120,13 +118,13 @@ export default function Review({ vocabList, onCreateSession, user, setView, edit
                   placeholder="Allemand"
                   style={{ flex: 1, padding: '0.75rem' }}
                 />
-                <button onClick={() => handleDelete(word.id)} style={{ background: 'var(--danger)', color: 'white', border: 'none', padding: '0.75rem 1rem', borderRadius: '8px', cursor: 'pointer' }}>
+                <button onClick={() => handleDelete(word.id)} className="btn btn-secondary" style={{ width: 'auto', padding: '0.75rem 1rem', borderColor: 'var(--danger)', color: 'var(--danger)' }}>
                   X
                 </button>
               </div>
             ))}
             
-            <button onClick={handleAdd} style={{ width: '100%', padding: '1rem', background: 'rgba(255,255,255,0.1)', border: '1px dashed var(--glass-border)', color: 'white', borderRadius: '12px', cursor: 'pointer', marginTop: '1rem' }}>
+            <button onClick={handleAdd} className="btn btn-secondary" style={{ width: '100%', padding: '1rem', borderStyle: 'dashed' }}>
               + Ajouter un mot
             </button>
           </div>
@@ -145,8 +143,9 @@ export default function Review({ vocabList, onCreateSession, user, setView, edit
                 className="btn btn-secondary" 
                 onClick={handleSave} 
                 disabled={isSaving || !listName.trim()}
+                style={{ width: 'auto' }}
               >
-                {isSaving ? 'En cours...' : isEditing ? '💾 Mettre à jour' : isMerge ? '💾 Sauvegarder la fusion' : '💾 Archiver'}
+                {isSaving ? 'En cours...' : isEditing ? '💾 Sauvegarder' : isMerge ? '💾 Sauvegarder fusion' : '💾 Archiver'}
               </button>
             </div>
           )}
@@ -158,28 +157,28 @@ export default function Review({ vocabList, onCreateSession, user, setView, edit
               if (validWords.length === 0) return alert("La liste est vide !");
               setStep('settings');
             }} 
-            style={{ width: '100%', fontSize: '1.25rem', padding: '1rem' }}
+            style={{ width: '100%' }}
           >
-            Continuer vers les paramètres ➡️
+            Continuer ➡️
           </button>
-        </>
+        </div>
       ) : (
-        <>
+        <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2rem' }}>
             <button 
               onClick={() => setStep('words')}
               className="btn btn-secondary"
-              style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+              style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', width: 'auto' }}
             >
               ← Mots
             </button>
-            <h2 style={{ fontSize: '1.8rem', margin: 0, flex: 1, textAlign: 'center' }}>Paramètres du Duel</h2>
+            <h2 style={{ fontSize: '1.5rem', margin: 0, flex: 1, textAlign: 'center' }}>Paramètres du Duel</h2>
             <div style={{ width: '80px' }}></div>
           </div>
           
-          <div className="mobile-stack" style={{ display: 'flex', gap: '2rem', marginBottom: '2rem', background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '16px' }}>
+          <div className="mobile-stack" style={{ display: 'flex', gap: '2rem', marginBottom: '2rem', background: 'var(--bg-main)', padding: '1.5rem', borderRadius: '16px', border: '2px solid var(--border-color)' }}>
             <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Mots par partie (Rounds)</label>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Mots par partie</label>
               <input 
                 type="number" 
                 className="input-field" 
@@ -190,16 +189,16 @@ export default function Review({ vocabList, onCreateSession, user, setView, edit
               />
             </div>
             <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Temps par mot (secondes)</label>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Temps par mot</label>
               <select className="input-field" value={timePerWord} onChange={(e) => setTimePerWord(parseInt(e.target.value))}>
-                <option value={10}>10 secondes (Rapide)</option>
-                <option value={15}>15 secondes (Normal)</option>
-                <option value={20}>20 secondes (Débutant)</option>
-                <option value={30}>30 secondes (Lent)</option>
+                <option value={10}>10s (Rapide)</option>
+                <option value={15}>15s (Normal)</option>
+                <option value={20}>20s (Débutant)</option>
+                <option value={30}>30s (Lent)</option>
               </select>
             </div>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Pouvoirs (Glace 🥶)</label>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Pouvoirs 🥶</label>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                 <input 
                   type="checkbox" 
@@ -214,12 +213,10 @@ export default function Review({ vocabList, onCreateSession, user, setView, edit
             </div>
           </div>
 
-          <div style={{ flex: 1 }}></div>
-
-          <button className="btn btn-primary" onClick={handleStart} style={{ width: '100%', fontSize: '1.25rem', padding: '1rem' }}>
-            🚀 Créer la Session
+          <button className="btn btn-primary" onClick={handleStart} style={{ width: '100%' }}>
+            🚀 Lancer la Partie
           </button>
-        </>
+        </div>
       )}
     </div>
   );

@@ -262,11 +262,11 @@ export default function Game({ socket, session }) {
       {/* Terminate Requested Modal */}
       {terminateRequested && (
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 100, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '2rem' }}>
-          <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center' }}>
+          <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
             <h2>⚠️ Arrêt demandé</h2>
             <p style={{ margin: '1rem 0' }}>L'autre joueur souhaite arrêter la partie en cours.</p>
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-              <button onClick={handleAcceptTerminate} className="btn btn-primary" style={{ background: 'var(--danger)' }}>Accepter</button>
+              <button onClick={handleAcceptTerminate} className="btn btn-primary" style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }}>Accepter</button>
               <button onClick={handleRefuseTerminate} className="btn btn-secondary">Refuser</button>
             </div>
           </div>
@@ -287,9 +287,9 @@ export default function Game({ socket, session }) {
           position: 'absolute', 
           top: '1rem', 
           left: '1rem', 
-          background: 'rgba(255,255,255,0.1)', 
-          border: '1px solid rgba(255,255,255,0.2)', 
-          color: 'var(--text-light)', 
+          background: 'var(--bg-main)', 
+          border: '2px solid var(--border-color)', 
+          color: 'var(--text-muted)', 
           cursor: 'pointer', 
           zIndex: 10,
           width: '40px',
@@ -310,7 +310,7 @@ export default function Game({ socket, session }) {
       </button>
 
       {/* Scoreboard Header */}
-      <div className="score-board glass-panel" style={{ padding: '0.5rem 1rem', marginBottom: '1rem' }}>
+      <div className="score-board card" style={{ padding: '0.5rem 1rem', marginBottom: '1rem' }}>
         {Object.values(players).map((p, i) => {
           const isLeader = p.id === leaderId;
           const isOvertaking = p.id === overtakerId;
@@ -318,7 +318,7 @@ export default function Game({ socket, session }) {
             <div 
               key={p.id} 
               className={`player-score ${isOvertaking ? 'leader-overtake' : ''}`} 
-              style={{ color: p.id === socket.id ? 'var(--primary)' : 'white' }}
+              style={{ color: p.id === socket.id ? 'var(--primary)' : 'var(--text-main)' }}
             >
               {isLeader && <div className="leader-crown">👑</div>}
               <div className="name">{p.name} {p.id === socket.id ? '(Vous)' : ''}</div>
@@ -328,7 +328,7 @@ export default function Game({ socket, session }) {
         })}
       </div>
 
-      <div className="glass-panel" style={{ textAlign: 'center', position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', padding: '1.5rem', marginTop: '1rem', minHeight: '380px' }}>
+      <div className="card" style={{ textAlign: 'center', position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', padding: '1.5rem', marginTop: '1rem', minHeight: '380px' }}>
         <div style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--text-muted)' }}>
           {questionIndex + 1} / {totalQuestions}
         </div>
@@ -344,7 +344,7 @@ export default function Game({ socket, session }) {
           <h2 style={{ fontSize: '1rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
             Traduisez en allemand :
           </h2>
-          <h1 style={{ fontSize: 'clamp(1.5rem, 6vw, 2.5rem)', marginBottom: '0', color: 'white', wordBreak: 'break-word' }}>
+          <h1 style={{ fontSize: 'clamp(1.5rem, 6vw, 2.5rem)', marginBottom: '0', color: 'var(--text-main)', wordBreak: 'break-word' }}>
             {question || 'Chargement...'}
           </h1>
         </div>
@@ -366,15 +366,14 @@ export default function Game({ socket, session }) {
                   fontSize: '1.25rem', 
                   padding: '1rem 3.5rem 1rem 1.5rem', 
                   borderRadius: '30px',
-                  borderColor: isFrozen ? '#38bdf8' : 'rgba(255, 255, 255, 0.3)',
+                  borderColor: isFrozen ? '#38bdf8' : 'var(--border-color)',
                   width: '100%',
-                  boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
                 }}
                 autoComplete="off"
               />
               <button 
                 type="submit" 
-                className="btn-primary" 
+                className="btn btn-primary" 
                 style={{ 
                   position: 'absolute',
                   right: '6px',
@@ -386,8 +385,7 @@ export default function Game({ socket, session }) {
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
-                  border: 'none',
-                  cursor: 'pointer',
+                  padding: 0,
                   opacity: (hasAnswered || !answer.trim() || isFrozen) ? 0.5 : 1,
                   transition: 'all 0.2s'
                 }}
@@ -440,7 +438,7 @@ export default function Game({ socket, session }) {
                 justifyContent: 'center',
                 alignItems: 'center',
                 borderRadius: '50%',
-                border: '2px solid var(--bg-gradient-start)'
+                border: '2px solid var(--bg-main)'
               }}>
                 {jokers}
               </span>
@@ -448,18 +446,18 @@ export default function Game({ socket, session }) {
             </div>
 
             {isFrozen && (
-              <div style={{ background: 'rgba(56, 189, 248, 0.2)', color: 'var(--text-light)', padding: '0.75rem', borderRadius: '8px', marginTop: '1rem', border: '1px solid #38bdf8', fontSize: '0.9rem' }}>
+              <div style={{ background: 'rgba(56, 189, 248, 0.2)', color: 'var(--text-main)', padding: '0.75rem', borderRadius: '8px', marginTop: '1rem', border: '1px solid #38bdf8', fontSize: '0.9rem' }}>
                 🥶 <strong>GELÉ !</strong> L'adversaire a répondu juste 3 fois de suite !
               </div>
             )}
           </div>
         ) : (
           <div style={{ padding: '1rem 0', animation: 'fadeIn 0.5s ease-out' }}>
-            <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '12px', display: 'inline-block', marginBottom: '1rem', position: 'relative' }}>
+            <div style={{ background: 'var(--bg-main)', border: '2px solid var(--border-color)', padding: '1rem', borderRadius: '12px', display: 'inline-block', marginBottom: '1rem', position: 'relative' }}>
               <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>La bonne réponse était :</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center' }}>
-                <h2 style={{ fontSize: '2rem', margin: 0 }}>{roundResult.correctAnswer}</h2>
-                <button onClick={() => playAudio(roundResult.correctAnswer)} style={{ background: 'var(--primary)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '1.2rem' }}>
+                <h2 style={{ fontSize: '2rem', margin: 0, color: 'var(--text-main)' }}>{roundResult.correctAnswer}</h2>
+                <button onClick={() => playAudio(roundResult.correctAnswer)} style={{ background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '1.2rem' }}>
                   🔊
                 </button>
               </div>
@@ -470,21 +468,21 @@ export default function Game({ socket, session }) {
                 const playerAns = p.answers[questionIndex];
                 const isCorrect = playerAns?.score >= 100;
                 return (
-                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 'bold' }}>{p.name}</span>
+                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-surface-hover)', borderRadius: '12px', border: '2px solid var(--border-color)', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{p.name}</span>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end' }}>
                         <span style={{ fontWeight: 'bold' }}>
                           {renderDiff(roundResult.correctAnswer, playerAns?.answer, isCorrect, playerAns?.isTypo)}
                         </span>
                         {playerAns && (
-                          <span style={{ fontSize: '0.9rem', color: 'var(--warning)', fontWeight: 'bold' }}>
+                          <span style={{ fontSize: '1rem', color: 'var(--warning)', fontWeight: 'bold' }}>
                             +{playerAns.score} pts
                           </span>
                         )}
                       </div>
                       {playerAns?.isTypo && (
-                        <div style={{ fontSize: '0.7rem', color: 'var(--warning)', marginTop: '2px' }}>Faute de frappe tolérée</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--warning)', marginTop: '2px' }}>Faute de frappe tolérée</div>
                       )}
                     </div>
                   </div>
