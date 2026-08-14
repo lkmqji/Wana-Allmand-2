@@ -380,40 +380,39 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <h3 style={{ fontSize: '1.2rem', margin: '1rem 0 0 0' }}>Créer une nouvelle session</h3>
             
-            <div className="mobile-stack">
-              {/* Bouton Écrire tes mots */}
-              <div className="card" style={{ flex: 1, cursor: 'pointer' }} onClick={() => setShowWordEditor(true)}>
-                <h4 style={{ marginBottom: '0.5rem' }}>✏️ Écrire tes mots</h4>
-                <p className="text-muted" style={{ fontSize: '0.85rem' }}>Crée ta liste manuellement</p>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              {/* LEFT: Écrire tes mots + Importer PDF stacked */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1, minWidth: '200px' }}>
+                <div className="card" style={{ cursor: 'pointer' }} onClick={() => setShowWordEditor(true)}>
+                  <h4>✏️ Écrire tes mots</h4>
+                </div>
+                <div className="card">
+                  <h4 style={{ marginBottom: '0.75rem' }}>📤 Importer un PDF</h4>
+                  <label className="btn btn-secondary" style={{ width: '100%', cursor: isUploading ? 'wait' : 'pointer' }}>
+                    {isUploading ? 'Analyse...' : 'Parcourir'}
+                    <input type="file" accept=".pdf" style={{ display: 'none' }} onChange={handleUpload} disabled={isUploading} />
+                  </label>
+                </div>
               </div>
 
-              {/* PDF */}
-              <div className="card" style={{ flex: 1 }}>
-                <h4 style={{ marginBottom: '1rem' }}>📤 Importer un PDF</h4>
-                <label className="btn btn-secondary" style={{ width: '100%', cursor: isUploading ? 'wait' : 'pointer' }}>
-                  {isUploading ? 'Analyse...' : 'Parcourir'}
-                  <input type="file" accept=".pdf" style={{ display: 'none' }} onChange={handleUpload} disabled={isUploading} />
-                </label>
-              </div>
-            </div>
-
-            {/* Blurred cards */}
-            <div className="mobile-stack">
-              <div className="card" style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
+              {/* RIGHT: Blurred card */}
+              <div style={{ flex: 1, minWidth: '200px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="card" style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
+                  </div>
+                  <h4 style={{ marginBottom: '1rem' }}>🎨 Génération IA</h4>
+                  <input type="text" className="input-field" placeholder="Thème (ex: Animaux)" value={themeInput} onChange={(e) => setThemeInput(e.target.value)} style={{ marginBottom: '1rem', padding: '0.8rem 1rem' }} />
+                  <button onClick={handleGenerateTheme} className="btn btn-secondary" disabled={isGeneratingTheme}>{isGeneratingTheme ? 'Génération...' : 'Créer'}</button>
                 </div>
-                <h4 style={{ marginBottom: '1rem' }}>🎨 Génération IA</h4>
-                <input type="text" className="input-field" placeholder="Thème (ex: Animaux)" value={themeInput} onChange={(e) => setThemeInput(e.target.value)} style={{ marginBottom: '1rem', padding: '0.8rem 1rem' }} />
-                <button onClick={handleGenerateTheme} className="btn btn-secondary" disabled={isGeneratingTheme}>{isGeneratingTheme ? 'Génération...' : 'Créer'}</button>
-              </div>
-              <div className="card" style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
+                <div className="card" style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
+                  </div>
+                  <h4 style={{ marginBottom: '1rem' }}>📝 Coller du Texte</h4>
+                  <textarea className="input-field" rows={3} value={rawText} onChange={(e) => setRawText(e.target.value)} style={{ fontFamily: 'monospace', fontSize: '0.9rem', marginBottom: '1rem' }} />
+                  <button onClick={() => handleExtractAI()} className="btn btn-secondary" disabled={isExtracting}>{isExtracting ? 'Extraction...' : 'Extraire avec IA'}</button>
                 </div>
-                <h4 style={{ marginBottom: '1rem' }}>📝 Coller du Texte</h4>
-                <textarea className="input-field" rows={3} value={rawText} onChange={(e) => setRawText(e.target.value)} style={{ fontFamily: 'monospace', fontSize: '0.9rem', marginBottom: '1rem' }} />
-                <button onClick={() => handleExtractAI()} className="btn btn-secondary" disabled={isExtracting}>{isExtracting ? 'Extraction...' : 'Extraire avec IA'}</button>
               </div>
             </div>
           </div>
@@ -492,6 +491,9 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
         </>
       )}
 
