@@ -446,9 +446,27 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
           {showWordEditor && (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: '2rem 1rem', overflowY: 'auto' }}>
               <div className="card" style={{ width: '100%', maxWidth: '700px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <h2 style={{ margin: 0 }}>✏️ Écrire tes mots</h2>
                   <button onClick={() => setShowWordEditor(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+                </div>
+
+                {/* Rules warning */}
+                <div style={{ background: 'rgba(99, 102, 241, 0.12)', border: '1px solid rgba(99, 102, 241, 0.4)', borderRadius: '12px', padding: '0.9rem 1.1rem', marginBottom: '1.2rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '1.1rem' }}>📋</span>
+                    <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.95rem' }}>Règles pour bien rédiger ta liste</span>
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                    <li style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                      Les <strong style={{ color: 'var(--text-main)' }}>noms allemands</strong> doivent toujours être précédés de leur article : <strong style={{ color: 'var(--warning)' }}>der / die / das</strong><br/>
+                      <span style={{ opacity: 0.7 }}>ex : <em>die Katze</em>, <em>der Hund</em>, <em>das Haus</em></span>
+                    </li>
+                    <li style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                      Le caractère <strong style={{ color: 'var(--text-main)' }}>ß</strong> doit être remplacé par <strong style={{ color: 'var(--warning)' }}>ss</strong> (le clavier ne le supporte pas toujours)<br/>
+                      <span style={{ opacity: 0.7 }}>ex : <em>Großmutter</em> → <em>Grossmutter</em></span>
+                    </li>
+                  </ul>
                 </div>
 
                 {/* Table */}
