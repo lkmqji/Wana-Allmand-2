@@ -365,15 +365,23 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
                   <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '2px' }}>nb de mots</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', padding: '4px 8px' }}>
-                    <button onClick={() => setSoloWordCount(v => Math.max(1, parseInt(v) - 1))} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 2px' }}>&#9664;</button>
+                    <button onClick={() => setSoloWordCount(v => Math.max(1, (parseInt(v) || 1) - 1))} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 2px' }}>&#9664;</button>
                     <input
                       type="number"
                       min="1"
                       value={soloWordCount}
-                      onChange={(e) => setSoloWordCount(Math.max(1, parseInt(e.target.value) || 1))}
+                      onChange={(e) => setSoloWordCount(e.target.value)}
+                      onBlur={(e) => {
+                        const val = parseInt(e.target.value);
+                        const allWords = [];
+                        exampleLists.forEach(l => allWords.push(...l.words));
+                        publicLists.forEach(l => allWords.push(...l.words));
+                        const max = allWords.length || 100;
+                        setSoloWordCount(!val || val < 1 ? max : val);
+                      }}
                       style={{ width: '40px', background: 'none', border: 'none', color: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: '1rem', outline: 'none', MozAppearance: 'textfield' }}
                     />
-                    <button onClick={() => setSoloWordCount(v => parseInt(v) + 1)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 2px' }}>&#9654;</button>
+                    <button onClick={() => setSoloWordCount(v => (parseInt(v) || 0) + 1)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 2px' }}>&#9654;</button>
                   </div>
                 </div>
                 <button className="btn btn-success" onClick={handlePlaySolo} style={{ flex: 1, padding: '0.8rem' }}>

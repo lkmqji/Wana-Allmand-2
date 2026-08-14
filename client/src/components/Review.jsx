@@ -183,7 +183,11 @@ export default function Review({ vocabList, onCreateSession, user, setView, edit
                 type="number" 
                 className="input-field" 
                 value={rounds} 
-                onChange={(e) => setRounds(Math.min(words.length, Math.max(1, parseInt(e.target.value) || 1)))} 
+                onChange={(e) => setRounds(e.target.value)}
+                onBlur={(e) => {
+                  const val = parseInt(e.target.value);
+                  setRounds(!val || val < 1 ? words.length : Math.min(words.length, val));
+                }}
                 min="1" 
                 max={words.length}
               />
