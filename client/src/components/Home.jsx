@@ -11,6 +11,8 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
   const [publicLists, setPublicLists] = useState([]);
   const [isConnected, setIsConnected] = useState(true);
   const [soloWordCount, setSoloWordCount] = useState(10);
+  const [showWordEditor, setShowWordEditor] = useState(false);
+  const [manualWords, setManualWords] = useState([{ id: 1, question: '', answer: '' }]);
   const [selectedListIds, setSelectedListIds] = useState(new Set());
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(() => {
     const saved = localStorage.getItem('autoSaveEnabled');
@@ -359,14 +361,15 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
 
             <div style={{ width: '100%', maxWidth: '300px', marginTop: '1rem', borderTop: '2px dashed rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <input 
-                  type="number" 
-                  min="1" 
-                  max="100" 
-                  value={soloWordCount}
-                  onChange={(e) => setSoloWordCount(e.target.value)}
-                  style={{ width: '60px', padding: '0.8rem 0', borderRadius: '12px', border: 'none', background: 'rgba(255,255,255,0.1)', color: 'white', textAlign: 'center', fontSize: '1rem', fontWeight: 'bold' }}
-                />
+                {/* Arrow spinner */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '2px' }}>nb de mots</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', padding: '4px 8px' }}>
+                    <button onClick={() => setSoloWordCount(v => Math.max(1, parseInt(v) - 1))} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 2px' }}>&#9664;</button>
+                    <span style={{ minWidth: '28px', textAlign: 'center', fontWeight: 'bold', fontSize: '1rem', color: 'white' }}>{soloWordCount}</span>
+                    <button onClick={() => setSoloWordCount(v => parseInt(v) + 1)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 2px' }}>&#9654;</button>
+                  </div>
+                </div>
                 <button className="btn btn-success" onClick={handlePlaySolo} style={{ flex: 1, padding: '0.8rem' }}>
                   JOUER SOLO
                 </button>
@@ -378,6 +381,13 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
             <h3 style={{ fontSize: '1.2rem', margin: '1rem 0 0 0' }}>Créer une nouvelle session</h3>
             
             <div className="mobile-stack">
+              {/* Bouton Écrire tes mots */}
+              <div className="card" style={{ flex: 1, cursor: 'pointer' }} onClick={() => setShowWordEditor(true)}>
+                <h4 style={{ marginBottom: '0.5rem' }}>✏️ Écrire tes mots</h4>
+                <p className="text-muted" style={{ fontSize: '0.85rem' }}>Crée ta liste manuellement</p>
+              </div>
+
+              {/* PDF */}
               <div className="card" style={{ flex: 1 }}>
                 <h4 style={{ marginBottom: '1rem' }}>📤 Importer un PDF</h4>
                 <label className="btn btn-secondary" style={{ width: '100%', cursor: isUploading ? 'wait' : 'pointer' }}>
@@ -385,51 +395,103 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
                   <input type="file" accept=".pdf" style={{ display: 'none' }} onChange={handleUpload} disabled={isUploading} />
                 </label>
               </div>
+            </div>
 
+            {/* Blurred cards */}
+            <div className="mobile-stack">
               <div className="card" style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                   <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
                 </div>
                 <h4 style={{ marginBottom: '1rem' }}>🎨 Génération IA</h4>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  placeholder="Thème (ex: Animaux)" 
-                  value={themeInput}
-                  onChange={(e) => setThemeInput(e.target.value)}
-                  style={{ marginBottom: '1rem', padding: '0.8rem 1rem' }}
-                />
-                <button 
-                  onClick={handleGenerateTheme}
-                  className="btn btn-secondary"
-                  disabled={isGeneratingTheme}
-                >
-                  {isGeneratingTheme ? 'Génération...' : 'Créer'}
-                </button>
+                <input type="text" className="input-field" placeholder="Thème (ex: Animaux)" value={themeInput} onChange={(e) => setThemeInput(e.target.value)} style={{ marginBottom: '1rem', padding: '0.8rem 1rem' }} />
+                <button onClick={handleGenerateTheme} className="btn btn-secondary" disabled={isGeneratingTheme}>{isGeneratingTheme ? 'Génération...' : 'Créer'}</button>
               </div>
-            </div>
-
-            <div className="card" style={{ position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
+              <div className="card" style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
+                </div>
+                <h4 style={{ marginBottom: '1rem' }}>📝 Coller du Texte</h4>
+                <textarea className="input-field" rows={3} value={rawText} onChange={(e) => setRawText(e.target.value)} style={{ fontFamily: 'monospace', fontSize: '0.9rem', marginBottom: '1rem' }} />
+                <button onClick={() => handleExtractAI()} className="btn btn-secondary" disabled={isExtracting}>{isExtracting ? 'Extraction...' : 'Extraire avec IA'}</button>
               </div>
-              <h4 style={{ marginBottom: '1rem' }}>📝 Coller du Texte</h4>
-              <textarea 
-                className="input-field" 
-                rows={3}
-                value={rawText}
-                onChange={(e) => setRawText(e.target.value)}
-                style={{ fontFamily: 'monospace', fontSize: '0.9rem', marginBottom: '1rem' }}
-              />
-              <button 
-                onClick={() => handleExtractAI()}
-                className="btn btn-secondary"
-                disabled={isExtracting}
-              >
-                {isExtracting ? 'Extraction...' : 'Extraire avec IA'}
-              </button>
             </div>
           </div>
+
+          {/* ---- WORD EDITOR MODAL ---- */}
+          {showWordEditor && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: '2rem 1rem', overflowY: 'auto' }}>
+              <div className="card" style={{ width: '100%', maxWidth: '700px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                  <h2 style={{ margin: 0 }}>✏️ Écrire tes mots</h2>
+                  <button onClick={() => setShowWordEditor(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+                </div>
+
+                {/* Table */}
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                        <th style={{ padding: '0.5rem', width: '40px', color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center' }}>#</th>
+                        <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Mot Fr / Ang</th>
+                        <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Mot Allemand</th>
+                        <th style={{ width: '40px' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {manualWords.map((w, idx) => (
+                        <tr key={w.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 'bold', fontSize: '0.9rem' }}>{idx + 1}</td>
+                          <td style={{ padding: '0.5rem' }}>
+                            <input
+                              type="text"
+                              value={w.question}
+                              onChange={(e) => setManualWords(prev => prev.map(x => x.id === w.id ? { ...x, question: e.target.value } : x))}
+                              placeholder="ex: la maison / the house"
+                              style={{ width: '100%', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.5rem 0.75rem', color: 'var(--text-main)', fontSize: '0.95rem' }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.5rem' }}>
+                            <input
+                              type="text"
+                              value={w.answer}
+                              onChange={(e) => setManualWords(prev => prev.map(x => x.id === w.id ? { ...x, answer: e.target.value } : x))}
+                              placeholder="ex: das Haus"
+                              style={{ width: '100%', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.5rem 0.75rem', color: 'var(--text-main)', fontSize: '0.95rem' }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                            <button onClick={() => setManualWords(prev => prev.filter(x => x.id !== w.id))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '1.1rem' }}>✕</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <button
+                  onClick={() => setManualWords(prev => [...prev, { id: Date.now(), question: '', answer: '' }])}
+                  style={{ marginTop: '1rem', background: 'none', border: '2px dashed var(--border-color)', borderRadius: '10px', color: 'var(--text-muted)', padding: '0.6rem', width: '100%', cursor: 'pointer', fontSize: '0.95rem' }}
+                >
+                  + Ajouter une ligne
+                </button>
+
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                  <button onClick={() => setShowWordEditor(false)} className="btn btn-secondary" style={{ flex: 1 }}>Annuler</button>
+                  <button
+                    className="btn btn-primary"
+                    style={{ flex: 2 }}
+                    onClick={() => {
+                      const valid = manualWords.filter(w => w.question.trim() && w.answer.trim());
+                      if (valid.length === 0) return alert('Ajoute au moins un mot !');
+                      setVocabListForReview(valid.map((w, i) => ({ ...w, id: i + 1 })));
+                      setShowWordEditor(false);
+                    }}
+                  >
+                    CONTINUER →
+                  </button>
+                </div>
+              </div>
         </>
       )}
 
