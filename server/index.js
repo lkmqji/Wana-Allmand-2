@@ -8,6 +8,7 @@ const gameManager = require('./game/GameManager');
 const mongoose = require('mongoose');
 const List = require('./models/List');
 const User = require('./models/User');
+const Config = require('./models/Config');
 require('dotenv').config();
 
 // MongoDB Connection
@@ -28,6 +29,35 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 const upload = multer({ storage: multer.memoryStorage() });
+
+// ---- PUBLIC CONFIG ENDPOINT (for app to read guest mode etc.) ----
+app.get('/api/config', async (req, res) => {
+    try {
+        let config = await Config.findOne({ key: 'app_config' });
+        if (!config) config = await Config.create({ key: 'app_config' });
+        res.json({ guestMode: config.guestMode });
+    } catch (err) {
+        res.status(500).json({ error: 'Config error' });
+    }
+});
+
+// ---- ADMIN CONFIG ENDPOINT (protected by ADMIN_UID env var) ----
+app.post('/api/admin/config', async (req, res) => {
+    const { adminUid, setting, value } = req.body;
+    if (!process.env.ADMIN_UID || adminUid !== process.env.ADMIN_UID) {
+        return res.status(403).json({ error: 'Accès refusé.' });
+    }
+    try {
+        let config = await Config.findOne({ key: 'app_config' });
+        if (!config) config = await Config.create({ key: 'app_config' });
+        config[setting] = value;
+        config.updatedAt = new Date();
+        await config.save();
+        res.json({ success: true, [setting]: value });
+    } catch (err) {
+        res.status(500).json({ error: 'Config update error' });
+    }
+});
 
 // Endpoint for PDF upload
 app.post('/api/upload', upload.single('pdf'), async (req, res) => {

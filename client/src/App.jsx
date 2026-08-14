@@ -6,6 +6,7 @@ import Game from './components/Game';
 import Results from './components/Results';
 import Review from './components/Review';
 import Layout from './components/Layout';
+import Admin from './components/Admin';
 import { auth, loginWithGoogle, logout, deleteAccount } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -30,12 +31,27 @@ function App() {
   const [user, setUser] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [serverGuestMode, setServerGuestMode] = useState(true); // from server config
   const [theme, setTheme] = useState('dark');
   const [leaderboard, setLeaderboard] = useState([]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  // Detect ?admin in URL
+  useEffect(() => {
+    if (window.location.search.includes('admin')) setShowAdmin(true);
+  }, []);
+
+  // Fetch server config (guest mode etc.)
+  useEffect(() => {
+    fetch(`${API_URL}/api/config`)
+      .then(r => r.json())
+      .then(data => setServerGuestMode(data.guestMode ?? true))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -225,13 +241,15 @@ function App() {
               Se connecter avec Google
             </button>
 
-            <button
-              onClick={() => setIsGuest(true)}
-              className="btn btn-secondary"
-              style={{ width: '100%', fontSize: '1rem', padding: '0.75rem', opacity: 0.8 }}
-            >
-              👤 Continuer en tant qu'invité
-            </button>
+            {serverGuestMode && (
+              <button
+                onClick={() => setIsGuest(true)}
+                className="btn btn-secondary"
+                style={{ width: '100%', fontSize: '1rem', padding: '0.75rem', opacity: 0.8 }}
+              >
+                👤 Continuer en tant qu'invité
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -295,6 +313,9 @@ function App() {
       {view === 'lobby' && <Lobby socket={socket} session={session} players={players} isHost={isHost} setView={setView} />}
       {view === 'results' && <Results players={players} setView={setView} socket={socket} session={session} isHost={isHost} setVocabListForReview={setVocabListForReview} />}
     </Layout>
+
+    {/* Admin Panel */}
+    {showAdmin && <Admin user={user} onClose={() => setShowAdmin(false)} />}
   );
 }
 
