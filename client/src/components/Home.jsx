@@ -361,12 +361,18 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
 
             <div style={{ width: '100%', maxWidth: '300px', marginTop: '1rem', borderTop: '2px dashed rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                {/* Arrow spinner */}
+                {/* Arrow spinner with editable input */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
                   <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '2px' }}>nb de mots</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', padding: '4px 8px' }}>
                     <button onClick={() => setSoloWordCount(v => Math.max(1, parseInt(v) - 1))} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 2px' }}>&#9664;</button>
-                    <span style={{ minWidth: '28px', textAlign: 'center', fontWeight: 'bold', fontSize: '1rem', color: 'white' }}>{soloWordCount}</span>
+                    <input
+                      type="number"
+                      min="1"
+                      value={soloWordCount}
+                      onChange={(e) => setSoloWordCount(Math.max(1, parseInt(e.target.value) || 1))}
+                      style={{ width: '40px', background: 'none', border: 'none', color: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: '1rem', outline: 'none', MozAppearance: 'textfield' }}
+                    />
                     <button onClick={() => setSoloWordCount(v => parseInt(v) + 1)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 2px' }}>&#9654;</button>
                   </div>
                 </div>
@@ -380,40 +386,51 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <h3 style={{ fontSize: '1.2rem', margin: '1rem 0 0 0' }}>Créer une nouvelle session</h3>
             
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              {/* LEFT: Écrire tes mots + Importer PDF stacked */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1, minWidth: '200px' }}>
-                <div className="card" style={{ cursor: 'pointer' }} onClick={() => setShowWordEditor(true)}>
-                  <h4>✏️ Écrire tes mots</h4>
+            {/* 3 big boxes */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+
+              {/* BOX 1 : Écrire tes mots + Importer PDF */}
+              <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ cursor: 'pointer', padding: '0.75rem', border: '2px solid var(--border-color)', borderRadius: '12px', transition: 'all 0.2s' }}
+                  onClick={() => setShowWordEditor(true)}
+                  onMouseOver={e => e.currentTarget.style.borderColor='var(--primary)'}
+                  onMouseOut={e => e.currentTarget.style.borderColor='var(--border-color)'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '1.3rem' }}>✏️</span>
+                    <span style={{ fontWeight: 'bold' }}>Écrire tes mots</span>
+                  </div>
                 </div>
-                <div className="card">
-                  <h4 style={{ marginBottom: '0.75rem' }}>📤 Importer un PDF</h4>
-                  <label className="btn btn-secondary" style={{ width: '100%', cursor: isUploading ? 'wait' : 'pointer' }}>
-                    {isUploading ? 'Analyse...' : 'Parcourir'}
-                    <input type="file" accept=".pdf" style={{ display: 'none' }} onChange={handleUpload} disabled={isUploading} />
-                  </label>
-                </div>
+                <label style={{ cursor: isUploading ? 'wait' : 'pointer', padding: '0.75rem', border: '2px solid var(--border-color)', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', transition: 'all 0.2s' }}
+                  onMouseOver={e => e.currentTarget.style.borderColor='var(--primary)'}
+                  onMouseOut={e => e.currentTarget.style.borderColor='var(--border-color)'}
+                >
+                  <span style={{ fontSize: '1.3rem' }}>📤</span>
+                  <span style={{ fontWeight: 'bold' }}>{isUploading ? 'Analyse...' : 'Importer un PDF'}</span>
+                  <input type="file" accept=".pdf" style={{ display: 'none' }} onChange={handleUpload} disabled={isUploading} />
+                </label>
               </div>
 
-              {/* RIGHT: Blurred card */}
-              <div style={{ flex: 1, minWidth: '200px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div className="card" style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-                  <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
-                  </div>
-                  <h4 style={{ marginBottom: '1rem' }}>🎨 Génération IA</h4>
-                  <input type="text" className="input-field" placeholder="Thème (ex: Animaux)" value={themeInput} onChange={(e) => setThemeInput(e.target.value)} style={{ marginBottom: '1rem', padding: '0.8rem 1rem' }} />
-                  <button onClick={handleGenerateTheme} className="btn btn-secondary" disabled={isGeneratingTheme}>{isGeneratingTheme ? 'Génération...' : 'Créer'}</button>
+              {/* BOX 2 : Génération IA (blurred) */}
+              <div className="card" style={{ position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
                 </div>
-                <div className="card" style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-                  <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
-                  </div>
-                  <h4 style={{ marginBottom: '1rem' }}>📝 Coller du Texte</h4>
-                  <textarea className="input-field" rows={3} value={rawText} onChange={(e) => setRawText(e.target.value)} style={{ fontFamily: 'monospace', fontSize: '0.9rem', marginBottom: '1rem' }} />
-                  <button onClick={() => handleExtractAI()} className="btn btn-secondary" disabled={isExtracting}>{isExtracting ? 'Extraction...' : 'Extraire avec IA'}</button>
-                </div>
+                <h4 style={{ marginBottom: '1rem' }}>🎨 Génération IA</h4>
+                <input type="text" className="input-field" placeholder="Thème" value={themeInput} onChange={(e) => setThemeInput(e.target.value)} style={{ marginBottom: '1rem', padding: '0.8rem 1rem' }} />
+                <button className="btn btn-secondary" disabled>Créer</button>
               </div>
+
+              {/* BOX 3 : Coller du texte (blurred) */}
+              <div className="card" style={{ position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
+                </div>
+                <h4 style={{ marginBottom: '1rem' }}>📝 Coller du Texte</h4>
+                <textarea className="input-field" rows={3} value={rawText} onChange={(e) => setRawText(e.target.value)} style={{ fontFamily: 'monospace', fontSize: '0.9rem', marginBottom: '1rem' }} />
+                <button className="btn btn-secondary" disabled>Extraire avec IA</button>
+              </div>
+
             </div>
           </div>
 
