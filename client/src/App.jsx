@@ -29,6 +29,7 @@ function App() {
   const [editingListInfo, setEditingListInfo] = useState(null);
   const [user, setUser] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
   const [theme, setTheme] = useState('dark');
   const [leaderboard, setLeaderboard] = useState([]);
 
@@ -169,7 +170,7 @@ function App() {
     );
   }
 
-  if (!user) {
+  if (!user && !isGuest) {
     return (
       <div className="app-container" style={{
         display: 'flex',
@@ -223,6 +224,14 @@ function App() {
               </svg>
               Se connecter avec Google
             </button>
+
+            <button
+              onClick={() => setIsGuest(true)}
+              className="btn btn-secondary"
+              style={{ width: '100%', fontSize: '1rem', padding: '0.75rem', opacity: 0.8 }}
+            >
+              👤 Continuer en tant qu'invité
+            </button>
           </div>
         </div>
       </div>
@@ -263,10 +272,12 @@ function App() {
           setAvatar={setAvatar}
           user={user}
           loginWithGoogle={loginWithGoogle}
-          logout={logout}
+          logout={() => { logout(); setIsGuest(false); }}
           deleteAccount={deleteAccount}
           activeTab={activeTab}
           leaderboard={leaderboard}
+          isGuest={isGuest}
+          setIsGuest={setIsGuest}
         />
       )}
       {view === 'review' && (
