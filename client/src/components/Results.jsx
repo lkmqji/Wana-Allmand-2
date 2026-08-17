@@ -18,6 +18,10 @@ export default function Results({ players, setView, socket, session, isHost, pla
   const [incomingProposal, setIncomingProposal] = useState(null); // { requesterName, requesterAvatar, failedWords, requesterSocketId }
   const [waitingForProposalResp, setWaitingForProposalResp] = useState(false);
 
+  // Proposal for standard rematch
+  const [incomingRematchProposal, setIncomingRematchProposal] = useState(null); // { requesterName, requesterAvatar, requesterSocketId }
+  const [waitingForRematchResp, setWaitingForRematchResp] = useState(false);
+
   useEffect(() => {
     if (!isDraw && winner) {
       const duration = 3 * 1000;
@@ -47,7 +51,7 @@ export default function Results({ players, setView, socket, session, isHost, pla
     }
   }, [isDraw, winner]);
 
-  // Chat message listener & failed words proposal listeners
+  // Chat message listener & proposal listeners (failed words + rematch)
   useEffect(() => {
     const handleChatMessage = (msg) => {
       setChatMessages(prev => [...prev, msg]);
@@ -73,14 +77,27 @@ export default function Results({ players, setView, socket, session, isHost, pla
       }
     };
 
+    const handleRematchProposal = (proposal) => {
+      setIncomingRematchProposal(proposal);
+    };
+
+    const handleRematchDeclined = ({ declinerName }) => {
+      setWaitingForRematchResp(false);
+      alert(`${declinerName || 'Votre adversaire'} a décliné la demande de revanche.`);
+    };
+
     socket.on('lobby_chat_message', handleChatMessage);
     socket.on('retry_failed_words_proposal', handleRetryProposal);
     socket.on('retry_failed_words_declined', handleRetryDeclined);
+    socket.on('rematch_proposal', handleRematchProposal);
+    socket.on('rematch_declined', handleRematchDeclined);
 
     return () => {
       socket.off('lobby_chat_message', handleChatMessage);
       socket.off('retry_failed_words_proposal', handleRetryProposal);
       socket.off('retry_failed_words_declined', handleRetryDeclined);
+      socket.off('rematch_proposal', handleRematchProposal);
+      socket.off('rematch_declined', handleRematchDeclined);
     };
   }, [socket, showChat, session]);
 
@@ -167,6 +184,31 @@ export default function Results({ players, setView, socket, session, isHost, pla
     setIncomingProposal(null);
   };
 
+  const handleRematchClick = () => {
+    if (!session?.id) return alert("Revanche indisponible.");
+    if (isSolo) {
+      socket.emit('rematch', session.id);
+    } else {
+      setWaitingForRematchResp(true);
+      socket.emit('propose_rematch', session.id);
+    }
+  };
+
+  const handleAcceptRematch = () => {
+    if (!session?.id) return;
+    socket.emit('accept_rematch', session.id);
+    setIncomingRematchProposal(null);
+  };
+
+  const handleDeclineRematch = () => {
+    if (!incomingRematchProposal || !session?.id) return;
+    socket.emit('decline_rematch', {
+      sessionId: session.id,
+      requesterSocketId: incomingRematchProposal.requesterSocketId
+    });
+    setIncomingRematchProposal(null);
+  };
+
   const renderDiff = (expected, actual, isCorrect, isTypo) => {
     if (!actual) return <span style={{ color: 'var(--danger)' }}>(Aucune réponse)</span>;
     if (isCorrect || isTypo) return <span style={{ color: 'var(--success)' }}>{actual}</span>;
@@ -192,8 +234,40 @@ export default function Results({ players, setView, socket, session, isHost, pla
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%', textAlign: 'center', position: 'relative' }}>
       
-      {/* Waiting Indicator for multiplayer proposal */}
+      {/* Waiting Indicator for multiplayer failed words proposal */}
       {waitingForProposalResp && (
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.15)',
+          border: '2px solid var(--danger)',
+          borderRadius: '16px',
+          padding: '1rem 1.5rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          textAlign: 'left'
+        }}>
+          <div>
+            <div style={{ fontWeight: 'bold', fontSize: '1rem', color: 'var(--danger)' }}>
+              🎯 Demande de rejouer les fautes envoyée...
+            </div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              En attente de confirmation de votre adversaire.
+            </div>
+          </div>
+          <button
+            onClick={() => setWaitingForProposalResp(false)}
+            className="btn btn-secondary"
+            style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+          >
+            Annuler
+          </button>
+        </div>
+      )}
+
+      {/* Waiting Indicator for multiplayer Rematch */}
+      {waitingForRematchResp && (
         <div style={{
           background: 'rgba(99, 102, 241, 0.15)',
           border: '2px solid var(--primary)',
@@ -208,14 +282,14 @@ export default function Results({ players, setView, socket, session, isHost, pla
         }}>
           <div>
             <div style={{ fontWeight: 'bold', fontSize: '1rem', color: 'var(--primary)' }}>
-              ⏳ Demande envoyée à l'adversaire...
+              🔄 Demande de revanche envoyée...
             </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              En attente de confirmation pour rejouer les mots manqués ensemble.
+              En attente de confirmation de votre adversaire pour retourner au lobby.
             </div>
           </div>
           <button
-            onClick={() => setWaitingForProposalResp(false)}
+            onClick={() => setWaitingForRematchResp(false)}
             className="btn btn-secondary"
             style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
           >
@@ -277,7 +351,7 @@ export default function Results({ players, setView, socket, session, isHost, pla
           <button 
             className="btn btn-secondary" 
             onClick={handleRetryFailedWordsClick} 
-            disabled={waitingForProposalResp}
+            disabled={waitingForProposalResp || waitingForRematchResp}
             style={{ flex: 1.2, borderColor: 'var(--danger)', color: 'var(--danger)', minWidth: '150px' }}
           >
             🎯 {isSolo ? 'Mots manqués' : 'Rejouer les fautes'}
@@ -286,13 +360,11 @@ export default function Results({ players, setView, socket, session, isHost, pla
           {/* Button 3: Rematch (Back to Lobby) */}
           <button 
             className="btn btn-primary" 
-            onClick={() => {
-              if (session?.id) socket.emit('rematch', session.id);
-              else alert("Revanche indisponible.");
-            }} 
+            onClick={handleRematchClick} 
+            disabled={waitingForProposalResp || waitingForRematchResp}
             style={{ flex: 1.8, minWidth: '180px' }}
           >
-            🔄 Revanche (Lobby)
+            🔄 {isSolo ? 'Rejouer (Lobby)' : 'Demander Revanche'}
           </button>
 
           {/* Button 4: Chat Box Toggle */}
@@ -359,7 +431,7 @@ export default function Results({ players, setView, socket, session, isHost, pla
       )}
 
       {/* =========================================================
-          MODAL : DEMANDE DE REJOUER LES FAUTES (MULTIJOUEUR)
+          MODAL 1 : DEMANDE DE REJOUER LES FAUTES (MULTIJOUEUR)
          ========================================================= */}
       {incomingProposal && (
         <div style={{
@@ -406,6 +478,60 @@ export default function Results({ players, setView, socket, session, isHost, pla
                 style={{ flex: 1.2, padding: '0.75rem', background: 'var(--danger)', borderColor: 'var(--danger)' }}
               >
                 Accepter 🎯
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================
+          MODAL 2 : DEMANDE DE REVANCHE STANDARD (MULTIJOUEUR)
+         ========================================================= */}
+      {incomingRematchProposal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 3000,
+          padding: '1rem'
+        }}>
+          <div className="card" style={{
+            maxWidth: '460px',
+            width: '100%',
+            padding: '1.8rem',
+            textAlign: 'center',
+            border: '2px solid var(--primary)',
+            animation: 'fadeIn 0.2s ease-out'
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>⚔️</div>
+            <h3 style={{ fontSize: '1.4rem', marginBottom: '0.8rem', color: 'var(--text-main)' }}>
+              Demande de Revanche !
+            </h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+              <strong>{incomingRematchProposal.requesterName}</strong> vous propose une Revanche !<br />
+              Souhaitez-vous retourner dans la salle d'attente pour rejouer ?
+            </p>
+            <div style={{ display: 'flex', gap: '0.8rem' }}>
+              <button
+                onClick={handleDeclineRematch}
+                className="btn btn-secondary"
+                style={{ flex: 1, padding: '0.75rem' }}
+              >
+                Refuser ✕
+              </button>
+              <button
+                onClick={handleAcceptRematch}
+                className="btn btn-primary"
+                style={{ flex: 1.2, padding: '0.75rem' }}
+              >
+                Accepter ⚔️
               </button>
             </div>
           </div>

@@ -806,6 +806,58 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Propose rematch to opponent
+    socket.on('propose_rematch', (sessionId) => {
+        const session = gameManager.getSession(sessionId);
+        if (!session) return;
+        const requester = onlineUsers.get(socket.id) || { name: 'Un joueur', avatar: '🔄' };
+        socket.to(sessionId).emit('rematch_proposal', {
+            requesterSocketId: socket.id,
+            requesterName: requester.name,
+            requesterAvatar: requester.avatar
+        });
+    });
+
+    // Accept rematch
+    socket.on('accept_rematch', (sessionId) => {
+        const session = gameManager.getSession(sessionId);
+        if (session) {
+            clearTimeout(session.roundTimer);
+            clearTimeout(session.autoAdvanceTimer);
+            session.status = 'waiting';
+            session.currentQuestionIndex = -1;
+            session.answersThisRound = 0;
+            session.readyPlayers = new Set();
+            for (const pId in session.players) {
+                session.players[pId].score = 0;
+                session.players[pId].answers = {};
+                const u = onlineUsers.get(pId);
+                if (u) {
+                    u.status = 'in_lobby';
+                    u.sessionId = sessionId;
+                }
+            }
+            broadcastOnlineUsers();
+            io.to(sessionId).emit('session_joined', session); // Send back to lobby
+            io.to(sessionId).emit('lobby_chat_message', {
+                id: Math.random().toString(36).substring(2, 9),
+                isSystem: true,
+                text: `🔄 Revanche acceptée ! De retour dans la salle d'attente.`,
+                timestamp: Date.now()
+            });
+        }
+    });
+
+    // Decline rematch
+    socket.on('decline_rematch', ({ sessionId, requesterSocketId }) => {
+        const decliner = onlineUsers.get(socket.id) || { name: 'L\'adversaire' };
+        if (requesterSocketId) {
+            io.to(requesterSocketId).emit('rematch_declined', {
+                declinerName: decliner.name
+            });
+        }
+    });
+
     // Propose to retry failed words together
     socket.on('propose_retry_failed_words', ({ sessionId, failedWords }) => {
         const session = gameManager.getSession(sessionId);
