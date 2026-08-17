@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { exampleLists } from '../data/exampleLists';
 
 export default function Home({ socket, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout, deleteAccount, activeTab, leaderboard, isGuest, setIsGuest, isAdmin, onOpenAdmin }) {
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
@@ -54,63 +55,6 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
       alert("Erreur lors de la suppression. Vous devez peut-être vous reconnecter d'abord.");
     }
   };
-
-  const exampleLists = [
-    {
-      id: 'ex1',
-      title: 'Chapitre 1 : La Maison & les Objets',
-      subtitle: '(Haus & Gegenstände)',
-      count: '10 mots répertoriés',
-      words: [
-        { id: 1, question: 'la table', answer: 'der Tisch' },
-        { id: 2, question: 'la chaise', answer: 'der Stuhl' },
-        { id: 3, question: 'la maison', answer: 'das Haus' },
-        { id: 4, question: 'la porte', answer: 'die Tür' },
-        { id: 5, question: 'la fenêtre', answer: 'das Fenster' },
-        { id: 6, question: 'le lit', answer: 'das Bett' },
-        { id: 7, question: 'l\'armoire', answer: 'der Schrank' },
-        { id: 8, question: 'la lampe', answer: 'die Lampe' },
-        { id: 9, question: 'la clé', answer: 'der Schlüssel' },
-        { id: 10, question: 'le jardin', answer: 'der Garten' },
-      ]
-    },
-    {
-      id: 'ex2',
-      title: 'Chapitre 2 : La Nourriture & Boissons',
-      subtitle: '(Essen & Trinken)',
-      count: '10 mots répertoriés',
-      words: [
-        { id: 1, question: 'le pain', answer: 'das Brot' },
-        { id: 2, question: 'l\'eau', answer: 'das Wasser' },
-        { id: 3, question: 'le fromage', answer: 'der Käse' },
-        { id: 4, question: 'la pomme', answer: 'der Apfel' },
-        { id: 5, question: 'le café', answer: 'der Kaffee' },
-        { id: 6, question: 'le lait', answer: 'die Milch' },
-        { id: 7, question: 'le beurre', answer: 'die Butter' },
-        { id: 8, question: 'la bière', answer: 'das Bier' },
-        { id: 9, question: 'le sel', answer: 'das Salz' },
-        { id: 10, question: 'le sucre', answer: 'der Zucker' },
-      ]
-    },
-    {
-      id: 'ex3',
-      title: 'Chapitre 3 : Verbes Essentiels',
-      subtitle: '(Wichtige Verben)',
-      count: '10 mots répertoriés',
-      words: [
-        { id: 1, question: 'être', answer: 'sein' },
-        { id: 2, question: 'avoir', answer: 'haben' },
-        { id: 3, question: 'faire', answer: 'machen' },
-        { id: 4, question: 'aller', answer: 'gehen' },
-        { id: 5, question: 'venir', answer: 'kommen' },
-        { id: 6, question: 'parler', answer: 'sprechen' },
-        { id: 7, question: 'manger', answer: 'essen' },
-        { id: 8, question: 'boire', answer: 'trinken' },
-        { id: 9, question: 'dormir', answer: 'schlafen' },
-        { id: 10, question: 'comprendre', answer: 'verstehen' },
-      ]
-    }
-  ];
 
   useEffect(() => {
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';

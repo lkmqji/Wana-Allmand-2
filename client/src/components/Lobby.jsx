@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { exampleLists, getAllDefaultWords } from '../data/exampleLists';
 
 export default function Lobby({ socket, session, players, isHost, setView, onlineUsers = [], playerName, avatar, user }) {
   // Tabs: 'chat', 'online', 'words', 'settings'
@@ -15,6 +16,11 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
   const [settings, setSettings] = useState(session?.settings || { rounds: (session?.vocabList || []).length || 10, timePerWord: 15, powerupsEnabled: false });
   const [savingList, setSavingList] = useState(false);
   const [customListName, setCustomListName] = useState('');
+
+  // Community list picker state
+  const [showCommunityPicker, setShowCommunityPicker] = useState(false);
+  const [publicLists, setPublicLists] = useState([]);
+  const [loadingPublicLists, setLoadingPublicLists] = useState(false);
 
   // Keep a ref of original words to detect real changes on blur
   const wordsRef = useRef(session?.vocabList || []);
@@ -41,6 +47,21 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
   useEffect(() => {
     socket.emit('get_online_users');
   }, [socket]);
+
+  // Fetch public community lists when modal opens
+  useEffect(() => {
+    if (showCommunityPicker) {
+      setLoadingPublicLists(true);
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      fetch(`${API_URL}/api/lists/public`)
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data)) setPublicLists(data);
+        })
+        .catch(console.error)
+        .finally(() => setLoadingPublicLists(false));
+    }
+  }, [showCommunityPicker]);
 
   // Auto-scroll chat on new message
   useEffect(() => {
@@ -175,6 +196,79 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
       sessionId: session?.id,
       vocabList: updated,
       changeDescription: `Mot supprimé : "${deletedWord?.question || '...'}" (${updated.length} mots restants)`
+    });
+  };
+
+  // 1. Host settings: Adjust total word count with random word selection
+  const handleWordCountChange = (newCount) => {
+    if (!isHost || newCount < 1) return;
+    let updated = [...words];
+
+    if (newCount > words.length) {
+      // Pick extra random words from the vocabulary pool
+      const pool = getAllDefaultWords().filter(
+        pw => !updated.some(uw => uw.question.toLowerCase() === pw.question.toLowerCase())
+      );
+      const shuffledPool = pool.sort(() => Math.random() - 0.5);
+      const needed = newCount - words.length;
+      const added = shuffledPool.slice(0, needed).map((w, i) => ({ ...w, id: words.length + i + 1 }));
+      updated = [...updated, ...added];
+    } else if (newCount < words.length) {
+      updated = updated.slice(0, newCount);
+    }
+
+    const newSettings = { ...settings, rounds: Math.min(newCount, updated.length) };
+    setWords(updated);
+    wordsRef.current = updated;
+    setSettings(newSettings);
+
+    socket.emit('update_session_words', {
+      sessionId: session?.id,
+      vocabList: updated,
+      changeDescription: `Nombre de mots ajusté à ${updated.length} (sélection aléatoire) 🎲`
+    });
+
+    socket.emit('update_session_settings', {
+      sessionId: session?.id,
+      settings: newSettings,
+      changeDescription: `Partie configurée à ${newSettings.rounds} questions`
+    });
+  };
+
+  // 2. Shuffle all words at once
+  const handleShuffleWords = () => {
+    if (words.length <= 1) return;
+    const shuffled = [...words].sort(() => Math.random() - 0.5).map((w, idx) => ({ ...w, id: idx + 1 }));
+    setWords(shuffled);
+    wordsRef.current = shuffled;
+    socket.emit('update_session_words', {
+      sessionId: session?.id,
+      vocabList: shuffled,
+      changeDescription: `L'hôte a mélangé la liste des mots (${shuffled.length} mots) 🎲`
+    });
+  };
+
+  // 3. Load chosen list from community / default library
+  const handleLoadPredefinedList = (selectedList) => {
+    if (!selectedList?.words || selectedList.words.length === 0) return;
+    const formatted = selectedList.words.map((w, i) => ({ ...w, id: i + 1 }));
+    const newSettings = { ...settings, rounds: formatted.length };
+
+    setWords(formatted);
+    wordsRef.current = formatted;
+    setSettings(newSettings);
+    setShowCommunityPicker(false);
+
+    socket.emit('update_session_words', {
+      sessionId: session?.id,
+      vocabList: formatted,
+      changeDescription: `L'hôte a chargé la liste : "${selectedList.title || selectedList.name}" (${formatted.length} mots) 📚`
+    });
+
+    socket.emit('update_session_settings', {
+      sessionId: session?.id,
+      settings: newSettings,
+      changeDescription: `Nombre de questions ajusté à ${formatted.length}`
     });
   };
 
@@ -571,17 +665,43 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 marginBottom: '0.4rem',
-                fontSize: '0.8rem',
-                color: 'var(--text-muted)'
+                gap: '0.4rem',
+                flexWrap: 'wrap'
               }}>
-                <span>✏️ Modifiez ou ajoutez des mots (validation à la fin de la saisie) :</span>
-                <button
-                  onClick={handleAddWord}
-                  className="btn btn-secondary"
-                  style={{ width: 'auto', padding: '0.25rem 0.6rem', fontSize: '0.75rem' }}
-                >
-                  + Ajouter un mot
-                </button>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  ✏️ Liste ({words.length} mots) :
+                </span>
+
+                {/* Host Action Buttons in Words Tab */}
+                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                  {words.length > 1 && (
+                    <button
+                      onClick={handleShuffleWords}
+                      className="btn btn-secondary"
+                      style={{ width: 'auto', padding: '0.25rem 0.55rem', fontSize: '0.75rem' }}
+                      title="Mélanger l'ordre de tous les mots"
+                    >
+                      🎲 Mélanger
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => setShowCommunityPicker(true)}
+                    className="btn btn-secondary"
+                    style={{ width: 'auto', padding: '0.25rem 0.55rem', fontSize: '0.75rem' }}
+                    title="Choisir parmi les listes par défaut ou communautaires"
+                  >
+                    📚 Choisir une liste
+                  </button>
+
+                  <button
+                    onClick={handleAddWord}
+                    className="btn btn-primary"
+                    style={{ width: 'auto', padding: '0.25rem 0.55rem', fontSize: '0.75rem' }}
+                  >
+                    + Mot
+                  </button>
+                </div>
               </div>
             )}
 
@@ -595,8 +715,49 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
               marginBottom: '0.4rem'
             }}>
               {words.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  Aucun mot dans la session.
+                /* Empty state when all words were deleted / empty */
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '2rem 1rem',
+                  background: 'var(--bg-main)',
+                  borderRadius: '12px',
+                  border: '2px dashed var(--border-color)',
+                  textAlign: 'center',
+                  gap: '0.8rem'
+                }}>
+                  <span style={{ fontSize: '2rem' }}>📭</span>
+                  <div>
+                    <h4 style={{ margin: '0 0 0.2rem 0', fontSize: '0.95rem' }}>La liste des mots est vide</h4>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Choisissez une liste prête à l'emploi ou ajoutez vos propres mots.
+                    </p>
+                  </div>
+
+                  {isHost ? (
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                      <button
+                        onClick={() => setShowCommunityPicker(true)}
+                        className="btn btn-primary"
+                        style={{ width: 'auto', padding: '0.45rem 0.9rem', fontSize: '0.8rem' }}
+                      >
+                        📚 Choisir une liste de la communauté
+                      </button>
+                      <button
+                        onClick={handleAddWord}
+                        className="btn btn-secondary"
+                        style={{ width: 'auto', padding: '0.45rem 0.9rem', fontSize: '0.8rem' }}
+                      >
+                        + Ajouter un mot
+                      </button>
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      En attente de l'hôte pour ajouter des mots...
+                    </span>
+                  )}
                 </div>
               ) : (
                 words.map((w, idx) => (
@@ -664,7 +825,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
             </div>
 
             {/* Quick Save List to account */}
-            {user && isHost && (
+            {user && isHost && words.length > 0 && (
               <div style={{ display: 'flex', gap: '0.4rem', paddingTop: '0.3rem', borderTop: '1px solid var(--border-color)' }}>
                 <input
                   type="text"
@@ -718,10 +879,45 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
               borderRadius: '12px',
               border: '1px solid var(--border-color)'
             }}>
+              {/* Option 1: Nombre de mots dans la liste (sélection aléatoire auto) */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
+                  🎲 Nombre de mots dans la liste :
+                </label>
+                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={words.length}
+                    disabled={!isHost}
+                    min={1}
+                    max={100}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 1;
+                      handleWordCountChange(val);
+                    }}
+                    style={{ flex: 1, padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}
+                  />
+                  {isHost && (
+                    <button
+                      onClick={handleShuffleWords}
+                      className="btn btn-secondary"
+                      style={{ width: 'auto', padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                      title="Mélanger les mots"
+                    >
+                      🎲
+                    </button>
+                  )}
+                </div>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.2rem' }}>
+                  Ajuste et complète avec des mots aléatoires.
+                </span>
+              </div>
+
               {/* Rounds */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
-                  Nombre de questions :
+                  🎯 Questions à jouer :
                 </label>
                 <input
                   type="number"
@@ -736,13 +932,13 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                   }}
                   style={{ padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}
                 />
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Total disponible : {words.length}</span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Mots dispos : {words.length}</span>
               </div>
 
               {/* Time per word */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
-                  Temps par mot :
+                  ⏱️ Temps par mot :
                 </label>
                 <select
                   className="input-field"
@@ -764,7 +960,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
               {/* Powerups toggle */}
               <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
-                  Pouvoirs de gel 🥶 :
+                  🥶 Pouvoirs de gel :
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: isHost ? 'pointer' : 'default' }}>
                   <input
@@ -897,6 +1093,167 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
         </div>
 
       </div>
+
+      {/* =========================================================
+          MODAL DE SÉLECTION DE LISTES COMMUNAUTAIRES / PAR DÉFAUT
+         ========================================================= */}
+      {showCommunityPicker && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2500,
+          padding: '1rem'
+        }}>
+          <div
+            className="card"
+            style={{
+              width: '100%',
+              maxWidth: '560px',
+              maxHeight: '85vh',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+              padding: '1.2rem',
+              borderRadius: '20px',
+              background: 'var(--bg-surface)',
+              border: '2px solid var(--primary)',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span>📚</span> Choisir une liste de vocabulaire
+              </h3>
+              <button
+                onClick={() => setShowCommunityPicker(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.2rem', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Scrollable list choices */}
+            <div style={{
+              overflowY: 'auto',
+              maxHeight: '55vh',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+              paddingRight: '0.3rem'
+            }}>
+              {/* Default Example Lists Section */}
+              <div>
+                <h4 style={{ fontSize: '0.9rem', color: 'var(--primary)', marginBottom: '0.5rem' }}>
+                  🇩🇪 Listes par défaut (Thématiques)
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  {exampleLists.map((list) => (
+                    <div
+                      key={list.id}
+                      onClick={() => handleLoadPredefinedList(list)}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        background: 'var(--bg-main)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '10px',
+                        padding: '0.6rem 0.8rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary)'}
+                      onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{list.title}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{list.subtitle}</div>
+                      </div>
+                      <button
+                        className="btn btn-primary"
+                        style={{ width: 'auto', padding: '0.3rem 0.7rem', fontSize: '0.75rem' }}
+                      >
+                        Charger ({list.words.length} mots)
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Public Community Lists Section */}
+              <div>
+                <h4 style={{ fontSize: '0.9rem', color: 'var(--warning)', marginBottom: '0.5rem' }}>
+                  🌍 Listes de la Communauté
+                </h4>
+                {loadingPublicLists ? (
+                  <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    Chargement des listes publiques...
+                  </div>
+                ) : publicLists.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '0.8rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                    Aucune liste communautaire publique pour le moment.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    {publicLists.map((list) => (
+                      <div
+                        key={list._id}
+                        onClick={() => handleLoadPredefinedList(list)}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          background: 'var(--bg-main)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '10px',
+                          padding: '0.6rem 0.8rem',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--warning)'}
+                        onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{list.name}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            Par {list.creatorName || 'Membre'} • {list.words.length} mots
+                          </div>
+                        </div>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ width: 'auto', padding: '0.3rem 0.7rem', fontSize: '0.75rem', color: 'var(--warning)', borderColor: 'var(--warning)' }}
+                        >
+                          Charger
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.5rem', borderTop: '1px solid var(--border-color)' }}>
+              <button
+                onClick={() => setShowCommunityPicker(false)}
+                className="btn btn-secondary"
+                style={{ width: 'auto', padding: '0.4rem 1rem', fontSize: '0.85rem' }}
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
