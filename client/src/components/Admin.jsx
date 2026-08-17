@@ -10,6 +10,7 @@ export default function Admin({ user, onClose }) {
   const [users, setUsers] = useState([]);
   const [lists, setLists] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [saving, setSaving] = useState(null);
   const [message, setMessage] = useState("");
 
@@ -19,9 +20,13 @@ export default function Admin({ user, onClose }) {
   const [listFilter, setListFilter] = useState("all"); // all, public, private
   const [inspectingList, setInspectingList] = useState(null);
 
+  // Edit list modal state
+  const [editingList, setEditingList] = useState(null);
+  const [editListForm, setEditListForm] = useState({ name: "", words: [] });
+
   // Edit user modal state
   const [editingUser, setEditingUser] = useState(null);
-  const [editForm, setEditForm] = useState({ name: "", xp: 0, level: 1 });
+  const [editForm, setEditForm] = useState({ name: "", xp: 0, level: 1, gamesPlayed: 0, gamesWon: 0 });
 
   // Announcement input
   const [announcementText, setAnnouncementText] = useState("");
@@ -33,15 +38,18 @@ export default function Admin({ user, onClose }) {
     "x-admin-uid": user?.uid || ""
   }), [user?.uid]);
 
-  const loadAllData = async () => {
+  const loadAllData = async (showRefreshSpinner = false) => {
     if (!isAdmin) return;
-    setLoading(true);
+    if (showRefreshSpinner) setIsRefreshing(true);
+    else setLoading(true);
+
     try {
+      const uid = user?.uid || "";
       const [cfgRes, ovRes, usRes, lsRes] = await Promise.all([
         fetch(`${API_URL}/api/config`),
-        fetch(`${API_URL}/api/admin/overview`, { headers: fetchHeaders }),
-        fetch(`${API_URL}/api/admin/users`, { headers: fetchHeaders }),
-        fetch(`${API_URL}/api/admin/lists`, { headers: fetchHeaders })
+        fetch(`${API_URL}/api/admin/overview?adminUid=${uid}`, { headers: fetchHeaders }),
+        fetch(`${API_URL}/api/admin/users?adminUid=${uid}`, { headers: fetchHeaders }),
+        fetch(`${API_URL}/api/admin/lists?adminUid=${uid}`, { headers: fetchHeaders })
       ]);
 
       if (cfgRes.ok) {
@@ -54,8 +62,10 @@ export default function Admin({ user, onClose }) {
       if (lsRes.ok) setLists(await lsRes.json());
     } catch (err) {
       console.error("Admin fetch error:", err);
+      showErrorMessage("Erreur lors de la récupération des données.");
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -65,24 +75,34 @@ export default function Admin({ user, onClose }) {
 
   if (!isAdmin) return null;
 
+  const showSuccessMessage = (msg) => {
+    setMessage(`✅ ${msg}`);
+    setTimeout(() => setMessage(""), 3500);
+  };
+
+  const showErrorMessage = (msg) => {
+    setMessage(`❌ ${msg}`);
+    setTimeout(() => setMessage(""), 3500);
+  };
+
   // Toggle config settings
   const toggleConfig = async (setting, currentValue) => {
     setSaving(setting);
     setMessage("");
     try {
-      const res = await fetch(`${API_URL}/api/admin/config`, {
+      const res = await fetch(`${API_URL}/api/admin/config?adminUid=${user.uid}`, {
         method: "POST",
         headers: fetchHeaders,
         body: JSON.stringify({ adminUid: user.uid, setting, value: !currentValue })
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setConfig(prev => ({ ...prev, [setting]: !currentValue }));
-        showSuccessMessage("Sauvegardé avec succès !");
+        showSuccessMessage("Paramètre mis à jour avec succès !");
       } else {
         showErrorMessage(data.error || "Erreur de configuration.");
       }
-    } catch {
+    } catch (e) {
       showErrorMessage("Erreur réseau.");
     } finally {
       setSaving(null);
@@ -93,14 +113,16 @@ export default function Admin({ user, onClose }) {
   const saveAnnouncement = async () => {
     setSaving("announcement");
     try {
-      const res = await fetch(`${API_URL}/api/admin/config`, {
+      const res = await fetch(`${API_URL}/api/admin/config?adminUid=${user.uid}`, {
         method: "POST",
         headers: fetchHeaders,
         body: JSON.stringify({ adminUid: user.uid, setting: "announcement", value: announcementText })
       });
       if (res.ok) {
         setConfig(prev => ({ ...prev, announcement: announcementText }));
-        showSuccessMessage("Annonce diffusée à tous les joueurs !");
+        showSuccessMessage("Message diffusé en direct à tous les joueurs !");
+      } else {
+        showErrorMessage("Impossible de diffuser le message.");
       }
     } catch {
       showErrorMessage("Erreur lors de la diffusion de l'annonce.");
@@ -114,14 +136,16 @@ export default function Admin({ user, onClose }) {
     if (!editingUser) return;
     setSaving("user_edit");
     try {
-      const res = await fetch(`${API_URL}/api/admin/users/${editingUser.firebaseId}`, {
+      const res = await fetch(`${API_URL}/api/admin/users/${editingUser.firebaseId}?adminUid=${user.uid}`, {
         method: "PUT",
         headers: fetchHeaders,
         body: JSON.stringify({
           adminUid: user.uid,
           name: editForm.name,
           xp: Number(editForm.xp),
-          level: Number(editForm.level)
+          level: Number(editForm.level),
+          gamesPlayed: Number(editForm.gamesPlayed || 0),
+          gamesWon: Number(editForm.gamesWon || 0)
         })
       });
       if (res.ok) {
@@ -129,9 +153,11 @@ export default function Admin({ user, onClose }) {
         setUsers(prev => prev.map(u => u.firebaseId === updated.firebaseId ? updated : u));
         setEditingUser(null);
         showSuccessMessage("Utilisateur mis à jour !");
+      } else {
+        showErrorMessage("Erreur lors de la modification de l'utilisateur.");
       }
     } catch {
-      showErrorMessage("Erreur lors de la modification de l'utilisateur.");
+      showErrorMessage("Erreur réseau.");
     } finally {
       setSaving(null);
     }
@@ -141,24 +167,26 @@ export default function Admin({ user, onClose }) {
   const handleDeleteUser = async (firebaseId, userName) => {
     if (!window.confirm(`Supprimer définitivement l'utilisateur "${userName}" et toutes ses listes ?`)) return;
     try {
-      const res = await fetch(`${API_URL}/api/users/${firebaseId}`, {
+      const res = await fetch(`${API_URL}/api/users/${firebaseId}?adminUid=${user.uid}`, {
         method: "DELETE",
         headers: fetchHeaders
       });
       if (res.ok) {
         setUsers(prev => prev.filter(u => u.firebaseId !== firebaseId));
         setLists(prev => prev.filter(l => l.userId !== firebaseId));
-        showSuccessMessage(`Utilisateur "${userName}" supprimé.`);
+        showSuccessMessage(`Utilisateur "${userName}" et ses listes ont été supprimés.`);
+      } else {
+        showErrorMessage("Erreur lors de la suppression.");
       }
     } catch {
-      showErrorMessage("Erreur lors de la suppression.");
+      showErrorMessage("Erreur réseau.");
     }
   };
 
   // Toggle list public status
   const handleToggleListPublic = async (listId, currentStatus) => {
     try {
-      const res = await fetch(`${API_URL}/api/lists/${listId}/public`, {
+      const res = await fetch(`${API_URL}/api/lists/${listId}/public?adminUid=${user.uid}`, {
         method: "PUT",
         headers: fetchHeaders,
         body: JSON.stringify({ isPublic: !currentStatus })
@@ -166,10 +194,40 @@ export default function Admin({ user, onClose }) {
       if (res.ok) {
         const updated = await res.json();
         setLists(prev => prev.map(l => l._id === listId ? { ...l, isPublic: updated.isPublic } : l));
-        showSuccessMessage(`Statut de la liste modifié en ${!currentStatus ? 'Publique' : 'Privée'}.`);
+        showSuccessMessage(`Statut changé en ${!currentStatus ? 'Publique' : 'Privée'}.`);
+      } else {
+        showErrorMessage("Erreur lors du changement de statut.");
       }
     } catch {
-      showErrorMessage("Erreur lors du changement de statut.");
+      showErrorMessage("Erreur réseau.");
+    }
+  };
+
+  // Save edited list
+  const handleSaveListEdit = async () => {
+    if (!editingList) return;
+    setSaving("list_edit");
+    try {
+      const res = await fetch(`${API_URL}/api/lists/${editingList._id}?adminUid=${user.uid}`, {
+        method: "PUT",
+        headers: fetchHeaders,
+        body: JSON.stringify({
+          name: editListForm.name,
+          words: editListForm.words
+        })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setLists(prev => prev.map(l => l._id === updated._id ? { ...updated, creatorName: l.creatorName } : l));
+        setEditingList(null);
+        showSuccessMessage("Liste modifiée avec succès !");
+      } else {
+        showErrorMessage("Erreur lors de la mise à jour de la liste.");
+      }
+    } catch {
+      showErrorMessage("Erreur réseau.");
+    } finally {
+      setSaving(null);
     }
   };
 
@@ -177,7 +235,7 @@ export default function Admin({ user, onClose }) {
   const handleDeleteList = async (listId, listName) => {
     if (!window.confirm(`Supprimer définitivement la liste "${listName}" ?`)) return;
     try {
-      const res = await fetch(`${API_URL}/api/lists/${listId}`, {
+      const res = await fetch(`${API_URL}/api/lists/${listId}?adminUid=${user.uid}`, {
         method: "DELETE",
         headers: fetchHeaders
       });
@@ -185,25 +243,17 @@ export default function Admin({ user, onClose }) {
         setLists(prev => prev.filter(l => l._id !== listId));
         if (inspectingList?._id === listId) setInspectingList(null);
         showSuccessMessage(`Liste "${listName}" supprimée.`);
+      } else {
+        showErrorMessage("Erreur lors de la suppression de la liste.");
       }
     } catch {
-      showErrorMessage("Erreur lors de la suppression de la liste.");
+      showErrorMessage("Erreur réseau.");
     }
-  };
-
-  const showSuccessMessage = (msg) => {
-    setMessage(`✅ ${msg}`);
-    setTimeout(() => setMessage(""), 3500);
-  };
-
-  const showErrorMessage = (msg) => {
-    setMessage(`❌ ${msg}`);
-    setTimeout(() => setMessage(""), 3500);
   };
 
   // Filtered lists
   const filteredLists = lists.filter(l => {
-    const matchesSearch = l.name.toLowerCase().includes(listSearch.toLowerCase()) || 
+    const matchesSearch = l.name?.toLowerCase().includes(listSearch.toLowerCase()) || 
                           (l.creatorName && l.creatorName.toLowerCase().includes(listSearch.toLowerCase()));
     if (!matchesSearch) return false;
     if (listFilter === "public") return l.isPublic;
@@ -213,8 +263,8 @@ export default function Admin({ user, onClose }) {
 
   // Filtered users
   const filteredUsers = users.filter(u => 
-    u.name.toLowerCase().includes(userSearch.toLowerCase()) || 
-    u.firebaseId.toLowerCase().includes(userSearch.toLowerCase())
+    u.name?.toLowerCase().includes(userSearch.toLowerCase()) || 
+    u.firebaseId?.toLowerCase().includes(userSearch.toLowerCase())
   );
 
   return (
@@ -224,7 +274,7 @@ export default function Admin({ user, onClose }) {
       padding: "1.5rem 1rem", overflowY: "auto"
     }}>
       <div style={{
-        width: "100%", maxWidth: "920px", background: "var(--bg-surface)",
+        width: "100%", maxWidth: "950px", background: "var(--bg-surface)",
         border: "1px solid var(--border-color)", borderRadius: "20px",
         boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)", overflow: "hidden",
         display: "flex", flexDirection: "column"
@@ -233,7 +283,8 @@ export default function Admin({ user, onClose }) {
         <div style={{
           padding: "1.5rem 2rem", borderBottom: "1px solid var(--border-color)",
           display: "flex", justifyContent: "space-between", alignItems: "center",
-          background: "linear-gradient(to right, rgba(99,102,241,0.08), transparent)"
+          background: "linear-gradient(to right, rgba(99,102,241,0.08), transparent)",
+          flexWrap: "wrap", gap: "1rem"
         }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
@@ -249,18 +300,27 @@ export default function Admin({ user, onClose }) {
               </span>
             </div>
             <p style={{ color: "var(--text-muted)", margin: "0.2rem 0 0 0", fontSize: "0.85rem" }}>
-              Administration &amp; Gestion globale de Wana Allmand
+              Gestion globale de la plateforme Wana Allmand
             </p>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+            <button
+              onClick={() => loadAllData(true)}
+              className="btn btn-secondary"
+              style={{ fontSize: "0.85rem", padding: "0.45rem 0.8rem", display: "flex", alignItems: "center", gap: "0.4rem" }}
+              title="Rafraîchir les données"
+              disabled={isRefreshing}
+            >
+              🔄 {isRefreshing ? "Actualisation..." : "Rafraîchir"}
+            </button>
             <button
               onClick={() => {
                 navigator.clipboard.writeText(user?.uid || "");
                 showSuccessMessage("UID Admin copié dans le presse-papiers !");
               }}
               className="btn btn-secondary"
-              style={{ fontSize: "0.85rem", padding: "0.45rem 0.9rem", display: "flex", alignItems: "center", gap: "0.4rem" }}
+              style={{ fontSize: "0.85rem", padding: "0.45rem 0.8rem", display: "flex", alignItems: "center", gap: "0.4rem" }}
               title="Copier votre UID"
             >
               📋 Copier mon UID
@@ -359,7 +419,7 @@ export default function Admin({ user, onClose }) {
                         {overview?.totalGamesPlayed ?? 0}
                       </div>
                       <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "0.4rem" }}>
-                        {overview?.totalXp?.toLocaleString() ?? 0} XP générés
+                        {overview?.totalXp?.toLocaleString() ?? 0} XP cumulés
                       </div>
                     </div>
 
@@ -374,9 +434,9 @@ export default function Admin({ user, onClose }) {
 
                   {/* Quick System Status Card */}
                   <div className="card" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                    <h3 style={{ margin: 0, fontSize: "1.1rem" }}>⚡ Statut du Serveur &amp; Configuration</h3>
+                    <h3 style={{ margin: 0, fontSize: "1.1rem" }}>⚡ Statut &amp; État du Serveur</h3>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.8rem", background: "var(--bg-main)", borderRadius: "10px" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.8rem 1rem", background: "var(--bg-main)", borderRadius: "10px" }}>
                         <div>
                           <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>Mode Invité</div>
                           <div style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>Accès sans login Google</div>
@@ -386,7 +446,7 @@ export default function Admin({ user, onClose }) {
                         </span>
                       </div>
 
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.8rem", background: "var(--bg-main)", borderRadius: "10px" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.8rem 1rem", background: "var(--bg-main)", borderRadius: "10px" }}>
                         <div>
                           <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>Mode Maintenance</div>
                           <div style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>Verrouillage public</div>
@@ -407,7 +467,7 @@ export default function Admin({ user, onClose }) {
                     <input
                       type="text"
                       className="input-field"
-                      placeholder="🔍 Rechercher un utilisateur par nom..."
+                      placeholder="🔍 Rechercher un utilisateur par pseudo ou UID..."
                       value={userSearch}
                       onChange={(e) => setUserSearch(e.target.value)}
                       style={{ margin: 0, padding: "0.7rem 1rem" }}
@@ -437,7 +497,7 @@ export default function Admin({ user, onClose }) {
                             <tr key={u.firebaseId} style={{ borderBottom: "1px solid var(--border-color)" }}>
                               <td style={{ padding: "0.75rem" }}>
                                 <div style={{ fontWeight: "bold" }}>{u.name}</div>
-                                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{u.firebaseId.substring(0, 10)}...</div>
+                                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{u.firebaseId}</div>
                               </td>
                               <td style={{ padding: "0.75rem" }}>
                                 <span style={{ background: "rgba(99,102,241,0.2)", color: "#a78bfa", padding: "0.2rem 0.5rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: "bold" }}>
@@ -455,7 +515,13 @@ export default function Admin({ user, onClose }) {
                                   <button
                                     onClick={() => {
                                       setEditingUser(u);
-                                      setEditForm({ name: u.name, xp: u.xp || 0, level: u.level || 1 });
+                                      setEditForm({
+                                        name: u.name,
+                                        xp: u.xp || 0,
+                                        level: u.level || 1,
+                                        gamesPlayed: u.gamesPlayed || 0,
+                                        gamesWon: u.gamesWon || 0
+                                      });
                                     }}
                                     className="btn btn-secondary"
                                     style={{ padding: "0.35rem 0.7rem", fontSize: "0.8rem" }}
@@ -535,7 +601,17 @@ export default function Admin({ user, onClose }) {
                               className="btn btn-secondary"
                               style={{ flex: 1, padding: "0.4rem 0.6rem", fontSize: "0.8rem" }}
                             >
-                              👁️ Voir mots
+                              👁️ Voir
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingList(l);
+                                setEditListForm({ name: l.name, words: l.words || [] });
+                              }}
+                              className="btn btn-secondary"
+                              style={{ flex: 1, padding: "0.4rem 0.6rem", fontSize: "0.8rem" }}
+                            >
+                              ✏️ Éditer
                             </button>
                             <button
                               onClick={() => handleToggleListPublic(l._id, l.isPublic)}
@@ -567,7 +643,7 @@ export default function Admin({ user, onClose }) {
                     <div>
                       <div style={{ fontWeight: "bold", fontSize: "1rem" }}>👤 Mode Invité Global</div>
                       <div style={{ color: "var(--text-muted)", fontSize: "0.85rem", marginTop: "0.2rem" }}>
-                        Permet aux apprenants de tester le jeu sans créer de compte Google.
+                        Permet aux apprenants d'utiliser l'application sans connexion Google obligatoire.
                       </div>
                     </div>
                     <button
@@ -593,7 +669,7 @@ export default function Admin({ user, onClose }) {
                     <div>
                       <div style={{ fontWeight: "bold", fontSize: "1rem" }}>🚧 Mode Maintenance</div>
                       <div style={{ color: "var(--text-muted)", fontSize: "0.85rem", marginTop: "0.2rem" }}>
-                        Affiche un message de maintenance aux joueurs réguliers.
+                        Indique que l'application est en maintenance aux utilisateurs.
                       </div>
                     </div>
                     <button
@@ -619,7 +695,7 @@ export default function Admin({ user, onClose }) {
                     <div>
                       <div style={{ fontWeight: "bold", fontSize: "1rem" }}>📢 Message Flash / Annonce aux Joueurs</div>
                       <div style={{ color: "var(--text-muted)", fontSize: "0.85rem", marginTop: "0.2rem" }}>
-                        Diffusez un message en direct à tous les utilisateurs connectés.
+                        Diffusez un message en direct sous forme de bannière visible par tous les joueurs connectés.
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: "0.8rem" }}>
@@ -685,6 +761,112 @@ export default function Admin({ user, onClose }) {
           </div>
         )}
 
+        {/* Edit List Modal */}
+        {editingList && (
+          <div style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 1100,
+            display: "flex", justifyContent: "center", alignItems: "center", padding: "1rem"
+          }}>
+            <div className="card" style={{ width: "100%", maxWidth: "650px", maxHeight: "85vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h3 style={{ margin: 0 }}>✏️ Modifier la Liste</h3>
+                <button onClick={() => setEditingList(null)} style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: "1.5rem", cursor: "pointer" }}>×</button>
+              </div>
+
+              <div>
+                <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", display: "block", marginBottom: "0.3rem" }}>Nom de la liste :</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={editListForm.name}
+                  onChange={(e) => setEditListForm(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "2px solid var(--border-color)", textAlign: "left", color: "var(--text-muted)", fontSize: "0.85rem" }}>
+                      <th style={{ padding: "0.5rem" }}>Question</th>
+                      <th style={{ padding: "0.5rem" }}>Réponse</th>
+                      <th style={{ width: "40px" }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {editListForm.words.map((w, idx) => (
+                      <tr key={idx} style={{ borderBottom: "1px solid var(--border-color)" }}>
+                        <td style={{ padding: "0.4rem" }}>
+                          <input
+                            type="text"
+                            value={w.question}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setEditListForm(prev => ({
+                                ...prev,
+                                words: prev.words.map((item, i) => i === idx ? { ...item, question: val } : item)
+                              }));
+                            }}
+                            className="input-field"
+                            style={{ margin: 0, padding: "0.4rem 0.6rem", fontSize: "0.85rem" }}
+                          />
+                        </td>
+                        <td style={{ padding: "0.4rem" }}>
+                          <input
+                            type="text"
+                            value={w.answer}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setEditListForm(prev => ({
+                                ...prev,
+                                words: prev.words.map((item, i) => i === idx ? { ...item, answer: val } : item)
+                              }));
+                            }}
+                            className="input-field"
+                            style={{ margin: 0, padding: "0.4rem 0.6rem", fontSize: "0.85rem" }}
+                          />
+                        </td>
+                        <td style={{ padding: "0.4rem", textAlign: "center" }}>
+                          <button
+                            onClick={() => {
+                              setEditListForm(prev => ({
+                                ...prev,
+                                words: prev.words.filter((_, i) => i !== idx)
+                              }));
+                            }}
+                            style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", fontSize: "1.1rem" }}
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <button
+                onClick={() => {
+                  setEditListForm(prev => ({
+                    ...prev,
+                    words: [...prev.words, { id: Date.now(), question: "", answer: "" }]
+                  }));
+                }}
+                className="btn btn-secondary"
+                style={{ padding: "0.5rem" }}
+              >
+                + Ajouter un mot
+              </button>
+
+              <div style={{ display: "flex", gap: "0.8rem", marginTop: "0.5rem" }}>
+                <button onClick={() => setEditingList(null)} className="btn btn-secondary" style={{ flex: 1 }}>Annuler</button>
+                <button onClick={handleSaveListEdit} className="btn btn-primary" style={{ flex: 1 }}>
+                  {saving === "list_edit" ? "Enregistrement..." : "Sauvegarder"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Edit User Modal */}
         {editingUser && (
           <div style={{
@@ -707,24 +889,48 @@ export default function Admin({ user, onClose }) {
                 />
               </div>
 
-              <div>
-                <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", display: "block", marginBottom: "0.3rem" }}>XP Total :</label>
-                <input
-                  type="number"
-                  className="input-field"
-                  value={editForm.xp}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, xp: e.target.value }))}
-                />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem" }}>
+                <div>
+                  <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", display: "block", marginBottom: "0.3rem" }}>XP Total :</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={editForm.xp}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, xp: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", display: "block", marginBottom: "0.3rem" }}>Niveau :</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={editForm.level}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, level: e.target.value }))}
+                  />
+                </div>
               </div>
 
-              <div>
-                <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", display: "block", marginBottom: "0.3rem" }}>Niveau :</label>
-                <input
-                  type="number"
-                  className="input-field"
-                  value={editForm.level}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, level: e.target.value }))}
-                />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem" }}>
+                <div>
+                  <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", display: "block", marginBottom: "0.3rem" }}>Parties Jouées :</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={editForm.gamesPlayed}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, gamesPlayed: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", display: "block", marginBottom: "0.3rem" }}>Victoires :</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={editForm.gamesWon}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, gamesWon: e.target.value }))}
+                  />
+                </div>
               </div>
 
               <div style={{ display: "flex", gap: "0.8rem", marginTop: "0.5rem" }}>
