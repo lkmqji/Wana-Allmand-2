@@ -1053,14 +1053,29 @@ io.on('connection', (socket) => {
 
     // Direct Rejoin active session (game or lobby)
     const handleRejoin = ({ sessionId, clientPlayerKey, firebaseId, playerName, avatar }) => {
-        if (!sessionId) {
-            socket.emit('rejoin_failed', { reason: "Code de session manquant." });
-            return;
+        let session = sessionId ? gameManager.getSession(sessionId) : null;
+
+        // If no session found with direct sessionId, search across active sessions for this player
+        if (!session) {
+            for (const [sId, sess] of gameManager.sessions.entries()) {
+                if (sess.status === 'finished') continue;
+                for (const [pId, p] of Object.entries(sess.players || {})) {
+                    if (
+                        (clientPlayerKey && p.clientPlayerKey && p.clientPlayerKey === clientPlayerKey) ||
+                        (firebaseId && p.firebaseId && p.firebaseId === firebaseId) ||
+                        pId === socket.id
+                    ) {
+                        session = sess;
+                        sessionId = sId;
+                        break;
+                    }
+                }
+                if (session) break;
+            }
         }
 
-        const session = gameManager.getSession(sessionId);
         if (!session) {
-            socket.emit('rejoin_failed', { reason: "Session introuvable ou expirée." });
+            socket.emit('rejoin_failed', { reason: "Aucune session active trouvée ou la session est terminée." });
             return;
         }
 
