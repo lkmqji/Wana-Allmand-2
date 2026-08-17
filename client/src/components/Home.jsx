@@ -166,7 +166,7 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
       });
       const data = await res.json();
       if (data.vocabList && data.vocabList.length > 0) {
-        setVocabListForReview(data.vocabList);
+        handleStartDirectSession(data.vocabList);
         if (autoSaveEnabled) {
           await saveList(data.vocabList, `Import PDF - ${new Date().toLocaleDateString()}`);
         }

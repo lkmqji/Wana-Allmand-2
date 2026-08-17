@@ -133,8 +133,10 @@ function App() {
   }, []);
 
   useEffect(() => {
-    socket.on('session_created', (sessionId) => {
-      setSession({ id: sessionId });
+    socket.on('session_created', (sess) => {
+      const fullSession = typeof sess === 'object' ? sess : { id: sess };
+      setSession(fullSession);
+      setPlayers(fullSession.players || {});
       setIsHost(true);
       setView('lobby');
     });
@@ -165,6 +167,8 @@ function App() {
     });
 
     socket.on('game_invite_received', (inviteData) => {
+      // Never show invite if we are the host or if it's our own session
+      if (!inviteData || inviteData.hostSocketId === socket.id) return;
       setIncomingInvite(inviteData);
     });
 

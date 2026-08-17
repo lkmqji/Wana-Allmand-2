@@ -562,6 +562,7 @@ io.on('connection', (socket) => {
         const sessionId = gameManager.createSession(socket.id, playerName, firebaseId);
         gameManager.setVocabList(sessionId, vocabList, settings);
         socket.join(sessionId);
+        const session = gameManager.getSession(sessionId);
         
         const userObj = onlineUsers.get(socket.id);
         if (userObj) {
@@ -572,7 +573,7 @@ io.on('connection', (socket) => {
             broadcastOnlineUsers();
         }
 
-        socket.emit('session_created', sessionId);
+        socket.emit('session_created', session);
     });
 
     socket.on('join_session', ({ sessionId, playerName, firebaseId, avatar }) => {
@@ -636,11 +637,11 @@ io.on('connection', (socket) => {
             createdAt: Date.now()
         };
 
-        if (targetSocketId) {
+        // Strictly target other socket only, never host
+        if (targetSocketId && targetSocketId !== socket.id) {
             io.to(targetSocketId).emit('game_invite_received', inviteData);
-        }
-        if (targetFirebaseId) {
-            io.to(`user_${targetFirebaseId}`).emit('game_invite_received', inviteData);
+        } else if (targetFirebaseId) {
+            socket.to(`user_${targetFirebaseId}`).emit('game_invite_received', inviteData);
         }
         
         socket.emit('invite_sent_success', { targetSocketId, targetFirebaseId });
