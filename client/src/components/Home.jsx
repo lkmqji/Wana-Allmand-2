@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export default function Home({ socket, setVocabListForReview, setEditingListInfo, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout, deleteAccount, activeTab, leaderboard, isGuest, setIsGuest, isAdmin, onOpenAdmin }) {
+export default function Home({ socket, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout, deleteAccount, activeTab, leaderboard, isGuest, setIsGuest, isAdmin, onOpenAdmin }) {
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
   const [prepTab, setPrepTab] = useState('pdf'); // 'pdf', 'text', 'examples', 'settings'
   const [joinCode, setJoinCode] = useState('');
@@ -18,6 +18,19 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
     const saved = localStorage.getItem('autoSaveEnabled');
     return saved !== null ? JSON.parse(saved) : true;
   });
+
+  const handleStartDirectSession = (wordList) => {
+    const validWords = (wordList || []).filter(w => w.question?.trim() && w.answer?.trim());
+    if (validWords.length === 0) return alert("Aucun mot valide dans cette liste !");
+    const finalName = playerName ? `${avatar} ${playerName}` : `${avatar} Hôte`;
+    socket.emit('create_session', {
+      vocabList: validWords.map((w, idx) => ({ ...w, id: idx + 1 })),
+      settings: { rounds: Math.min(20, validWords.length), timePerWord: 15, powerupsEnabled: false },
+      playerName: finalName,
+      firebaseId: user?.uid,
+      avatar
+    });
+  };
 
   const toggleAutoSave = () => {
     const newVal = !autoSaveEnabled;
@@ -186,7 +199,7 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
       });
       const data = await res.json();
       if (data.vocabList && data.vocabList.length > 0) {
-        setVocabListForReview(data.vocabList);
+        handleStartDirectSession(data.vocabList);
         if (autoSaveEnabled) {
           await saveList(data.vocabList, `Extraction IA - ${new Date().toLocaleDateString()}`);
         }
@@ -218,7 +231,7 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
       });
       const data = await res.json();
       if (data.vocabList && data.vocabList.length > 0) {
-        setVocabListForReview(data.vocabList);
+        handleStartDirectSession(data.vocabList);
         if (autoSaveEnabled) {
           await saveList(data.vocabList, `Thème: ${themeInput}`);
         }
@@ -275,8 +288,7 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
   };
 
   const handleEditList = (list) => {
-    setEditingListInfo({ id: list._id, name: list.name });
-    setVocabListForReview(list.words);
+    handleStartDirectSession(list.words);
   };
 
   const toggleListSelection = (listId) => {
@@ -298,9 +310,7 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
         if (!seen.has(key)) { seen.add(key); merged.push({ ...w, id: merged.length + 1 }); }
       });
     });
-    const mergedNames = listsToMerge.map(l => l.name).join(' + ');
-    setEditingListInfo({ id: null, name: `Fusion: ${mergedNames}` });
-    setVocabListForReview(merged);
+    handleStartDirectSession(merged);
     setSelectedListIds(new Set());
   };
 
@@ -326,8 +336,7 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
     const count = Math.max(1, Math.min(parseInt(soloWordCount) || 10, allWords.length));
     const selectedWords = shuffled.slice(0, count).map((w, idx) => ({ ...w, id: idx + 1 }));
     
-    setEditingListInfo(null);
-    setVocabListForReview(selectedWords);
+    handleStartDirectSession(selectedWords);
   };
 
   return (
@@ -526,7 +535,7 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
                     onClick={() => {
                       const valid = manualWords.filter(w => w.question.trim() && w.answer.trim());
                       if (valid.length === 0) return alert('Ajoute au moins un mot !');
-                      setVocabListForReview(valid.map((w, i) => ({ ...w, id: i + 1 })));
+                      handleStartDirectSession(valid.map((w, i) => ({ ...w, id: i + 1 })));
                       setShowWordEditor(false);
                     }}
                   >
@@ -575,7 +584,7 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
                       {list.words.length} mots • {new Date(list.createdAt).toLocaleDateString()}
                     </p>
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      <button onClick={() => setVocabListForReview(list.words)} className="btn btn-success" style={{ padding: '0.5rem', flex: 1, fontSize: '0.85rem' }}>Jouer</button>
+                      <button onClick={() => handleStartDirectSession(list.words)} className="btn btn-success" style={{ padding: '0.5rem', flex: 1, fontSize: '0.85rem' }}>Jouer</button>
                       <button onClick={() => handleEditList(list)} className="btn btn-secondary" style={{ padding: '0.5rem', flex: 1, fontSize: '0.85rem' }}>Éditer</button>
                       <button onClick={() => togglePublicList(list._id, list.isPublic)} className="btn btn-secondary" style={{ padding: '0.5rem', flex: 1, fontSize: '0.85rem', borderColor: list.isPublic ? 'var(--warning)' : 'var(--border-color)', color: list.isPublic ? 'var(--warning)' : 'inherit' }}>
                         {list.isPublic ? 'Publique' : 'Privée'}
@@ -603,7 +612,7 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
                   <h4>{list.title}</h4>
                   <p className="text-muted" style={{ fontSize: '0.85rem' }}>{list.subtitle} • {list.count}</p>
                 </div>
-                <button onClick={() => setVocabListForReview(list.words)} className="btn btn-secondary" style={{ marginTop: 'auto' }}>JOUER</button>
+                <button onClick={() => handleStartDirectSession(list.words)} className="btn btn-secondary" style={{ marginTop: 'auto' }}>JOUER</button>
               </div>
             ))}
           </div>
@@ -624,7 +633,7 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
                     {list.name}
                   </h4>
                   <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '1rem', marginTop: '0.5rem' }}>{list.words.length} mots</p>
-                  <button onClick={() => setVocabListForReview(list.words)} className="btn btn-secondary" style={{ color: 'var(--warning)', borderColor: 'var(--warning)' }}>JOUER</button>
+                  <button onClick={() => handleStartDirectSession(list.words)} className="btn btn-secondary" style={{ color: 'var(--warning)', borderColor: 'var(--warning)' }}>JOUER</button>
                 </div>
               ))}
             </div>

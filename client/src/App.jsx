@@ -4,7 +4,6 @@ import Home from './components/Home';
 import Lobby from './components/Lobby';
 import Game from './components/Game';
 import Results from './components/Results';
-import Review from './components/Review';
 import Layout from './components/Layout';
 import Admin from './components/Admin';
 import NotificationCenter from './components/NotificationCenter';
@@ -29,8 +28,6 @@ function App() {
   const [error, setError] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [avatar, setAvatar] = useState('🦊');
-  const [vocabListForReview, setVocabListForReview] = useState(null);
-  const [editingListInfo, setEditingListInfo] = useState(null);
   const [user, setUser] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
@@ -71,16 +68,24 @@ function App() {
       .catch(() => {});
   }, []);
 
-  // Sync user profile with online users registry on server
+  // Sync user profile with online users registry on server and on socket connect/reconnect
   useEffect(() => {
-    const currentName = playerName || user?.displayName || (isGuest ? 'Invité' : '');
-    if (currentName || user) {
+    const registerUserOnline = () => {
+      const currentName = playerName || user?.displayName || (isGuest ? 'Invité' : '');
       socket.emit('register_online_user', {
         firebaseId: user?.uid || null,
         name: currentName ? `${avatar} ${currentName}` : `${avatar} Joueur`,
         avatar: avatar || '🦊'
       });
-    }
+      socket.emit('get_online_users');
+    };
+
+    registerUserOnline();
+    socket.on('connect', registerUserOnline);
+
+    return () => {
+      socket.off('connect', registerUserOnline);
+    };
   }, [user, playerName, avatar, isGuest]);
 
   useEffect(() => {
@@ -461,8 +466,6 @@ function App() {
         {view === 'home' && (
           <Home 
             socket={socket} 
-            setVocabListForReview={setVocabListForReview} 
-            setEditingListInfo={setEditingListInfo}
             playerName={playerName} 
             setPlayerName={setPlayerName}
             avatar={avatar}
@@ -479,18 +482,6 @@ function App() {
             onOpenAdmin={() => setShowAdmin(true)}
           />
         )}
-        {view === 'review' && (
-          <Review 
-            vocabList={vocabListForReview} 
-            editingListInfo={editingListInfo}
-            user={user}
-            setView={setView}
-            onCreateSession={(finalList, settings) => {
-              const finalName = playerName ? `${avatar} ${playerName}` : `${avatar} Hôte`;
-              socket.emit('create_session', { vocabList: finalList, settings, playerName: finalName, firebaseId: user?.uid });
-            }} 
-          />
-        )}
         {view === 'lobby' && (
           <Lobby 
             socket={socket} 
@@ -504,7 +495,7 @@ function App() {
             user={user}
           />
         )}
-        {view === 'results' && <Results players={players} setView={setView} socket={socket} session={session} isHost={isHost} setVocabListForReview={setVocabListForReview} />}
+        {view === 'results' && <Results players={players} setView={setView} socket={socket} session={session} isHost={isHost} />}
       </Layout>
 
       {/* Real-time Game Invite Modal */}

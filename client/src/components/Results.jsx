@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import confetti from 'canvas-confetti';
 
-export default function Results({ players, setView, socket, session, isHost, setVocabListForReview }) {
+export default function Results({ players, setView, socket, session, isHost }) {
   const playerArr = Object.values(players).sort((a, b) => b.score - a.score);
   const winner = playerArr[0];
   const isDraw = playerArr.length > 1 && playerArr[0].score === playerArr[1].score;
@@ -115,8 +115,13 @@ export default function Results({ players, setView, socket, session, isHost, set
                   });
                 });
                 if (failedWords.length > 0) {
-                  setVocabListForReview(failedWords);
-                  setView('review');
+                  const pName = (session?.players?.[socket.id]?.name) || 'Hôte';
+                  socket.emit('create_session', {
+                    vocabList: failedWords.map((w, idx) => ({ ...w, id: idx + 1 })),
+                    settings: { rounds: failedWords.length, timePerWord: 15, powerupsEnabled: false },
+                    playerName: pName,
+                    firebaseId: null
+                  });
                 } else {
                   alert("Félicitations ! Aucun mot manqué dans cette partie 🎉");
                 }

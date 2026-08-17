@@ -10,27 +10,44 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
   const [inputMsg, setInputMsg] = useState('');
   const chatBottomRef = useRef(null);
 
-  // Editable session state (synced with session)
+  // Editable session state
   const [words, setWords] = useState(session?.vocabList || []);
   const [settings, setSettings] = useState(session?.settings || { rounds: (session?.vocabList || []).length || 10, timePerWord: 15, powerupsEnabled: false });
   const [savingList, setSavingList] = useState(false);
   const [customListName, setCustomListName] = useState('');
 
+  // Keep a ref of original words to detect real changes on blur
+  const wordsRef = useRef(session?.vocabList || []);
+
   const playerCount = Object.keys(players || {}).length;
   const isRoomFull = playerCount >= 2;
 
+  // Find host player name
+  const hostPlayer = Object.values(players || {}).find(p => p.id === session?.hostId) || Object.values(players || {})[0];
+  const hostDisplayName = hostPlayer?.name || "l'hôte";
+
   // Sync state when session is updated from server
   useEffect(() => {
-    if (session?.vocabList) setWords(session.vocabList);
-    if (session?.settings) setSettings(session.settings);
+    if (session?.vocabList) {
+      setWords(session.vocabList);
+      wordsRef.current = session.vocabList;
+    }
+    if (session?.settings) {
+      setSettings(session.settings);
+    }
   }, [session]);
+
+  // Request online users on lobby mount
+  useEffect(() => {
+    socket.emit('get_online_users');
+  }, [socket]);
 
   // Auto-scroll chat on new message
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Listen to lobby chat messages & invite status
+  // Listen to lobby chat messages & invite confirmations
   useEffect(() => {
     const handleLobbyMessage = (msg) => {
       setMessages((prev) => [...prev, msg]);
@@ -39,7 +56,6 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
     const handleInviteSent = ({ targetSocketId }) => {
       if (targetSocketId) {
         setInvitedSockets((prev) => ({ ...prev, [targetSocketId]: true }));
-        // Allow re-inviting after 8s
         setTimeout(() => {
           setInvitedSockets((prev) => {
             const next = { ...prev };
@@ -75,8 +91,9 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
   };
 
   const handleStart = () => {
-    if (words.length === 0) {
-      alert("Ajoutez au moins 1 mot avant de lancer la partie !");
+    const validWords = words.filter(w => w.question?.trim() && w.answer?.trim());
+    if (validWords.length === 0) {
+      alert("Ajoutez au moins 1 mot valide avant de lancer la partie !");
       return;
     }
     socket.emit('start_game', session?.id);
@@ -114,22 +131,34 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
     setInvitedSockets((prev) => ({ ...prev, [targetUser.socketId]: true }));
   };
 
-  // Words management (Host only)
-  const handleEditWord = (index, field, value) => {
+  // Local word typing (No chat spam during typing)
+  const handleLocalWordChange = (index, field, value) => {
     const updated = [...words];
     updated[index] = { ...updated[index], [field]: value };
     setWords(updated);
-    socket.emit('update_session_words', {
-      sessionId: session?.id,
-      vocabList: updated,
-      changeDescription: `Mot #${index + 1} modifié : "${updated[index].question || '...'} = ${updated[index].answer || '...'}"`
-    });
+  };
+
+  // Commit word change ONLY on blur / Enter
+  const handleCommitWordChange = (index) => {
+    const word = words[index];
+    const original = wordsRef.current[index];
+
+    // Check if changed
+    if (!original || original.question !== word.question || original.answer !== word.answer) {
+      wordsRef.current = [...words];
+      socket.emit('update_session_words', {
+        sessionId: session?.id,
+        vocabList: words,
+        changeDescription: `Mot #${index + 1} mis à jour : "${word.question || '...'} = ${word.answer || '...'}"`
+      });
+    }
   };
 
   const handleAddWord = () => {
     const newWord = { id: Date.now(), question: '', answer: '' };
     const updated = [...words, newWord];
     setWords(updated);
+    wordsRef.current = updated;
     socket.emit('update_session_words', {
       sessionId: session?.id,
       vocabList: updated,
@@ -141,10 +170,11 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
     const deletedWord = words[index];
     const updated = words.filter((_, i) => i !== index);
     setWords(updated);
+    wordsRef.current = updated;
     socket.emit('update_session_words', {
       sessionId: session?.id,
       vocabList: updated,
-      changeDescription: `Mot supprimé : "${deletedWord.question || '...'}" (${updated.length} mots restants)`
+      changeDescription: `Mot supprimé : "${deletedWord?.question || '...'}" (${updated.length} mots restants)`
     });
   };
 
@@ -161,7 +191,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
   const handleSaveListToAccount = async () => {
     if (!user) return alert("Connectez-vous pour enregistrer cette liste.");
     const nameToUse = customListName.trim() || `Liste #${session?.id}`;
-    const validWords = words.filter(w => w.question.trim() && w.answer.trim());
+    const validWords = words.filter(w => w.question?.trim() && w.answer?.trim());
     if (validWords.length === 0) return alert("Aucun mot valide à enregistrer.");
 
     setSavingList(true);
@@ -198,27 +228,35 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
   });
 
   return (
-    <div style={{ maxWidth: '780px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+    <div style={{
+      width: '100%',
+      maxWidth: '780px',
+      margin: '0 auto',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '0.8rem',
+      paddingBottom: '1rem'
+    }}>
 
       {/* =========================================================
-          SECTION DU HAUT : ONGLETS (Chat, Joueurs Connectés, Mots, Paramètres)
+          SECTION DU HAUT : ONGLETS (Chat, Inviter, Mots, Paramètres)
          ========================================================= */}
-      <div className="card" style={{ padding: '1rem 1.2rem', display: 'flex', flexDirection: 'column', minHeight: '340px' }}>
+      <div className="card" style={{ padding: '0.9rem 1.1rem', display: 'flex', flexDirection: 'column' }}>
         
         {/* Navigation Tabs Header */}
         <div style={{
           display: 'flex',
           gap: '0.4rem',
           borderBottom: '2px solid var(--border-color)',
-          paddingBottom: '0.6rem',
+          paddingBottom: '0.5rem',
           marginBottom: '0.8rem',
-          flexWrap: 'wrap'
+          overflowX: 'auto'
         }}>
           {/* Tab: Chat */}
           <button
             onClick={() => setActiveTab('chat')}
             style={{
-              padding: '0.45rem 0.8rem',
+              padding: '0.4rem 0.75rem',
               fontSize: '0.85rem',
               borderRadius: '10px',
               border: 'none',
@@ -228,7 +266,8 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
               fontWeight: 700,
               display: 'flex',
               alignItems: 'center',
-              gap: '0.4rem'
+              gap: '0.35rem',
+              whiteSpace: 'nowrap'
             }}
           >
             <span>💬</span> Chat ({messages.length})
@@ -236,9 +275,12 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
 
           {/* Tab: Joueurs en ligne */}
           <button
-            onClick={() => setActiveTab('online')}
+            onClick={() => {
+              setActiveTab('online');
+              socket.emit('get_online_users');
+            }}
             style={{
-              padding: '0.45rem 0.8rem',
+              padding: '0.4rem 0.75rem',
               fontSize: '0.85rem',
               borderRadius: '10px',
               border: 'none',
@@ -248,7 +290,8 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
               fontWeight: 700,
               display: 'flex',
               alignItems: 'center',
-              gap: '0.4rem'
+              gap: '0.35rem',
+              whiteSpace: 'nowrap'
             }}
           >
             <span>👥</span> Inviter ({filteredOnlineUsers.length})
@@ -258,7 +301,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
           <button
             onClick={() => setActiveTab('words')}
             style={{
-              padding: '0.45rem 0.8rem',
+              padding: '0.4rem 0.75rem',
               fontSize: '0.85rem',
               borderRadius: '10px',
               border: 'none',
@@ -268,7 +311,8 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
               fontWeight: 700,
               display: 'flex',
               alignItems: 'center',
-              gap: '0.4rem'
+              gap: '0.35rem',
+              whiteSpace: 'nowrap'
             }}
           >
             <span>📝</span> Mots ({words.length})
@@ -278,7 +322,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
           <button
             onClick={() => setActiveTab('settings')}
             style={{
-              padding: '0.45rem 0.8rem',
+              padding: '0.4rem 0.75rem',
               fontSize: '0.85rem',
               borderRadius: '10px',
               border: 'none',
@@ -288,7 +332,8 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
               fontWeight: 700,
               display: 'flex',
               alignItems: 'center',
-              gap: '0.4rem'
+              gap: '0.35rem',
+              whiteSpace: 'nowrap'
             }}
           >
             <span>⚙️</span> Paramètres ({settings.timePerWord}s)
@@ -297,13 +342,13 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
 
         {/* ----------------- ONGLET 1 : CHAT DE LA SALLE ----------------- */}
         {activeTab === 'chat' && (
-          <div style={{ display: 'flex', flexDirection: 'column', height: '260px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{
-              flex: 1,
+              height: '240px',
               overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',
-              gap: '0.5rem',
+              gap: '0.45rem',
               paddingRight: '0.4rem',
               marginBottom: '0.6rem'
             }}>
@@ -397,7 +442,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
 
         {/* ----------------- ONGLET 2 : JOUEURS CONNECTES & INVITATIONS ----------------- */}
         {activeTab === 'online' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', height: '260px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             <div style={{ position: 'relative' }}>
               <input
                 type="text"
@@ -428,7 +473,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
             </div>
 
             <div style={{
-              flex: 1,
+              height: '240px',
               overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',
@@ -502,17 +547,34 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
 
         {/* ----------------- ONGLET 3 : MOTS DE LA SESSION ----------------- */}
         {activeTab === 'words' && (
-          <div style={{ display: 'flex', flexDirection: 'column', height: '260px' }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '0.4rem',
-              fontSize: '0.8rem',
-              color: 'var(--text-muted)'
-            }}>
-              <span>{isHost ? '✏️ Cliquez pour modifier les mots en direct :' : '👀 Mots prévus pour ce duel :'}</span>
-              {isHost && (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {/* Read-only notification for Guest */}
+            {!isHost ? (
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.1)',
+                border: '1px solid var(--primary)',
+                borderRadius: '8px',
+                padding: '0.45rem 0.75rem',
+                fontSize: '0.8rem',
+                color: 'var(--text-muted)',
+                marginBottom: '0.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem'
+              }}>
+                <span>🔒</span>
+                <span><strong>Mode consultation :</strong> Seul <strong>{hostDisplayName}</strong> (hôte) peut modifier ou ajouter des mots.</span>
+              </div>
+            ) : (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '0.4rem',
+                fontSize: '0.8rem',
+                color: 'var(--text-muted)'
+              }}>
+                <span>✏️ Modifiez ou ajoutez des mots (validation à la fin de la saisie) :</span>
                 <button
                   onClick={handleAddWord}
                   className="btn btn-secondary"
@@ -520,11 +582,11 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                 >
                   + Ajouter un mot
                 </button>
-              )}
-            </div>
+              </div>
+            )}
 
             <div style={{
-              flex: 1,
+              height: '240px',
               overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',
@@ -559,9 +621,11 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                       className="input-field"
                       value={w.question}
                       disabled={!isHost}
-                      onChange={(e) => handleEditWord(idx, 'question', e.target.value)}
+                      onChange={(e) => handleLocalWordChange(idx, 'question', e.target.value)}
+                      onBlur={() => handleCommitWordChange(idx)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                       placeholder="Français"
-                      style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.8rem', borderRadius: '6px' }}
+                      style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.8rem', borderRadius: '6px', cursor: isHost ? 'text' : 'default' }}
                     />
 
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>➔</span>
@@ -571,9 +635,11 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                       className="input-field"
                       value={w.answer}
                       disabled={!isHost}
-                      onChange={(e) => handleEditWord(idx, 'answer', e.target.value)}
+                      onChange={(e) => handleLocalWordChange(idx, 'answer', e.target.value)}
+                      onBlur={() => handleCommitWordChange(idx)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                       placeholder="Allemand"
-                      style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.8rem', borderRadius: '6px' }}
+                      style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.8rem', borderRadius: '6px', cursor: isHost ? 'text' : 'default' }}
                     />
 
                     {isHost && (
@@ -623,13 +689,32 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
 
         {/* ----------------- ONGLET 4 : PARAMETRES DU DUEL ----------------- */}
         {activeTab === 'settings' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', height: '260px', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            {!isHost && (
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.1)',
+                border: '1px solid var(--primary)',
+                borderRadius: '8px',
+                padding: '0.45rem 0.75rem',
+                fontSize: '0.8rem',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem'
+              }}>
+                <span>🔒</span>
+                <span><strong>Règles de la partie :</strong> Paramétrées par <strong>{hostDisplayName}</strong> (hôte).</span>
+              </div>
+            )}
+
             <div style={{
+              height: '240px',
+              overflowY: 'auto',
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
               gap: '0.8rem',
               background: 'var(--bg-main)',
-              padding: '1rem',
+              padding: '0.8rem',
               borderRadius: '12px',
               border: '1px solid var(--border-color)'
             }}>
@@ -651,7 +736,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                   }}
                   style={{ padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}
                 />
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Max : {words.length} mots</span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Total disponible : {words.length}</span>
               </div>
 
               {/* Time per word */}
@@ -698,12 +783,6 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                 </label>
               </div>
             </div>
-
-            {!isHost && (
-              <div style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                🔒 Seul l'hôte peut modifier ces paramètres.
-              </div>
-            )}
           </div>
         )}
 
@@ -712,29 +791,29 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
       {/* =========================================================
           SECTION DU BAS : CODE DE SESSION, JOUEURS DE LA SALLE & BOUTONS
          ========================================================= */}
-      <div className="card" style={{ padding: '1rem 1.2rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+      <div className="card" style={{ padding: '0.9rem 1.1rem', display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
         
         {/* Code & Players Row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.8rem', flexWrap: 'wrap' }}>
           
           {/* Compact Session Code */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.6rem',
+            gap: '0.5rem',
             background: 'var(--bg-main)',
             border: '1px solid var(--border-color)',
-            padding: '0.4rem 0.8rem',
+            padding: '0.35rem 0.75rem',
             borderRadius: '12px'
           }}>
             <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>CODE :</span>
-            <span style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--primary)', letterSpacing: '2px' }}>
+            <span style={{ fontSize: '1.3rem', fontWeight: 900, color: 'var(--primary)', letterSpacing: '2px' }}>
               {session?.id}
             </span>
             <button
               onClick={handleCopyCode}
               className="btn btn-secondary"
-              style={{ width: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderRadius: '6px' }}
+              style={{ width: 'auto', padding: '0.2rem 0.5rem', fontSize: '0.75rem', borderRadius: '6px' }}
             >
               {copiedCode ? '✓ Copié' : '📋'}
             </button>
@@ -749,7 +828,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.4rem',
-                  padding: '0.35rem 0.7rem',
+                  padding: '0.3rem 0.6rem',
                   background: 'var(--bg-main)',
                   border: `1.5px solid ${i === 0 ? 'var(--primary)' : 'var(--border-color)'}`,
                   borderRadius: '10px',
@@ -783,7 +862,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
         </div>
 
         {/* Action Controls Row */}
-        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', marginTop: '0.4rem' }}>
+        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
           <button
             onClick={handleLeave}
             className="btn btn-secondary"

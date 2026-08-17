@@ -527,7 +527,14 @@ io.on('connection', (socket) => {
     });
 
     socket.on('get_online_users', () => {
-        broadcastOnlineUsers();
+        socket.emit('online_users_update', Array.from(onlineUsers.values()).map(u => ({
+            socketId: u.socketId,
+            firebaseId: u.firebaseId,
+            name: u.name,
+            avatar: u.avatar || '👤',
+            status: u.status || 'available',
+            sessionId: u.sessionId || null
+        })));
     });
 
     const handlePlayerLeave = (sessionId, playerId) => {
@@ -631,7 +638,8 @@ io.on('connection', (socket) => {
 
         if (targetSocketId) {
             io.to(targetSocketId).emit('game_invite_received', inviteData);
-        } else if (targetFirebaseId) {
+        }
+        if (targetFirebaseId) {
             io.to(`user_${targetFirebaseId}`).emit('game_invite_received', inviteData);
         }
         
