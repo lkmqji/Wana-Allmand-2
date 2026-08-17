@@ -236,16 +236,8 @@ function App() {
       setTimeout(() => setToastNotif(null), 4000);
     });
 
-    socket.on('rejoin_failed', (data) => {
+    socket.on('rejoin_failed', () => {
       localStorage.removeItem('wana_active_session');
-      if (data?.reason) {
-        setToastNotif({
-          icon: 'ℹ️',
-          title: 'Reconnexion impossible',
-          message: data.reason
-        });
-        setTimeout(() => setToastNotif(null), 5000);
-      }
     });
 
     socket.on('admin_announcement', (msg) => {
@@ -292,17 +284,14 @@ function App() {
   // Save active session to localStorage so closing/reopening browser directly rejoins lobby or game
   useEffect(() => {
     if (['game', 'lobby', 'results'].includes(view) && session?.id) {
-      const sessData = JSON.stringify({
+      localStorage.setItem('wana_active_session', JSON.stringify({
         sessionId: session.id,
         view,
         clientPlayerKey: getClientPlayerKey(),
         firebaseId: user?.uid || null,
         playerName: playerName || 'Joueur',
-        avatar: avatar || '🦊',
-        timestamp: Date.now()
-      });
-      localStorage.setItem('wana_active_session', sessData);
-      localStorage.setItem('wana_last_session', sessData);
+        avatar: avatar || '🦊'
+      }));
     } else if (view === 'home') {
       localStorage.removeItem('wana_active_session');
     }

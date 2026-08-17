@@ -1053,29 +1053,14 @@ io.on('connection', (socket) => {
 
     // Direct Rejoin active session (game or lobby)
     const handleRejoin = ({ sessionId, clientPlayerKey, firebaseId, playerName, avatar }) => {
-        let session = sessionId ? gameManager.getSession(sessionId) : null;
-
-        // If no session found with direct sessionId, search across active sessions for this player
-        if (!session) {
-            for (const [sId, sess] of gameManager.sessions.entries()) {
-                if (sess.status === 'finished') continue;
-                for (const [pId, p] of Object.entries(sess.players || {})) {
-                    if (
-                        (clientPlayerKey && p.clientPlayerKey && p.clientPlayerKey === clientPlayerKey) ||
-                        (firebaseId && p.firebaseId && p.firebaseId === firebaseId) ||
-                        pId === socket.id
-                    ) {
-                        session = sess;
-                        sessionId = sId;
-                        break;
-                    }
-                }
-                if (session) break;
-            }
+        if (!sessionId) {
+            socket.emit('rejoin_failed', { reason: "Code de session manquant." });
+            return;
         }
 
+        const session = gameManager.getSession(sessionId);
         if (!session) {
-            socket.emit('rejoin_failed', { reason: "Aucune session active trouvée ou la session est terminée." });
+            socket.emit('rejoin_failed', { reason: "Session introuvable ou expirée." });
             return;
         }
 
@@ -1088,7 +1073,7 @@ io.on('connection', (socket) => {
                 (clientPlayerKey && p.clientPlayerKey && p.clientPlayerKey === clientPlayerKey) ||
                 (firebaseId && p.firebaseId && p.firebaseId === firebaseId) ||
                 pId === socket.id ||
-                (playerName && p.name && (p.name === playerName || p.name.includes(playerName) || playerName.includes(p.name)))
+                (p.disconnected && (p.name === playerName || Object.keys(session.players).length === 1))
             ) {
                 foundPlayerId = pId;
                 foundPlayer = p;
@@ -1096,23 +1081,14 @@ io.on('connection', (socket) => {
             }
         }
 
-        // Fallback 1: if session only has 1 player or has a disconnected player
+        // Fallback: if session only has 1 disconnected player, allow reconnection
         if (!foundPlayer) {
             for (const [pId, p] of Object.entries(session.players || {})) {
-                if (p.disconnected || Object.keys(session.players).length === 1) {
+                if (p.disconnected) {
                     foundPlayerId = pId;
                     foundPlayer = p;
                     break;
                 }
-            }
-        }
-
-        // Fallback 2: take the first player entry
-        if (!foundPlayer) {
-            const firstEntry = Object.entries(session.players || {})[0];
-            if (firstEntry) {
-                foundPlayerId = firstEntry[0];
-                foundPlayer = firstEntry[1];
             }
         }
 
@@ -1168,34 +1144,6 @@ io.on('connection', (socket) => {
             status: session.status,
             isHost: session.hostId === socket.id
         });
-
-        // Send active round data directly to the reconnected socket
-        if (session.status === 'playing' && session.currentQuestionIndex >= 0 && session.vocabList && session.vocabList[session.currentQuestionIndex]) {
-            let remSec = (session.roundTimeRemaining || session.settings.timePerWord * 1000) / 1000;
-            if (!session.isPaused && session.roundStartTime && session.roundDuration) {
-                const elapsed = Date.now() - session.roundStartTime;
-                remSec = Math.max(1, (session.roundDuration - elapsed) / 1000);
-            }
-            socket.emit('new_question', {
-                question: session.vocabList[session.currentQuestionIndex].question,
-                questionIndex: session.currentQuestionIndex,
-                totalQuestions: session.vocabList.length,
-                duration: remSec
-            });
-        } else if (session.status === 'showing_results' && session.currentQuestionIndex >= 0 && session.vocabList && session.vocabList[session.currentQuestionIndex]) {
-            socket.emit('round_results', {
-                players: session.players,
-                correctAnswer: session.vocabList[session.currentQuestionIndex].answer
-            });
-        }
-
-        if (session.isPaused) {
-            socket.emit('game_paused', {
-                reason: session.pauseReason,
-                pausedBy: session.pausedBy,
-                timeRemaining: (session.roundTimeRemaining || 15000) / 1000
-            });
-        }
 
         // Notify room
         if (session.status === 'waiting') {
