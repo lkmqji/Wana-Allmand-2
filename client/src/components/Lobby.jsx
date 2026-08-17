@@ -44,9 +44,16 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
     }
   }, [session]);
 
-  // Request online users on lobby mount
+  // Request online users & public lists on lobby mount
   useEffect(() => {
     socket.emit('get_online_users');
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    fetch(`${API_URL}/api/lists/public`)
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) setPublicLists(data);
+      })
+      .catch(console.error);
   }, [socket]);
 
   // Fetch public community lists when modal opens
@@ -63,6 +70,14 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
         .finally(() => setLoadingPublicLists(false));
     }
   }, [showCommunityPicker]);
+
+  // Calculate full vocabulary pool available across current session, example chapters & community lists
+  const totalAvailablePool = getAllDefaultWords([
+    { words: session?.vocabList || [] },
+    { words: words || [] },
+    ...publicLists
+  ]);
+  const maxAvailableWordsCount = Math.max(words.length, totalAvailablePool.length);
 
   // Auto-scroll chat on new message
   useEffect(() => {
@@ -206,8 +221,8 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
     let updated = [...words];
 
     if (newCount > words.length) {
-      // Pick extra random words from the vocabulary pool
-      const pool = getAllDefaultWords().filter(
+      // Pick extra random words from the unified vocabulary pool (current list + default chapters + community lists)
+      const pool = totalAvailablePool.filter(
         pw => !updated.some(uw => uw.question.toLowerCase() === pw.question.toLowerCase())
       );
       const shuffledPool = pool.sort(() => Math.random() - 0.5);
@@ -941,7 +956,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                     value={words.length}
                     disabled={!isHost}
                     min={1}
-                    max={100}
+                    max={maxAvailableWordsCount}
                     onChange={(e) => {
                       const val = parseInt(e.target.value) || 1;
                       handleWordCountChange(val);
@@ -960,7 +975,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                   )}
                 </div>
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.2rem' }}>
-                  Ajuste et complète avec des mots aléatoires.
+                  Total disponible actuellement : <strong>{maxAvailableWordsCount} mots</strong>
                 </span>
               </div>
 
@@ -982,7 +997,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                   }}
                   style={{ padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}
                 />
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Mots dispos : {words.length}</span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Mots dispos dans la salle : {words.length}</span>
               </div>
 
               {/* Time per word */}
