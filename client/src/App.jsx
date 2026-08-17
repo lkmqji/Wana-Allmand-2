@@ -50,11 +50,16 @@ function App() {
     }
   }, [isAdmin]);
 
+  const [announcement, setAnnouncement] = useState('');
+
   // Fetch server config (guest mode etc.)
   useEffect(() => {
     fetch(`${API_URL}/api/config`)
       .then(r => r.json())
-      .then(data => setServerGuestMode(data.guestMode ?? true))
+      .then(data => {
+        setServerGuestMode(data.guestMode ?? true);
+        if (data.announcement) setAnnouncement(data.announcement);
+      })
       .catch(() => {});
   }, []);
 
@@ -126,6 +131,10 @@ function App() {
       setView('results');
     });
 
+    socket.on('admin_announcement', (msg) => {
+      setAnnouncement(msg);
+    });
+
     socket.on('error', (msg) => {
       setError(msg);
     });
@@ -136,6 +145,7 @@ function App() {
       socket.off('player_joined');
       socket.off('game_started');
       socket.off('game_over');
+      socket.off('admin_announcement');
       socket.off('error');
       socket.off('kicked');
     };
@@ -281,6 +291,26 @@ function App() {
         isAdmin={isAdmin}
         onOpenAdmin={() => setShowAdmin(true)}
       >
+        {announcement && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(167,139,250,0.2))',
+            border: '1px solid var(--primary)',
+            padding: '0.8rem 1.2rem',
+            borderRadius: '12px',
+            marginBottom: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.95rem' }}>
+              <span>📢</span>
+              <span><strong>Annonce :</strong> {announcement}</span>
+            </div>
+            <button onClick={() => setAnnouncement('')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
+          </div>
+        )}
+
         {error && (
           <div style={{ background: 'var(--danger)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
             {error} <button onClick={() => setError('')} style={{background:'none',border:'none',color:'white',cursor:'pointer'}}>X</button>

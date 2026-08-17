@@ -30,29 +30,117 @@ app.use(express.json({ limit: '10mb' }));
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// ---- PUBLIC CONFIG ENDPOINT (for app to read guest mode etc.) ----
+// ---- ADMIN MIDDLEWARE ----
+const verifyAdmin = (req, res, next) => {
+    const adminUid = req.headers['x-admin-uid'] || req.body?.adminUid || req.query?.adminUid;
+    if (!process.env.ADMIN_UID || adminUid !== process.env.ADMIN_UID) {
+        return res.status(403).json({ error: 'Accès refusé. Administrateur requis.' });
+    }
+    next();
+};
+
+// ---- PUBLIC CONFIG ENDPOINT ----
 app.get('/api/config', async (req, res) => {
     try {
         let config = await Config.findOne({ key: 'app_config' });
         if (!config) config = await Config.create({ key: 'app_config' });
-        res.json({ guestMode: config.guestMode });
+        res.json({ 
+            guestMode: config.guestMode ?? true,
+            maintenanceMode: config.maintenanceMode ?? false,
+            announcement: config.announcement || ''
+        });
     } catch (err) {
         res.status(500).json({ error: 'Config error' });
     }
 });
 
-// ---- ADMIN CONFIG ENDPOINT (protected by ADMIN_UID env var) ----
-app.post('/api/admin/config', async (req, res) => {
-    const { adminUid, setting, value } = req.body;
-    if (!process.env.ADMIN_UID || adminUid !== process.env.ADMIN_UID) {
-        return res.status(403).json({ error: 'Accès refusé.' });
+// ---- ADMIN STATS / OVERVIEW ----
+app.get('/api/admin/overview', verifyAdmin, async (req, res) => {
+    try {
+        const totalUsers = await User.countDocuments();
+        const totalLists = await List.countDocuments();
+        const publicLists = await List.countDocuments({ isPublic: true });
+        const privateLists = totalLists - publicLists;
+        
+        // Sum total games played
+        const users = await User.find().select('gamesPlayed xp');
+        const totalGamesPlayed = users.reduce((acc, u) => acc + (u.gamesPlayed || 0), 0);
+        const totalXp = users.reduce((acc, u) => acc + (u.xp || 0), 0);
+        const activeRooms = gameManager.sessions?.size || 0;
+
+        res.json({
+            totalUsers,
+            totalLists,
+            publicLists,
+            privateLists,
+            totalGamesPlayed,
+            totalXp,
+            activeRooms
+        });
+    } catch (err) {
+        console.error("Admin overview error:", err);
+        res.status(500).json({ error: "Erreur lors de la récupération des stats." });
     }
+});
+
+// ---- ADMIN USERS MANAGEMENT ----
+app.get('/api/admin/users', verifyAdmin, async (req, res) => {
+    try {
+        const users = await User.find().sort({ xp: -1 }).lean();
+        res.json(users);
+    } catch (err) {
+        res.status(500).json({ error: "Erreur lors de la récupération des utilisateurs." });
+    }
+});
+
+app.put('/api/admin/users/:firebaseId', verifyAdmin, async (req, res) => {
+    try {
+        const { name, xp, level, gamesPlayed, gamesWon } = req.body;
+        const updated = await User.findOneAndUpdate(
+            { firebaseId: req.params.firebaseId },
+            { $set: { name, xp, level, gamesPlayed, gamesWon } },
+            { new: true }
+        );
+        if (!updated) return res.status(404).json({ error: "Utilisateur non trouvé" });
+        res.json(updated);
+    } catch (err) {
+        res.status(500).json({ error: "Erreur mise à jour utilisateur" });
+    }
+});
+
+// ---- ADMIN ALL LISTS MANAGEMENT ----
+app.get('/api/admin/lists', verifyAdmin, async (req, res) => {
+    try {
+        const lists = await List.find().sort({ createdAt: -1 }).lean();
+        const userIds = [...new Set(lists.map(l => l.userId))];
+        const users = await User.find({ firebaseId: { $in: userIds } });
+        const userMap = {};
+        users.forEach(u => userMap[u.firebaseId] = u.name);
+
+        const enriched = lists.map(l => ({
+            ...l,
+            creatorName: userMap[l.userId] || 'Inconnu'
+        }));
+        res.json(enriched);
+    } catch (err) {
+        res.status(500).json({ error: "Erreur lors de la récupération des listes" });
+    }
+});
+
+// ---- ADMIN CONFIG ENDPOINT ----
+app.post('/api/admin/config', verifyAdmin, async (req, res) => {
+    const { setting, value } = req.body;
     try {
         let config = await Config.findOne({ key: 'app_config' });
         if (!config) config = await Config.create({ key: 'app_config' });
         config[setting] = value;
         config.updatedAt = new Date();
         await config.save();
+
+        if (setting === 'announcement') {
+            io.emit('admin_announcement', value);
+        }
+
         res.json({ success: true, [setting]: value });
     } catch (err) {
         res.status(500).json({ error: 'Config update error' });
