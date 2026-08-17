@@ -287,9 +287,8 @@ function App() {
     };
   }, []);
 
-  // Save active session to localStorage — but ONLY after the initial rejoin attempt has completed
+  // Save active session to localStorage so closing/reopening browser directly rejoins lobby or game
   useEffect(() => {
-    if (!rejoinAttempted) return; // Don't touch localStorage until rejoin check is done
     if (['game', 'lobby', 'results'].includes(view) && session?.id) {
       localStorage.setItem('wana_active_session', JSON.stringify({
         sessionId: session.id,
@@ -299,50 +298,46 @@ function App() {
         playerName: playerName || 'Joueur',
         avatar: avatar || '🦊'
       }));
-    } else if (view === 'home') {
-      localStorage.removeItem('wana_active_session');
     }
-  }, [view, session?.id, user?.uid, playerName, avatar, rejoinAttempted]);
+  }, [view, session?.id, user?.uid, playerName, avatar]);
 
-  // Attempt auto-rejoin on socket connect/reconnect (uses pendingRejoin captured at init)
+  // Attempt auto-rejoin on socket connect/reconnect and initial mount
   useEffect(() => {
-    const doRejoin = (savedData) => {
-      if (!savedData?.sessionId) return;
-      socket.emit('rejoin_session', {
-        sessionId: savedData.sessionId,
-        clientPlayerKey: getClientPlayerKey(),
-        firebaseId: user?.uid || savedData.firebaseId || null,
-        playerName: playerName || savedData.playerName || '',
-        avatar: avatar || savedData.avatar || '🦊'
-      });
-    };
+    const triggerRejoin = () => {
+      let savedSessionId = null;
+      let savedFirebaseId = user?.uid || null;
+      let savedPlayerName = playerName || '';
+      let savedAvatar = avatar || '🦊';
 
-    // On mount: use the value captured synchronously before effects ran
-    if (pendingRejoin) {
-      doRejoin(pendingRejoin);
-    }
-
-    // On reconnect: read from localStorage fresh
-    const handleReconnect = () => {
       try {
         const raw = localStorage.getItem('wana_active_session');
-        if (raw) doRejoin(JSON.parse(raw));
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.sessionId) savedSessionId = parsed.sessionId;
+          if (parsed?.firebaseId) savedFirebaseId = parsed.firebaseId;
+          if (parsed?.playerName) savedPlayerName = parsed.playerName;
+          if (parsed?.avatar) savedAvatar = parsed.avatar;
+        }
       } catch (e) {
         console.error(e);
       }
-    };
-    socket.on('connect', handleReconnect);
 
-    // Safety timeout: if server never responds to rejoin, unblock after 5s
-    const safetyTimer = pendingRejoin ? setTimeout(() => {
-      setRejoinAttempted(true);
-    }, 5000) : null;
+      socket.emit('rejoin_session', {
+        sessionId: savedSessionId,
+        clientPlayerKey: getClientPlayerKey(),
+        firebaseId: savedFirebaseId,
+        playerName: savedPlayerName,
+        avatar: savedAvatar
+      });
+    };
+
+    socket.on('connect', triggerRejoin);
+    triggerRejoin();
 
     return () => {
-      socket.off('connect', handleReconnect);
-      if (safetyTimer) clearTimeout(safetyTimer);
+      socket.off('connect', triggerRejoin);
     };
-  }, [user, playerName, avatar, pendingRejoin]);
+  }, [user?.uid, playerName, avatar]);
 
   // Detect ?admin in URL - ONLY for the admin user
   useEffect(() => {
@@ -350,8 +345,6 @@ function App() {
       setShowAdmin(true);
     }
   }, [isAdmin]);
-
-
 
   const handleAcceptInvite = () => {
     if (!incomingInvite) return;
@@ -371,7 +364,8 @@ function App() {
       sessionId: incomingInvite.sessionId,
       playerName: finalName,
       firebaseId: user?.uid,
-      avatar
+      avatar,
+      clientPlayerKey: getClientPlayerKey()
     });
 
     setIncomingInvite(null);

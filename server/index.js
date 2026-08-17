@@ -1053,52 +1053,16 @@ io.on('connection', (socket) => {
 
     // Direct Rejoin active session (game or lobby)
     const handleRejoin = ({ sessionId, clientPlayerKey, firebaseId, playerName, avatar }) => {
-        if (!sessionId) {
-            socket.emit('rejoin_failed', { reason: "Code de session manquant." });
+        const match = findActiveSessionForUser({ sessionId, clientPlayerKey, firebaseId, playerName, socketId: socket.id });
+        if (!match) {
+            socket.emit('rejoin_failed', { reason: "Aucune session active trouvée." });
             return;
         }
 
-        const session = gameManager.getSession(sessionId);
-        if (!session) {
-            socket.emit('rejoin_failed', { reason: "Session introuvable ou expirée." });
-            return;
-        }
-
-        // Find the player in session
-        let foundPlayerId = null;
-        let foundPlayer = null;
-
-        for (const [pId, p] of Object.entries(session.players || {})) {
-            if (
-                (clientPlayerKey && p.clientPlayerKey && p.clientPlayerKey === clientPlayerKey) ||
-                (firebaseId && p.firebaseId && p.firebaseId === firebaseId) ||
-                pId === socket.id ||
-                (p.disconnected && (p.name === playerName || Object.keys(session.players).length === 1))
-            ) {
-                foundPlayerId = pId;
-                foundPlayer = p;
-                break;
-            }
-        }
-
-        // Fallback: if session only has 1 disconnected player, allow reconnection
-        if (!foundPlayer) {
-            for (const [pId, p] of Object.entries(session.players || {})) {
-                if (p.disconnected) {
-                    foundPlayerId = pId;
-                    foundPlayer = p;
-                    break;
-                }
-            }
-        }
-
-        if (!foundPlayer) {
-            socket.emit('rejoin_failed', { reason: "Joueur non reconnu dans cette session." });
-            return;
-        }
+        const { session, playerId: foundPlayerId, player: foundPlayer } = match;
 
         // Cancel any pending disconnect countdown timers for this player
-        const timerKey = `${sessionId}_${foundPlayerId}`;
+        const timerKey = `${session.id}_${foundPlayerId}`;
         if (disconnectTimers.has(timerKey)) {
             clearTimeout(disconnectTimers.get(timerKey));
             disconnectTimers.delete(timerKey);
@@ -1120,14 +1084,14 @@ io.on('connection', (socket) => {
             delete foundPlayer.disconnectedAt;
         }
 
-        socket.join(sessionId);
+        socket.join(session.id);
 
         // Update online user registry
         const formattedPlayerName = formatPlayerName(playerName) || foundPlayer.name;
         const u = onlineUsers.get(socket.id);
         if (u) {
             u.status = session.status === 'playing' || session.status === 'showing_results' ? 'in_game' : 'in_lobby';
-            u.sessionId = sessionId;
+            u.sessionId = session.id;
             if (formattedPlayerName) u.name = formattedPlayerName;
             if (avatar) u.avatar = avatar;
             broadcastOnlineUsers();
@@ -1135,7 +1099,7 @@ io.on('connection', (socket) => {
 
         // Resume game if it was paused for disconnect
         if (session.isPaused && session.pauseReason === 'disconnect_grace') {
-            resumeGame(sessionId);
+            resumeGame(session.id);
         }
 
         // Notify reconnecting player with full state
@@ -1147,16 +1111,16 @@ io.on('connection', (socket) => {
 
         // Notify room
         if (session.status === 'waiting') {
-            io.to(sessionId).emit('player_joined', session.players);
-            io.to(sessionId).emit('session_updated', session);
-            io.to(sessionId).emit('lobby_chat_message', {
+            io.to(session.id).emit('player_joined', session.players);
+            io.to(session.id).emit('session_updated', session);
+            io.to(session.id).emit('lobby_chat_message', {
                 id: Math.random().toString(36).substring(2, 9),
                 isSystem: true,
                 text: `${foundPlayer.name} est de retour dans la salle d'attente ! 👋`,
                 timestamp: Date.now()
             });
         } else {
-            io.to(sessionId).emit('player_reconnected', {
+            io.to(session.id).emit('player_reconnected', {
                 playerId: socket.id,
                 playerName: foundPlayer.name
             });
@@ -1173,6 +1137,49 @@ io.on('connection', (socket) => {
         broadcastOnlineUsers();
     });
 });
+
+function findActiveSessionForUser({ sessionId, clientPlayerKey, firebaseId, playerName, socketId }) {
+    // If sessionId specified, check it first
+    if (sessionId) {
+        const session = gameManager.getSession(sessionId);
+        if (session && session.status !== 'finished') {
+            for (const [pId, p] of Object.entries(session.players || {})) {
+                if (
+                    (clientPlayerKey && p.clientPlayerKey && p.clientPlayerKey === clientPlayerKey) ||
+                    (firebaseId && p.firebaseId && p.firebaseId === firebaseId) ||
+                    pId === socketId ||
+                    p.disconnected
+                ) {
+                    return { session, playerId: pId, player: p };
+                }
+            }
+        }
+    }
+
+    // Search across all sessions
+    for (const [sId, session] of gameManager.sessions.entries()) {
+        if (session.status === 'finished') continue;
+        for (const [pId, p] of Object.entries(session.players || {})) {
+            if (clientPlayerKey && p.clientPlayerKey && p.clientPlayerKey === clientPlayerKey) {
+                return { session, playerId: pId, player: p };
+            }
+            if (firebaseId && p.firebaseId && p.firebaseId === firebaseId) {
+                return { session, playerId: pId, player: p };
+            }
+            if (pId === socketId) {
+                return { session, playerId: pId, player: p };
+            }
+            if (p.disconnected && playerName) {
+                const cleanP = (p.name || '').replace(/^\p{Extended_Pictographic}\s*/u, '').trim().toLowerCase();
+                const cleanInput = (playerName || '').replace(/^\p{Extended_Pictographic}\s*/u, '').trim().toLowerCase();
+                if (cleanP && cleanInput && cleanP === cleanInput) {
+                    return { session, playerId: pId, player: p };
+                }
+            }
+        }
+    }
+    return null;
+}
 
 const disconnectTimers = new Map();
 
@@ -1238,6 +1245,14 @@ async function handleDisconnectForfeit(sessionId, forfeitedSocketId) {
     session.isPaused = false;
     session.pauseReason = null;
 
+    if (remainingPlayer) {
+        remainingPlayer.isForfeitWinner = true;
+        remainingPlayer.score = Math.max(remainingPlayer.score || 0, (forfeitedPlayer?.score || 0) + 50);
+    }
+    if (forfeitedPlayer) {
+        forfeitedPlayer.isForfeited = true;
+    }
+
     // Record DB stats: victory for remaining player, loss for forfeiter
     if (forfeitedPlayer?.firebaseId) {
         try {
@@ -1266,6 +1281,7 @@ async function handleDisconnectForfeit(sessionId, forfeitedSocketId) {
     }
 
     io.to(sessionId).emit('forfeit_game_over', {
+        sessionId: session.id,
         players: session.players,
         winnerId: remainingPlayerId,
         winnerName: remainingPlayer?.name || 'Adversaire',

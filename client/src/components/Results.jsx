@@ -3,9 +3,15 @@ import confetti from 'canvas-confetti';
 import { formatPlayerName } from '../utils/formatters';
 
 export default function Results({ players, setView, socket, session, isHost, playerName, avatar, user }) {
-  const playerArr = Object.values(players || {}).sort((a, b) => b.score - a.score);
+  const playerArr = Object.values(players || {}).sort((a, b) => {
+    if (a.isForfeitWinner) return -1;
+    if (b.isForfeitWinner) return 1;
+    if (a.isForfeited) return 1;
+    if (b.isForfeited) return -1;
+    return b.score - a.score;
+  });
   const winner = playerArr[0];
-  const isDraw = playerArr.length > 1 && playerArr[0].score === playerArr[1].score;
+  const isDraw = playerArr.length > 1 && playerArr[0].score === playerArr[1].score && !playerArr[0].isForfeitWinner;
   const isSolo = playerArr.length <= 1;
 
   // Chat state
