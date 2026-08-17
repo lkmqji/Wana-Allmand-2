@@ -547,8 +547,8 @@ io.on('connection', (socket) => {
         }
         if (result && !result.destroyed) {
             io.to(sessionId).emit('player_joined', result.session.players);
-            // Si l'hôte vient de changer, informez le nouveau
-            io.to(sessionId).emit('session_joined', result.session);
+            // Inform remaining player(s) of session updates without forcing a view reset
+            io.to(sessionId).emit('session_updated', result.session);
             io.to(sessionId).emit('lobby_chat_message', {
                 id: Math.random().toString(36).substring(2, 9),
                 isSystem: true,
@@ -661,6 +661,17 @@ io.on('connection', (socket) => {
     socket.on('start_game', (sessionId) => {
         const session = gameManager.getSession(sessionId);
         if (session && session.hostId === socket.id) {
+            // Cleanly clear existing timers and reset question/round progress
+            clearTimeout(session.roundTimer);
+            clearTimeout(session.autoAdvanceTimer);
+            session.currentQuestionIndex = -1;
+            session.answersThisRound = 0;
+            session.readyPlayers = new Set();
+            for (const pId in session.players) {
+                session.players[pId].score = 0;
+                session.players[pId].answers = {};
+            }
+
             session.status = 'playing';
             
             // Randomize questions for the session if they weren't already cut
@@ -740,7 +751,7 @@ io.on('connection', (socket) => {
             if (session.settings.rounds > vocabList.length) {
                 session.settings.rounds = Math.max(1, vocabList.length);
             }
-            io.to(sessionId).emit('session_joined', session);
+            io.to(sessionId).emit('session_updated', session);
             const desc = changeDescription || `La liste des mots a été mise à jour (${vocabList.length} mots).`;
             io.to(sessionId).emit('lobby_chat_message', {
                 id: Math.random().toString(36).substring(2, 9),
@@ -755,7 +766,7 @@ io.on('connection', (socket) => {
         const session = gameManager.getSession(sessionId);
         if (session && session.hostId === socket.id) {
             session.settings = { ...session.settings, ...settings };
-            io.to(sessionId).emit('session_joined', session);
+            io.to(sessionId).emit('session_updated', session);
             const desc = changeDescription || `Paramètres mis à jour : ${session.settings.timePerWord}s/mot, ${session.settings.rounds} questions${session.settings.powerupsEnabled ? ', Pouvoirs 🥶' : ''}.`;
             io.to(sessionId).emit('lobby_chat_message', {
                 id: Math.random().toString(36).substring(2, 9),
@@ -769,9 +780,12 @@ io.on('connection', (socket) => {
     socket.on('rematch', (sessionId) => {
         const session = gameManager.getSession(sessionId);
         if (session) {
+            clearTimeout(session.roundTimer);
+            clearTimeout(session.autoAdvanceTimer);
             session.status = 'waiting';
             session.currentQuestionIndex = -1;
             session.answersThisRound = 0;
+            session.readyPlayers = new Set();
             for (const pId in session.players) {
                 session.players[pId].score = 0;
                 session.players[pId].answers = {};
@@ -788,6 +802,61 @@ io.on('connection', (socket) => {
                 isSystem: true,
                 text: `🔄 Revanche lancée ! De retour dans la salle d'attente.`,
                 timestamp: Date.now()
+            });
+        }
+    });
+
+    // Propose to retry failed words together
+    socket.on('propose_retry_failed_words', ({ sessionId, failedWords }) => {
+        const session = gameManager.getSession(sessionId);
+        if (!session) return;
+        const requester = onlineUsers.get(socket.id) || { name: 'Un joueur', avatar: '🎯' };
+        socket.to(sessionId).emit('retry_failed_words_proposal', {
+            requesterSocketId: socket.id,
+            requesterName: requester.name,
+            requesterAvatar: requester.avatar,
+            failedWords,
+            count: failedWords.length
+        });
+    });
+
+    // Accept proposal to retry failed words
+    socket.on('accept_retry_failed_words', ({ sessionId, failedWords }) => {
+        const session = gameManager.getSession(sessionId);
+        if (!session) return;
+        clearTimeout(session.roundTimer);
+        clearTimeout(session.autoAdvanceTimer);
+        session.vocabList = failedWords.map((w, idx) => ({ ...w, id: idx + 1 }));
+        session.settings.rounds = session.vocabList.length;
+        session.status = 'waiting';
+        session.currentQuestionIndex = -1;
+        session.answersThisRound = 0;
+        session.readyPlayers = new Set();
+        for (const pId in session.players) {
+            session.players[pId].score = 0;
+            session.players[pId].answers = {};
+            const u = onlineUsers.get(pId);
+            if (u) {
+                u.status = 'in_lobby';
+                u.sessionId = sessionId;
+            }
+        }
+        broadcastOnlineUsers();
+        io.to(sessionId).emit('session_joined', session); // Brings everyone back to Lobby with failed words
+        io.to(sessionId).emit('lobby_chat_message', {
+            id: Math.random().toString(36).substring(2, 9),
+            isSystem: true,
+            text: `🎯 Revanche sur les ${session.vocabList.length} mots manqués acceptée ! De retour dans la salle d'attente.`,
+            timestamp: Date.now()
+        });
+    });
+
+    // Decline proposal to retry failed words
+    socket.on('decline_retry_failed_words', ({ sessionId, requesterSocketId }) => {
+        const decliner = onlineUsers.get(socket.id) || { name: 'L\'adversaire' };
+        if (requesterSocketId) {
+            io.to(requesterSocketId).emit('retry_failed_words_declined', {
+                declinerName: decliner.name
             });
         }
     });

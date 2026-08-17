@@ -210,6 +210,12 @@ function App() {
       setTimeout(() => setToastNotif(null), 6000);
     });
 
+    socket.on('session_updated', (sess) => {
+      setSession(sess);
+      if (sess.players) setPlayers(sess.players);
+      setIsHost(sess.hostId === socket.id);
+    });
+
     socket.on('error', (msg) => {
       setError(msg);
     });
@@ -217,6 +223,7 @@ function App() {
     return () => {
       socket.off('session_created');
       socket.off('session_joined');
+      socket.off('session_updated');
       socket.off('player_joined');
       socket.off('online_users_update');
       socket.off('game_invite_received');
@@ -501,7 +508,18 @@ function App() {
             user={user}
           />
         )}
-        {view === 'results' && <Results players={players} setView={setView} socket={socket} session={session} isHost={isHost} />}
+        {view === 'results' && (
+          <Results 
+            players={players} 
+            setView={setView} 
+            socket={socket} 
+            session={session} 
+            isHost={isHost}
+            playerName={playerName}
+            avatar={avatar}
+            user={user}
+          />
+        )}
       </Layout>
 
       {/* Real-time Game Invite Modal */}

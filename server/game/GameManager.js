@@ -72,6 +72,8 @@ class GameManager {
                 rounds: rounds,
                 timePerWord: settings?.timePerWord || 15
             };
+            session.currentQuestionIndex = -1;
+            session.answersThisRound = 0;
         }
     }
 
