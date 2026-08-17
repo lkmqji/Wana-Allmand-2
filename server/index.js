@@ -724,6 +724,39 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('update_session_words', ({ sessionId, vocabList, changeDescription }) => {
+        const session = gameManager.getSession(sessionId);
+        if (session && session.hostId === socket.id) {
+            session.vocabList = vocabList;
+            if (session.settings.rounds > vocabList.length) {
+                session.settings.rounds = Math.max(1, vocabList.length);
+            }
+            io.to(sessionId).emit('session_joined', session);
+            const desc = changeDescription || `La liste des mots a été mise à jour (${vocabList.length} mots).`;
+            io.to(sessionId).emit('lobby_chat_message', {
+                id: Math.random().toString(36).substring(2, 9),
+                isSystem: true,
+                text: `📝 ${desc}`,
+                timestamp: Date.now()
+            });
+        }
+    });
+
+    socket.on('update_session_settings', ({ sessionId, settings, changeDescription }) => {
+        const session = gameManager.getSession(sessionId);
+        if (session && session.hostId === socket.id) {
+            session.settings = { ...session.settings, ...settings };
+            io.to(sessionId).emit('session_joined', session);
+            const desc = changeDescription || `Paramètres mis à jour : ${session.settings.timePerWord}s/mot, ${session.settings.rounds} questions${session.settings.powerupsEnabled ? ', Pouvoirs 🥶' : ''}.`;
+            io.to(sessionId).emit('lobby_chat_message', {
+                id: Math.random().toString(36).substring(2, 9),
+                isSystem: true,
+                text: `⚙️ ${desc}`,
+                timestamp: Date.now()
+            });
+        }
+    });
+
     socket.on('rematch', (sessionId) => {
         const session = gameManager.getSession(sessionId);
         if (session) {
@@ -734,10 +767,19 @@ io.on('connection', (socket) => {
                 session.players[pId].score = 0;
                 session.players[pId].answers = {};
                 const u = onlineUsers.get(pId);
-                if (u) u.status = 'in_lobby';
+                if (u) {
+                    u.status = 'in_lobby';
+                    u.sessionId = sessionId;
+                }
             }
             broadcastOnlineUsers();
             io.to(sessionId).emit('session_joined', session); // Send back to lobby
+            io.to(sessionId).emit('lobby_chat_message', {
+                id: Math.random().toString(36).substring(2, 9),
+                isSystem: true,
+                text: `🔄 Revanche lancée ! De retour dans la salle d'attente.`,
+                timestamp: Date.now()
+            });
         }
     });
 

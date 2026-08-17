@@ -394,8 +394,12 @@ function App() {
         activeTab={activeTab} 
         onNavigate={(tab) => {
           setActiveTab(tab);
-          // If on results/lobby/review, go back to home when navigating
+          // If on results/lobby/review, clean up and go back to home when navigating
           if (['results', 'lobby', 'review'].includes(view)) {
+            if (session?.id) {
+              socket.emit('leave_session', session.id);
+              setSession(null);
+            }
             setView('home');
           }
         }}

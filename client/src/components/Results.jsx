@@ -92,15 +92,18 @@ export default function Results({ players, setView, socket, session, isHost, set
           ))}
         </div>
 
-        <div className="mobile-stack" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={() => setView('home')} style={{ flex: 1 }}>
-            Accueil
+        <div className="mobile-stack" style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => {
+              if (session?.id) socket.emit('leave_session', session.id);
+              setView('home');
+            }} 
+            style={{ flex: 1 }}
+          >
+            ← Accueil
           </button>
-          {isHost && (
-            <button className="btn btn-secondary" onClick={() => setView('review')} style={{ flex: 1 }}>
-              Paramètres
-            </button>
-          )}
+          
           <button 
             className="btn btn-secondary" 
             onClick={() => {
@@ -119,19 +122,20 @@ export default function Results({ players, setView, socket, session, isHost, set
                 }
               }
             }} 
-            style={{ flex: 1.5, borderColor: 'var(--danger)', color: 'var(--danger)' }}
+            style={{ flex: 1.2, borderColor: 'var(--danger)', color: 'var(--danger)' }}
           >
-            🎯 Pratiquer les mots faux
+            🎯 Mots manqués
           </button>
+
           <button 
             className="btn btn-primary" 
             onClick={() => {
-              if(session) socket.emit('rematch', session.id);
-              else alert("Revanche indisponible pour le moment.");
+              if (session?.id) socket.emit('rematch', session.id);
+              else alert("Revanche indisponible.");
             }} 
             style={{ flex: 2 }}
           >
-            🔄 Revanche !
+            🔄 Revanche (Salle d'attente)
           </button>
         </div>
       </div>
