@@ -21,15 +21,6 @@ const socket = io(API_URL, {
 });
 
 function App() {
-  // Read saved session SYNCHRONOUSLY before any effects run (prevents race condition)
-  const [pendingRejoin] = useState(() => {
-    try {
-      const raw = localStorage.getItem('wana_active_session');
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
-  });
-  const [rejoinAttempted, setRejoinAttempted] = useState(!pendingRejoin);
-
   const [view, setView] = useState('home'); // home, lobby, game, results
   const [activeTab, setActiveTab] = useState('learn'); // learn, lists, community, profile
   const [session, setSession] = useState(null);
@@ -58,17 +49,22 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Announcement state
+  // Detect ?admin in URL - ONLY for the admin user
+  useEffect(() => {
+    if (isAdmin && window.location.search.includes('admin')) {
+      setShowAdmin(true);
+    }
+  }, [isAdmin]);
+
   const [announcement, setAnnouncement] = useState('');
 
-  // Fetch server config (guest mode, etc.)
+  // Fetch server config (guest mode etc.)
   useEffect(() => {
     fetch(`${API_URL}/api/config`)
       .then(r => r.json())
       .then(data => {
-        if (typeof data.guestModeEnabled === 'boolean') {
-          setServerGuestMode(data.guestModeEnabled);
-        }
+        setServerGuestMode(data.guestMode ?? true);
+        if (data.announcement) setAnnouncement(data.announcement);
       })
       .catch(() => {});
   }, []);
@@ -199,7 +195,7 @@ function App() {
     });
 
     socket.on('game_over', (data) => {
-      localStorage.removeItem('wana_active_session');
+      sessionStorage.removeItem('active_game_session');
       setPlayers(data.players);
       setSession(prev => ({ ...prev, vocabList: data.vocabList }));
       setView('results');
@@ -219,7 +215,6 @@ function App() {
     });
 
     socket.on('rejoin_success', (data) => {
-      setRejoinAttempted(true);
       setSession(data.session);
       setPlayers(data.session.players || {});
       setIsHost(Boolean(data.isHost));
@@ -242,7 +237,6 @@ function App() {
     });
 
     socket.on('rejoin_failed', () => {
-      setRejoinAttempted(true);
       localStorage.removeItem('wana_active_session');
     });
 
@@ -298,53 +292,40 @@ function App() {
         playerName: playerName || 'Joueur',
         avatar: avatar || '🦊'
       }));
+    } else if (view === 'home') {
+      localStorage.removeItem('wana_active_session');
     }
   }, [view, session?.id, user?.uid, playerName, avatar]);
 
   // Attempt auto-rejoin on socket connect/reconnect and initial mount
   useEffect(() => {
-    const triggerRejoin = () => {
-      let savedSessionId = null;
-      let savedFirebaseId = user?.uid || null;
-      let savedPlayerName = playerName || '';
-      let savedAvatar = avatar || '🦊';
-
+    const handleRejoinCheck = () => {
       try {
-        const raw = localStorage.getItem('wana_active_session');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed?.sessionId) savedSessionId = parsed.sessionId;
-          if (parsed?.firebaseId) savedFirebaseId = parsed.firebaseId;
-          if (parsed?.playerName) savedPlayerName = parsed.playerName;
-          if (parsed?.avatar) savedAvatar = parsed.avatar;
+        const saved = localStorage.getItem('wana_active_session');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed?.sessionId) {
+            socket.emit('rejoin_session', {
+              sessionId: parsed.sessionId,
+              clientPlayerKey: getClientPlayerKey(),
+              firebaseId: user?.uid || parsed.firebaseId || null,
+              playerName: playerName || parsed.playerName || '',
+              avatar: avatar || parsed.avatar || '🦊'
+            });
+          }
         }
       } catch (e) {
         console.error(e);
       }
-
-      socket.emit('rejoin_session', {
-        sessionId: savedSessionId,
-        clientPlayerKey: getClientPlayerKey(),
-        firebaseId: savedFirebaseId,
-        playerName: savedPlayerName,
-        avatar: savedAvatar
-      });
     };
 
-    socket.on('connect', triggerRejoin);
-    triggerRejoin();
+    socket.on('connect', handleRejoinCheck);
+    handleRejoinCheck();
 
     return () => {
-      socket.off('connect', triggerRejoin);
+      socket.off('connect', handleRejoinCheck);
     };
-  }, [user?.uid, playerName, avatar]);
-
-  // Detect ?admin in URL - ONLY for the admin user
-  useEffect(() => {
-    if (isAdmin && window.location.search.includes('admin')) {
-      setShowAdmin(true);
-    }
-  }, [isAdmin]);
+  }, [user, playerName, avatar]);
 
   const handleAcceptInvite = () => {
     if (!incomingInvite) return;
@@ -364,8 +345,7 @@ function App() {
       sessionId: incomingInvite.sessionId,
       playerName: finalName,
       firebaseId: user?.uid,
-      avatar,
-      clientPlayerKey: getClientPlayerKey()
+      avatar
     });
 
     setIncomingInvite(null);
