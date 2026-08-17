@@ -21,6 +21,15 @@ const socket = io(API_URL, {
 });
 
 function App() {
+  // Read saved session SYNCHRONOUSLY before any effects run (prevents race condition)
+  const [pendingRejoin] = useState(() => {
+    try {
+      const raw = localStorage.getItem('wana_active_session');
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  });
+  const [rejoinAttempted, setRejoinAttempted] = useState(!pendingRejoin);
+
   const [view, setView] = useState('home'); // home, lobby, game, results
   const [activeTab, setActiveTab] = useState('learn'); // learn, lists, community, profile
   const [session, setSession] = useState(null);
@@ -49,22 +58,17 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Detect ?admin in URL - ONLY for the admin user
-  useEffect(() => {
-    if (isAdmin && window.location.search.includes('admin')) {
-      setShowAdmin(true);
-    }
-  }, [isAdmin]);
-
+  // Announcement state
   const [announcement, setAnnouncement] = useState('');
 
-  // Fetch server config (guest mode etc.)
+  // Fetch server config (guest mode, etc.)
   useEffect(() => {
     fetch(`${API_URL}/api/config`)
       .then(r => r.json())
       .then(data => {
-        setServerGuestMode(data.guestMode ?? true);
-        if (data.announcement) setAnnouncement(data.announcement);
+        if (typeof data.guestModeEnabled === 'boolean') {
+          setServerGuestMode(data.guestModeEnabled);
+        }
       })
       .catch(() => {});
   }, []);
@@ -195,7 +199,7 @@ function App() {
     });
 
     socket.on('game_over', (data) => {
-      sessionStorage.removeItem('active_game_session');
+      localStorage.removeItem('wana_active_session');
       setPlayers(data.players);
       setSession(prev => ({ ...prev, vocabList: data.vocabList }));
       setView('results');
@@ -215,6 +219,7 @@ function App() {
     });
 
     socket.on('rejoin_success', (data) => {
+      setRejoinAttempted(true);
       setSession(data.session);
       setPlayers(data.session.players || {});
       setIsHost(Boolean(data.isHost));
@@ -237,6 +242,7 @@ function App() {
     });
 
     socket.on('rejoin_failed', () => {
+      setRejoinAttempted(true);
       localStorage.removeItem('wana_active_session');
     });
 
@@ -281,8 +287,9 @@ function App() {
     };
   }, []);
 
-  // Save active session to localStorage so closing/reopening browser directly rejoins lobby or game
+  // Save active session to localStorage — but ONLY after the initial rejoin attempt has completed
   useEffect(() => {
+    if (!rejoinAttempted) return; // Don't touch localStorage until rejoin check is done
     if (['game', 'lobby', 'results'].includes(view) && session?.id) {
       localStorage.setItem('wana_active_session', JSON.stringify({
         sessionId: session.id,
@@ -295,37 +302,56 @@ function App() {
     } else if (view === 'home') {
       localStorage.removeItem('wana_active_session');
     }
-  }, [view, session?.id, user?.uid, playerName, avatar]);
+  }, [view, session?.id, user?.uid, playerName, avatar, rejoinAttempted]);
 
-  // Attempt auto-rejoin on socket connect/reconnect and initial mount
+  // Attempt auto-rejoin on socket connect/reconnect (uses pendingRejoin captured at init)
   useEffect(() => {
-    const handleRejoinCheck = () => {
+    const doRejoin = (savedData) => {
+      if (!savedData?.sessionId) return;
+      socket.emit('rejoin_session', {
+        sessionId: savedData.sessionId,
+        clientPlayerKey: getClientPlayerKey(),
+        firebaseId: user?.uid || savedData.firebaseId || null,
+        playerName: playerName || savedData.playerName || '',
+        avatar: avatar || savedData.avatar || '🦊'
+      });
+    };
+
+    // On mount: use the value captured synchronously before effects ran
+    if (pendingRejoin) {
+      doRejoin(pendingRejoin);
+    }
+
+    // On reconnect: read from localStorage fresh
+    const handleReconnect = () => {
       try {
-        const saved = localStorage.getItem('wana_active_session');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed?.sessionId) {
-            socket.emit('rejoin_session', {
-              sessionId: parsed.sessionId,
-              clientPlayerKey: getClientPlayerKey(),
-              firebaseId: user?.uid || parsed.firebaseId || null,
-              playerName: playerName || parsed.playerName || '',
-              avatar: avatar || parsed.avatar || '🦊'
-            });
-          }
-        }
+        const raw = localStorage.getItem('wana_active_session');
+        if (raw) doRejoin(JSON.parse(raw));
       } catch (e) {
         console.error(e);
       }
     };
+    socket.on('connect', handleReconnect);
 
-    socket.on('connect', handleRejoinCheck);
-    handleRejoinCheck();
+    // Safety timeout: if server never responds to rejoin, unblock after 5s
+    const safetyTimer = pendingRejoin ? setTimeout(() => {
+      setRejoinAttempted(true);
+    }, 5000) : null;
 
     return () => {
-      socket.off('connect', handleRejoinCheck);
+      socket.off('connect', handleReconnect);
+      if (safetyTimer) clearTimeout(safetyTimer);
     };
-  }, [user, playerName, avatar]);
+  }, [user, playerName, avatar, pendingRejoin]);
+
+  // Detect ?admin in URL - ONLY for the admin user
+  useEffect(() => {
+    if (isAdmin && window.location.search.includes('admin')) {
+      setShowAdmin(true);
+    }
+  }, [isAdmin]);
+
+
 
   const handleAcceptInvite = () => {
     if (!incomingInvite) return;
