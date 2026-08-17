@@ -137,6 +137,9 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
         setDisconnectGrace(prev => {
           if (prev.secondsRemaining <= 1) {
             clearInterval(timer);
+            if (session?.id) {
+              socket.emit('claim_forfeit_victory', session.id);
+            }
             return { ...prev, secondsRemaining: 0 };
           }
           return { ...prev, secondsRemaining: prev.secondsRemaining - 1 };
@@ -144,7 +147,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [disconnectGrace.disconnected, disconnectGrace.secondsRemaining]);
+  }, [disconnectGrace.disconnected, disconnectGrace.secondsRemaining, session?.id, socket]);
 
   // Leaderboard overtake detection
   useEffect(() => {

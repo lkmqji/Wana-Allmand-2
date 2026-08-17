@@ -1051,6 +1051,17 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('claim_forfeit_victory', (sessionId) => {
+        const session = gameManager.getSession(sessionId);
+        if (!session || session.status === 'finished') return;
+        for (const [pId, p] of Object.entries(session.players || {})) {
+            if (pId !== socket.id && p.disconnected) {
+                handleDisconnectForfeit(sessionId, pId);
+                break;
+            }
+        }
+    });
+
     // Direct Rejoin active session (game or lobby)
     const handleRejoin = ({ sessionId, clientPlayerKey, firebaseId, playerName, avatar }) => {
         const match = findActiveSessionForUser({ sessionId, clientPlayerKey, firebaseId, playerName, socketId: socket.id });
@@ -1280,14 +1291,22 @@ async function handleDisconnectForfeit(sessionId, forfeitedSocketId) {
         }
     }
 
-    io.to(sessionId).emit('forfeit_game_over', {
+    const forfeitPayload = {
         sessionId: session.id,
         players: session.players,
         winnerId: remainingPlayerId,
         winnerName: remainingPlayer?.name || 'Adversaire',
         forfeitedName: forfeitedPlayer?.name || 'Joueur déconnecté',
-        vocabList: session.vocabList
-    });
+        vocabList: session.vocabList,
+        forfeit: true
+    };
+
+    io.to(sessionId).emit('forfeit_game_over', forfeitPayload);
+    io.to(sessionId).emit('game_over', forfeitPayload);
+    if (remainingPlayerId) {
+        io.to(remainingPlayerId).emit('forfeit_game_over', forfeitPayload);
+        io.to(remainingPlayerId).emit('game_over', forfeitPayload);
+    }
 }
 
 function pauseGame(sessionId, reason, bySocketId, extraData = {}) {

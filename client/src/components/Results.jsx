@@ -331,12 +331,14 @@ export default function Results({ players, setView, socket, session, isHost, pla
       {/* Main Results Card */}
       <div className="card" style={{ marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '3rem', marginBottom: '1rem', color: 'var(--text-main)' }}>
-          {isDraw ? 'Égalité !' : 'Partie Terminée !'}
+          {winner?.isForfeitWinner ? '🏆 Victoire par Forfait !' : isDraw ? 'Égalité !' : 'Partie Terminée !'}
         </h1>
         
         {!isDraw && winner && (
-          <h2 style={{ color: 'var(--success)', marginBottom: '3rem', fontSize: '2rem' }}>
-            {formatPlayerName(winner.name)} gagne avec {winner.score} pts 🏆
+          <h2 style={{ color: 'var(--success)', marginBottom: '3rem', fontSize: '1.8rem' }}>
+            {winner.isForfeitWinner 
+              ? `${formatPlayerName(winner.name)} l'emporte par forfait (${winner.score} pts) 👑` 
+              : `${formatPlayerName(winner.name)} gagne avec ${winner.score} pts 🏆`}
           </h2>
         )}
 
@@ -352,9 +354,21 @@ export default function Results({ players, setView, socket, session, isHost, pla
               borderRadius: '16px',
               border: `2px solid ${i === 0 && !isDraw ? 'var(--success)' : 'var(--border-color)'}`
             }}>
-              <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
-                {i === 0 ? '🥇' : '🥈'} {formatPlayerName(p.name)} {p.id === socket.id ? '(Vous)' : ''}
-              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.2rem' }}>
+                <span style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
+                  {i === 0 ? '🥇' : '🥈'} {formatPlayerName(p.name)} {p.id === socket.id ? '(Vous)' : ''}
+                </span>
+                {p.isForfeited && (
+                  <span style={{ fontSize: '0.8rem', color: 'var(--danger)', fontWeight: 'bold' }}>
+                    ⚠️ Déconnecté / Forfait
+                  </span>
+                )}
+                {p.isForfeitWinner && (
+                  <span style={{ fontSize: '0.8rem', color: 'var(--success)', fontWeight: 'bold' }}>
+                    ✨ Victoire accordée par forfait
+                  </span>
+                )}
+              </div>
               <span style={{ fontSize: '2.5rem', fontWeight: '800', color: i === 0 && !isDraw ? 'var(--success)' : 'var(--primary)' }}>
                 {p.score} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>pts</span>
               </span>
