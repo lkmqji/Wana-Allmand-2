@@ -323,7 +323,7 @@ function App() {
             {error} <button onClick={() => setError('')} style={{background:'none',border:'none',color:'white',cursor:'pointer'}}>X</button>
           </div>
         )}
-        <Game socket={socket} session={session} />
+        <Game socket={socket} session={session} playerName={playerName} avatar={avatar} />
       </div>
     );
   }

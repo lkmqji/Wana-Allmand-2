@@ -923,21 +923,78 @@ io.on('connection', (socket) => {
         socket.to(sessionId).emit('retry_failed_words_cancelled');
     });
 
+    // In-game Pause handling
+    socket.on('request_pause', (sessionId) => {
+        const session = gameManager.getSession(sessionId);
+        if (!session) return;
+        if (session.settings?.allowPause === false) {
+            socket.emit('pause_disabled');
+            return;
+        }
+        pauseGame(sessionId, 'player_pause', socket.id);
+    });
+
+    socket.on('resume_game', (sessionId) => {
+        const session = gameManager.getSession(sessionId);
+        if (!session) return;
+        resumeGame(sessionId);
+    });
+
+    // In-game & Pause Chat Messages
+    socket.on('game_chat_message', ({ sessionId, text, preset }) => {
+        const session = gameManager.getSession(sessionId);
+        if (!session) return;
+        const sender = onlineUsers.get(socket.id) || {
+            name: session.players[socket.id]?.name || 'Joueur',
+            avatar: '🦊'
+        };
+        const cleanText = (text || '').trim();
+        if (!cleanText) return;
+
+        io.to(sessionId).emit('game_chat_message', {
+            id: Math.random().toString(36).substring(2, 9),
+            senderId: socket.id,
+            senderName: sender.name,
+            senderAvatar: sender.avatar || '🦊',
+            text: cleanText,
+            preset: Boolean(preset),
+            timestamp: Date.now()
+        });
+    });
+
     socket.on('request_terminate', (sessionId) => {
         const session = gameManager.getSession(sessionId);
         if (!session) return;
         const playerIds = Object.keys(session.players);
-        if (playerIds.length === 1) {
+        if (playerIds.length <= 1) {
             // Solo: End immediately
             clearTimeout(session.roundTimer);
+            clearTimeout(session.autoAdvanceTimer);
             session.currentQuestionIndex = session.vocabList.length;
             sendNextQuestion(sessionId);
         } else {
-            // Multi: ask opponent
-            const otherId = playerIds.find(id => id !== socket.id);
-            if (otherId) {
-                io.to(otherId).emit('terminate_requested');
-            }
+            // Multi: pause game for both with blur and emit terminate request
+            pauseGame(sessionId, 'leave_request', socket.id);
+            const requester = onlineUsers.get(socket.id) || { name: session.players[socket.id]?.name || 'Un joueur' };
+            
+            // Opponent gets terminate_requested modal
+            socket.to(sessionId).emit('terminate_requested', {
+                requesterId: socket.id,
+                requesterName: requester.name
+            });
+            // Requester gets pending modal with cancel button
+            socket.emit('terminate_pending', {
+                requesterId: socket.id
+            });
+        }
+    });
+
+    socket.on('cancel_terminate', (sessionId) => {
+        const session = gameManager.getSession(sessionId);
+        if (!session) return;
+        if (session.isPaused && session.pauseReason === 'leave_request') {
+            resumeGame(sessionId);
+            io.to(sessionId).emit('terminate_cancelled');
         }
     });
 
@@ -945,6 +1002,9 @@ io.on('connection', (socket) => {
         const session = gameManager.getSession(sessionId);
         if (session) {
             clearTimeout(session.roundTimer);
+            clearTimeout(session.autoAdvanceTimer);
+            session.isPaused = false;
+            session.pauseReason = null;
             session.currentQuestionIndex = session.vocabList.length;
             sendNextQuestion(sessionId);
         }
@@ -953,11 +1013,15 @@ io.on('connection', (socket) => {
     socket.on('refuse_terminate', (sessionId) => {
         const session = gameManager.getSession(sessionId);
         if (session) {
+            if (session.isPaused && session.pauseReason === 'leave_request') {
+                resumeGame(sessionId);
+            }
             const playerIds = Object.keys(session.players);
             const otherId = playerIds.find(id => id !== socket.id);
             if (otherId) {
                 io.to(otherId).emit('terminate_refused');
             }
+            io.to(sessionId).emit('terminate_cancelled');
         }
     });
 
@@ -997,9 +1061,90 @@ io.on('connection', (socket) => {
     });
 });
 
+function pauseGame(sessionId, reason, bySocketId, extraData = {}) {
+    const session = gameManager.getSession(sessionId);
+    if (!session || session.status === 'finished') return false;
+    if (session.isPaused) return true;
+
+    session.isPaused = true;
+    session.pauseReason = reason;
+    session.pausedBy = bySocketId;
+
+    // Clear active timers
+    clearTimeout(session.roundTimer);
+    clearTimeout(session.autoAdvanceTimer);
+
+    // Calculate time remaining for current round
+    if (session.status === 'playing' && session.roundStartTime && session.roundDuration) {
+        const elapsed = Date.now() - session.roundStartTime;
+        session.roundTimeRemaining = Math.max(500, session.roundDuration - elapsed);
+    } else if (session.status === 'showing_results' && session.resultStartTime && session.resultDuration) {
+        const elapsed = Date.now() - session.resultStartTime;
+        session.resultTimeRemaining = Math.max(500, session.resultDuration - elapsed);
+    }
+
+    const requesterUser = onlineUsers.get(bySocketId);
+    const requesterName = requesterUser?.name || session.players[bySocketId]?.name || 'Un joueur';
+
+    io.to(sessionId).emit('game_paused', {
+        reason,
+        pausedBy: bySocketId,
+        pausedByName: requesterName,
+        timeRemaining: (session.roundTimeRemaining || session.settings.timePerWord * 1000) / 1000,
+        ...extraData
+    });
+    return true;
+}
+
+function resumeGame(sessionId) {
+    const session = gameManager.getSession(sessionId);
+    if (!session || !session.isPaused) return false;
+
+    session.isPaused = false;
+    const previousReason = session.pauseReason;
+    session.pauseReason = null;
+    session.pausedBy = null;
+
+    if (session.status === 'playing') {
+        const remMs = session.roundTimeRemaining || (session.settings.timePerWord * 1000);
+        session.roundStartTime = Date.now();
+        session.roundDuration = remMs;
+        session.roundTimer = setTimeout(() => {
+            handleRoundEnd(sessionId);
+        }, remMs);
+
+        io.to(sessionId).emit('game_resumed', {
+            previousReason,
+            timeRemaining: remMs / 1000,
+            status: 'playing'
+        });
+    } else if (session.status === 'showing_results') {
+        const remMs = session.resultTimeRemaining || 2000;
+        session.resultStartTime = Date.now();
+        session.resultDuration = remMs;
+        session.autoAdvanceTimer = setTimeout(() => {
+            if (session.status === 'showing_results' && !session.isPaused) {
+                session.status = 'playing';
+                session.readyPlayers = new Set();
+                sendNextQuestion(sessionId);
+            }
+        }, remMs);
+
+        io.to(sessionId).emit('game_resumed', {
+            previousReason,
+            timeRemaining: remMs / 1000,
+            status: 'showing_results'
+        });
+    } else {
+        io.to(sessionId).emit('game_resumed', { previousReason });
+    }
+    return true;
+}
+
 function sendNextQuestion(sessionId) {
     const next = gameManager.nextQuestion(sessionId);
     const session = gameManager.getSession(sessionId);
+    if (!session) return;
     
     if (next.finished) {
         // Update DB stats
@@ -1039,6 +1184,12 @@ function sendNextQuestion(sessionId) {
 
         io.to(sessionId).emit('game_over', { players: session.players, vocabList: session.vocabList });
     } else {
+        session.roundStartTime = Date.now();
+        session.roundDuration = session.settings.timePerWord * 1000;
+        session.roundTimeRemaining = session.roundDuration;
+        session.isPaused = false;
+        session.pauseReason = null;
+
         io.to(sessionId).emit('new_question', {
             question: next.question.question,
             questionIndex: session.currentQuestionIndex,
@@ -1049,16 +1200,20 @@ function sendNextQuestion(sessionId) {
         // Start timer
         session.roundTimer = setTimeout(() => {
             handleRoundEnd(sessionId);
-        }, session.settings.timePerWord * 1000);
+        }, session.roundDuration);
     }
 }
 
 function handleRoundEnd(sessionId) {
     const session = gameManager.getSession(sessionId);
+    if (!session) return;
     
     // Reset ready players
     session.readyPlayers = new Set();
     session.status = 'showing_results';
+    session.resultStartTime = Date.now();
+    session.resultDuration = 2000;
+    session.resultTimeRemaining = 2000;
 
     // Send round results
     io.to(sessionId).emit('round_results', {
@@ -1066,14 +1221,14 @@ function handleRoundEnd(sessionId) {
         correctAnswer: session.vocabList[session.currentQuestionIndex].answer
     });
 
-    // Fallback: auto-advance after 1s if no one presses ready
+    // Fallback: auto-advance after 2s if no one presses ready
     session.autoAdvanceTimer = setTimeout(() => {
-        if (session.status === 'showing_results') {
+        if (session.status === 'showing_results' && !session.isPaused) {
             session.status = 'playing';
             session.readyPlayers = new Set();
             sendNextQuestion(sessionId);
         }
-    }, 2000);
+    }, session.resultDuration);
 }
 
 const PORT = process.env.PORT || 3001;

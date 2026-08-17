@@ -1180,6 +1180,28 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                   </span>
                 </label>
               </div>
+
+              {/* Allow Pause toggle */}
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
+                  ⏸️ Bouton Pause & Chat :
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: isHost ? 'pointer' : 'default' }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.allowPause !== false}
+                    disabled={!isHost}
+                    onChange={(e) => {
+                      const val = e.target.checked;
+                      handleUpdateSettings({ ...settings, allowPause: val }, `Pause en jeu ${val ? 'autorisée ⏸️' : 'désactivée 🚫'}`);
+                    }}
+                    style={{ width: '18px', height: '18px' }}
+                  />
+                  <span style={{ fontSize: '0.8rem', color: settings.allowPause !== false ? 'var(--success)' : 'var(--text-muted)' }}>
+                    {settings.allowPause !== false ? 'Autorisé' : 'Désactivé'}
+                  </span>
+                </label>
+              </div>
             </div>
           </div>
         )}

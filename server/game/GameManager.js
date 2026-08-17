@@ -16,7 +16,7 @@ class GameManager {
             guestId: null,
             status: 'waiting', // waiting, playing, finished
             vocabList: [],
-            settings: { rounds: 0, timePerWord: 15, powerupsEnabled: false },
+            settings: { rounds: 0, timePerWord: 15, powerupsEnabled: false, allowPause: true },
             currentQuestionIndex: -1,
             players: {
                 [hostId]: { id: hostId, firebaseId: firebaseId || null, name: hostName || 'Hôte', score: 0, answers: {} }
