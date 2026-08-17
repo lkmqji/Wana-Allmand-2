@@ -20,6 +20,10 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
     return saved !== null ? JSON.parse(saved) : true;
   });
 
+  const [editingListId, setEditingListId] = useState(null);
+  const [listTitle, setListTitle] = useState('');
+  const [importNotice, setImportNotice] = useState('');
+
   const handleStartDirectSession = (wordList) => {
     const validWords = (wordList || []).filter(w => w.question?.trim() && w.answer?.trim());
     if (validWords.length === 0) return alert("Aucun mot valide dans cette liste !");
@@ -88,6 +92,7 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
       if (res.ok) {
         const data = await res.json();
         setArchivedLists(prev => [data, ...prev]);
+        return data;
       }
     } catch (e) {
       console.error("Erreur sauvegarde auto", e);
@@ -95,7 +100,7 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
   };
 
   const handleUpload = async (e) => {
-    const file = e.target.files[0];
+    const file = e.target?.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
@@ -110,19 +115,84 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
       });
       const data = await res.json();
       if (data.vocabList && data.vocabList.length > 0) {
-        handleStartDirectSession(data.vocabList);
-        if (autoSaveEnabled) {
-          await saveList(data.vocabList, `Import PDF - ${new Date().toLocaleDateString()}`);
+        const words = data.vocabList.map((w, idx) => ({
+          id: Date.now() + idx,
+          question: w.question,
+          answer: w.answer
+        }));
+        
+        // Populate the word editor with all extracted words
+        setManualWords(words);
+        const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+        setListTitle(fileNameWithoutExt);
+        setEditingListId(null);
+        setShowWordEditor(true);
+        setImportNotice(`🎉 ${words.length} mots extraits du PDF "${file.name}" et ajoutés à ta liste !`);
+
+        if (autoSaveEnabled && user) {
+          await saveList(data.vocabList, fileNameWithoutExt);
         }
       } else {
-        alert("Aucun mot trouvé dans ce PDF.");
+        alert("Aucun mot de vocabulaire trouvé dans ce PDF.");
       }
     } catch (err) {
       console.error(err);
       alert("Erreur lors de l'analyse du PDF");
     } finally {
       setIsUploading(false);
+      if (e.target) e.target.value = '';
     }
+  };
+
+  const handleSaveManualList = async () => {
+    const valid = manualWords.filter(w => w.question.trim() && w.answer.trim());
+    if (valid.length === 0) return alert('Ajoutez au moins un mot valide !');
+    const title = listTitle.trim() || `Liste - ${new Date().toLocaleDateString()}`;
+
+    if (!user) {
+      alert("Connectez-vous pour sauvegarder vos listes dans votre compte.");
+      return;
+    }
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      if (editingListId) {
+        const res = await fetch(`${API_URL}/api/lists/${editingListId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: title, words: valid })
+        });
+        if (res.ok) {
+          const updated = await res.json();
+          setArchivedLists(prev => prev.map(l => l._id === editingListId ? updated : l));
+          alert('✅ Liste mise à jour avec succès !');
+        }
+      } else {
+        const res = await fetch(`${API_URL}/api/lists`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.uid, name: title, words: valid })
+        });
+        if (res.ok) {
+          const created = await res.json();
+          setArchivedLists(prev => [created, ...prev]);
+          setEditingListId(created._id);
+          alert('✅ Nouvelle liste enregistrée dans "Mes Listes" !');
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erreur lors de la sauvegarde de la liste.');
+    }
+  };
+
+  const handleEditList = (list) => {
+    if (!list || !list.words) return;
+    setManualWords(list.words.map((w, idx) => ({ ...w, id: w.id || Date.now() + idx })));
+    setEditingListId(list._id || null);
+    setListTitle(list.name || 'Ma Liste');
+    setImportNotice('');
+    setShowWordEditor(true);
   };
 
   const handleExtractAI = async (e) => {
@@ -231,9 +301,6 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
     }
   };
 
-  const handleEditList = (list) => {
-    handleStartDirectSession(list.words);
-  };
 
   const toggleListSelection = (listId) => {
     setSelectedListIds(prev => {
@@ -398,65 +465,117 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
           {/* ---- WORD EDITOR MODAL ---- */}
           {showWordEditor && (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: '2rem 1rem', overflowY: 'auto' }}>
-              <div className="card" style={{ width: '100%', maxWidth: '700px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <h2 style={{ margin: 0 }}>✏️ Écrire tes mots</h2>
+              <div className="card" style={{ width: '100%', maxWidth: '750px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+                  <h2 style={{ margin: 0, fontSize: '1.3rem' }}>✏️ Éditeur de Vocabulaire ({manualWords.filter(w => w.question?.trim() || w.answer?.trim()).length} mots)</h2>
                   <button onClick={() => setShowWordEditor(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
                 </div>
 
-                {/* Rules warning */}
-                <div style={{ background: 'rgba(99, 102, 241, 0.12)', border: '1px solid rgba(99, 102, 241, 0.4)', borderRadius: '12px', padding: '0.9rem 1.1rem', marginBottom: '1.2rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '1.1rem' }}>📋</span>
-                    <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.95rem' }}>Règles pour bien rédiger ta liste</span>
+                {/* Import Notice Banner */}
+                {importNotice && (
+                  <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid var(--success)', borderRadius: '10px', padding: '0.6rem 1rem', marginBottom: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem', color: 'var(--success)' }}>
+                    <span>{importNotice}</span>
+                    <button onClick={() => setImportNotice('')} style={{ background: 'none', border: 'none', color: 'var(--success)', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
                   </div>
-                  <ul style={{ margin: 0, paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                    <li style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                      Les <strong style={{ color: 'var(--text-main)' }}>noms allemands</strong> doivent toujours être précédés de leur article : <strong style={{ color: 'var(--warning)' }}>der / die / das</strong><br/>
-                      <span style={{ opacity: 0.7 }}>ex : <em>die Katze</em>, <em>der Hund</em>, <em>das Haus</em></span>
-                    </li>
-                    <li style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                      Le caractère <strong style={{ color: 'var(--text-main)' }}>ß</strong> doit être remplacé par <strong style={{ color: 'var(--warning)' }}>ss</strong> (le clavier ne le supporte pas toujours)<br/>
-                      <span style={{ opacity: 0.7 }}>ex : <em>Großmutter</em> → <em>Grossmutter</em></span>
-                    </li>
-                  </ul>
+                )}
+
+                {/* List Title Input */}
+                <div style={{ marginBottom: '0.8rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={listTitle}
+                    onChange={(e) => setListTitle(e.target.value)}
+                    placeholder="Nom de la liste (ex: Vocabulaire Allemand PDF)"
+                    className="input-field"
+                    style={{ flex: 1, padding: '0.5rem 0.8rem', fontSize: '0.95rem' }}
+                  />
+                  {user && (
+                    <button
+                      onClick={handleSaveManualList}
+                      className="btn btn-secondary"
+                      style={{ width: 'auto', padding: '0.5rem 0.9rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                      title="Sauvegarder dans 'Mes Listes'"
+                    >
+                      💾 Enregistrer
+                    </button>
+                  )}
                 </div>
 
-                {/* Table */}
-                <div style={{ overflowX: 'auto' }}>
+                {/* Toolbar buttons */}
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.8rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <label className="btn btn-secondary" style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.85rem', cursor: isUploading ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <span>📄 {isUploading ? 'Analyse...' : 'Importer un PDF'}</span>
+                      <input type="file" accept=".pdf" style={{ display: 'none' }} onChange={handleUpload} disabled={isUploading} />
+                    </label>
+
+                    <button
+                      onClick={() => setManualWords(prev => [...prev, { id: Date.now(), question: '', answer: '' }])}
+                      className="btn btn-primary"
+                      style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+                    >
+                      + Ajouter une ligne
+                    </button>
+                  </div>
+
+                  {manualWords.length > 1 && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm("Voulez-vous vraiment effacer tous les mots de l'éditeur ?")) {
+                          setManualWords([{ id: Date.now(), question: '', answer: '' }]);
+                          setImportNotice('');
+                        }
+                      }}
+                      style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.85rem', textDecoration: 'underline' }}
+                    >
+                      🗑️ Vider la liste
+                    </button>
+                  )}
+                </div>
+
+                {/* Rules warning */}
+                <div style={{ background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: '10px', padding: '0.6rem 0.8rem', marginBottom: '0.8rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    <span>💡</span>
+                    <span>Noms avec article (<strong style={{ color: 'var(--warning)' }}>der / die / das</strong>) • Remplacer <strong style={{ color: 'var(--warning)' }}>ß</strong> par <strong style={{ color: 'var(--warning)' }}>ss</strong>.</span>
+                  </div>
+                </div>
+
+                {/* Scrollable Table */}
+                <div style={{ flex: 1, overflowY: 'auto', maxHeight: '420px', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.2rem' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
+                    <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-card, #1e1e2f)', zIndex: 5 }}>
                       <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
-                        <th style={{ padding: '0.5rem', width: '40px', color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center' }}>#</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Mot Fr / Ang</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Mot Allemand</th>
-                        <th style={{ width: '40px' }}></th>
+                        <th style={{ padding: '0.4rem', width: '36px', color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>#</th>
+                        <th style={{ padding: '0.4rem', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem' }}>Français / Anglais</th>
+                        <th style={{ padding: '0.4rem', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem' }}>Allemand (Réponse)</th>
+                        <th style={{ width: '36px' }}></th>
                       </tr>
                     </thead>
                     <tbody>
                       {manualWords.map((w, idx) => (
-                        <tr key={w.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                          <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 'bold', fontSize: '0.9rem' }}>{idx + 1}</td>
-                          <td style={{ padding: '0.5rem' }}>
+                        <tr key={w.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <td style={{ padding: '0.35rem', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 'bold', fontSize: '0.8rem' }}>{idx + 1}</td>
+                          <td style={{ padding: '0.35rem' }}>
                             <input
                               type="text"
                               value={w.question}
                               onChange={(e) => setManualWords(prev => prev.map(x => x.id === w.id ? { ...x, question: e.target.value } : x))}
                               placeholder="ex: la maison / the house"
-                              style={{ width: '100%', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.5rem 0.75rem', color: 'var(--text-main)', fontSize: '0.95rem' }}
+                              style={{ width: '100%', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0.4rem 0.6rem', color: 'var(--text-main)', fontSize: '0.88rem' }}
                             />
                           </td>
-                          <td style={{ padding: '0.5rem' }}>
+                          <td style={{ padding: '0.35rem' }}>
                             <input
                               type="text"
                               value={w.answer}
                               onChange={(e) => setManualWords(prev => prev.map(x => x.id === w.id ? { ...x, answer: e.target.value } : x))}
                               placeholder="ex: das Haus"
-                              style={{ width: '100%', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.5rem 0.75rem', color: 'var(--text-main)', fontSize: '0.95rem' }}
+                              style={{ width: '100%', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0.4rem 0.6rem', color: 'var(--text-main)', fontSize: '0.88rem' }}
                             />
                           </td>
-                          <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                            <button onClick={() => setManualWords(prev => prev.filter(x => x.id !== w.id))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '1.1rem' }}>✕</button>
+                          <td style={{ padding: '0.35rem', textAlign: 'center' }}>
+                            <button onClick={() => setManualWords(prev => prev.filter(x => x.id !== w.id))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '1rem', opacity: 0.7 }} title="Supprimer cette ligne">✕</button>
                           </td>
                         </tr>
                       ))}
@@ -464,26 +583,19 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
                   </table>
                 </div>
 
-                <button
-                  onClick={() => setManualWords(prev => [...prev, { id: Date.now(), question: '', answer: '' }])}
-                  style={{ marginTop: '1rem', background: 'none', border: '2px dashed var(--border-color)', borderRadius: '10px', color: 'var(--text-muted)', padding: '0.6rem', width: '100%', cursor: 'pointer', fontSize: '0.95rem' }}
-                >
-                  + Ajouter une ligne
-                </button>
-
-                <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                  <button onClick={() => setShowWordEditor(false)} className="btn btn-secondary" style={{ flex: 1 }}>Annuler</button>
+                <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-color)' }}>
+                  <button onClick={() => setShowWordEditor(false)} className="btn btn-secondary" style={{ flex: 1 }}>Fermer</button>
                   <button
-                    className="btn btn-primary"
+                    className="btn btn-success"
                     style={{ flex: 2 }}
                     onClick={() => {
-                      const valid = manualWords.filter(w => w.question.trim() && w.answer.trim());
-                      if (valid.length === 0) return alert('Ajoute au moins un mot !');
+                      const valid = manualWords.filter(w => w.question?.trim() && w.answer?.trim());
+                      if (valid.length === 0) return alert('Ajoutez au moins un mot valide !');
                       handleStartDirectSession(valid.map((w, i) => ({ ...w, id: i + 1 })));
                       setShowWordEditor(false);
                     }}
                   >
-                    CONTINUER →
+                    🚀 LANCER LA SESSION ({manualWords.filter(w => w.question?.trim() && w.answer?.trim()).length} mots)
                   </button>
                 </div>
               </div>

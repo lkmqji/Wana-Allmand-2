@@ -21,6 +21,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
   const [showCommunityPicker, setShowCommunityPicker] = useState(false);
   const [publicLists, setPublicLists] = useState([]);
   const [loadingPublicLists, setLoadingPublicLists] = useState(false);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
 
   // Keep a ref of original words to detect real changes on blur
   const wordsRef = useRef(session?.vocabList || []);
@@ -270,6 +271,46 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
       settings: newSettings,
       changeDescription: `Nombre de questions ajusté à ${formatted.length}`
     });
+  };
+
+  // 4. Upload and parse PDF directly in lobby
+  const handleUploadPdfInLobby = async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+
+    setIsUploadingPdf(true);
+    const formData = new FormData();
+    formData.append('pdf', file);
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${API_URL}/api/upload`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.vocabList && data.vocabList.length > 0) {
+        const formatted = data.vocabList.map((w, idx) => ({ ...w, id: idx + 1 }));
+        const newSettings = { ...settings, rounds: Math.min(settings.rounds || 10, formatted.length) };
+        setWords(formatted);
+        wordsRef.current = formatted;
+        setSettings(newSettings);
+
+        socket.emit('update_session_words', {
+          sessionId: session?.id,
+          vocabList: formatted,
+          changeDescription: `L'hôte a importé un PDF "${file.name}" (${formatted.length} mots) 📄`
+        });
+      } else {
+        alert("Aucun mot de vocabulaire trouvé dans ce PDF.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de l'analyse du PDF");
+    } finally {
+      setIsUploadingPdf(false);
+      if (e.target) e.target.value = '';
+    }
   };
 
   // Settings management (Host only)
@@ -691,8 +732,17 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                     style={{ width: 'auto', padding: '0.25rem 0.55rem', fontSize: '0.75rem' }}
                     title="Choisir parmi les listes par défaut ou communautaires"
                   >
-                    📚 Choisir une liste
+                    📚 Choisir
                   </button>
+
+                  <label
+                    className="btn btn-secondary"
+                    style={{ width: 'auto', padding: '0.25rem 0.55rem', fontSize: '0.75rem', cursor: isUploadingPdf ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center' }}
+                    title="Importer un fichier PDF avec vos mots"
+                  >
+                    <span>{isUploadingPdf ? '⏳...' : '📄 PDF'}</span>
+                    <input type="file" accept=".pdf" style={{ display: 'none' }} onChange={handleUploadPdfInLobby} disabled={isUploadingPdf} />
+                  </label>
 
                   <button
                     onClick={handleAddWord}
