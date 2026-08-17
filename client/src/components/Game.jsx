@@ -39,6 +39,9 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const [leaveRequesterName, setLeaveRequesterName] = useState('');
   const [toastMessage, setToastMessage] = useState(null);
 
+  // Disconnection Grace Period state (30s)
+  const [disconnectGrace, setDisconnectGrace] = useState({ disconnected: false, playerName: '', secondsRemaining: 30 });
+
   // Chat states
   const [isQuickChatOpen, setIsQuickChatOpen] = useState(false);
   const [quickChatInput, setQuickChatInput] = useState('');
@@ -105,8 +108,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     }
   };
 
-  // Timer: frozen when game is paused or when leave request is active
-  const isGameFrozenOrPaused = isPaused || leaveRequestState !== 'none';
+  // Timer: frozen when game is paused, disconnected, or when leave request is active
+  const isGameFrozenOrPaused = isPaused || leaveRequestState !== 'none' || disconnectGrace.disconnected;
 
   useEffect(() => {
     let interval;
@@ -124,6 +127,23 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     }
     return () => clearInterval(interval);
   }, [timeRemaining, hasAnswered, roundResult, isGameFrozenOrPaused]);
+
+  // Disconnect Grace 30s timer ticker
+  useEffect(() => {
+    let timer;
+    if (disconnectGrace.disconnected && disconnectGrace.secondsRemaining > 0) {
+      timer = setInterval(() => {
+        setDisconnectGrace(prev => {
+          if (prev.secondsRemaining <= 1) {
+            clearInterval(timer);
+            return { ...prev, secondsRemaining: 0 };
+          }
+          return { ...prev, secondsRemaining: prev.secondsRemaining - 1 };
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [disconnectGrace.disconnected, disconnectGrace.secondsRemaining]);
 
   // Leaderboard overtake detection
   useEffect(() => {
@@ -176,6 +196,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       setIsPaused(false);
       setPauseData(null);
       setLeaveRequestState('none');
+      setDisconnectGrace({ disconnected: false, playerName: '', secondsRemaining: 30 });
       setTimeout(() => inputRef.current?.focus(), 100);
     });
 
@@ -225,6 +246,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       setIsPaused(false);
       setPauseData(null);
       setLeaveRequestState('none');
+      setDisconnectGrace({ disconnected: false, playerName: '', secondsRemaining: 30 });
       if (typeof data?.timeRemaining === 'number') {
         setTimeRemaining(data.timeRemaining);
       }
@@ -254,6 +276,23 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       showToast("L'adversaire a refusé l'arrêt de la partie. La partie continue !", 'warning');
     });
 
+    // Disconnection & Reconnection handling
+    socket.on('player_disconnected_grace', (data) => {
+      if (data.playerId !== socket.id) {
+        setDisconnectGrace({
+          disconnected: true,
+          playerName: data.playerName || "L'adversaire",
+          secondsRemaining: data.graceSeconds || 30
+        });
+      }
+    });
+
+    socket.on('player_reconnected', (data) => {
+      setDisconnectGrace({ disconnected: false, playerName: '', secondsRemaining: 30 });
+      setIsPaused(false);
+      showToast(`⚡ ${data.playerName || 'Adversaire'} s'est reconnecté ! La partie reprend.`, 'success');
+    });
+
     socket.on('ready_count', (data) => {
       setReadyCount(data);
     });
@@ -262,7 +301,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     socket.on('game_chat_message', (msg) => {
       setChatMessages(prev => [...prev, msg]);
       
-      // Add to floating bubbles (visible for 3.5s in top-left)
+      // Add to floating bubbles (visible for 3.5s in top-right)
       setFloatingBubbles(prev => [...prev.slice(-3), msg]);
       setTimeout(() => {
         setFloatingBubbles(prev => prev.filter(b => b.id !== msg.id));
@@ -282,6 +321,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       socket.off('terminate_pending');
       socket.off('terminate_cancelled');
       socket.off('terminate_refused');
+      socket.off('player_disconnected_grace');
+      socket.off('player_reconnected');
       socket.off('game_chat_message');
     };
   }, [socket]);
@@ -290,7 +331,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     if (hasAnswered || isGameFrozenOrPaused) return;
     setHasAnswered(true);
     socket.emit('submit_answer', {
-      sessionId: session.id,
+      sessionId: session?.id,
       answer: ans,
       timeRemaining
     });
@@ -299,7 +340,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const handleUseJoker = () => {
     if (jokers > 0 && !hasAnswered && !isGameFrozenOrPaused) {
       setJokers(j => j - 1);
-      socket.emit('use_joker', session.id);
+      socket.emit('use_joker', session?.id);
     }
   };
 
@@ -316,47 +357,47 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const handleReadyForNext = () => {
     if (iAmReady || isGameFrozenOrPaused) return;
     setIAmReady(true);
-    socket.emit('ready_for_next', session.id);
+    socket.emit('ready_for_next', session?.id);
   };
 
   // Leave Actions
   const handleRequestTerminate = () => {
-    socket.emit('request_terminate', session.id);
+    socket.emit('request_terminate', session?.id);
   };
 
   const handleCancelTerminate = () => {
-    socket.emit('cancel_terminate', session.id);
+    socket.emit('cancel_terminate', session?.id);
     setLeaveRequestState('none');
   };
 
   const handleAcceptTerminate = () => {
-    socket.emit('accept_terminate', session.id);
+    socket.emit('accept_terminate', session?.id);
     setLeaveRequestState('none');
   };
 
   const handleRefuseTerminate = () => {
-    socket.emit('refuse_terminate', session.id);
+    socket.emit('refuse_terminate', session?.id);
     setLeaveRequestState('none');
   };
 
   // Pause Actions
   const handleTogglePause = () => {
     if (isPaused) {
-      socket.emit('resume_game', session.id);
+      socket.emit('resume_game', session?.id);
     } else {
-      socket.emit('request_pause', session.id);
+      socket.emit('request_pause', session?.id);
     }
   };
 
   const handleResumeGame = () => {
-    socket.emit('resume_game', session.id);
+    socket.emit('resume_game', session?.id);
   };
 
   // Chat Actions
   const handleSendQuickMessage = (text) => {
     if (!text || !text.trim()) return;
     socket.emit('game_chat_message', {
-      sessionId: session.id,
+      sessionId: session?.id,
       text: text.trim(),
       preset: true
     });
@@ -366,7 +407,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     e.preventDefault();
     if (!quickChatInput.trim()) return;
     socket.emit('game_chat_message', {
-      sessionId: session.id,
+      sessionId: session?.id,
       text: quickChatInput.trim(),
       preset: false
     });
@@ -377,7 +418,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     e.preventDefault();
     if (!pauseChatInput.trim()) return;
     socket.emit('game_chat_message', {
-      sessionId: session.id,
+      sessionId: session?.id,
       text: pauseChatInput.trim(),
       preset: false
     });
@@ -406,7 +447,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     );
   };
 
-  const isBlurred = isPaused || leaveRequestState !== 'none';
+  const isBlurred = isPaused || leaveRequestState !== 'none' || disconnectGrace.disconnected;
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', flex: 1 }}>
@@ -430,7 +471,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           top: '20px',
           left: '50%',
           transform: 'translateX(-50%)',
-          background: toastMessage.type === 'error' ? 'var(--danger)' : toastMessage.type === 'warning' ? 'var(--warning)' : 'var(--primary)',
+          background: toastMessage.type === 'error' ? 'var(--danger)' : toastMessage.type === 'warning' ? 'var(--warning)' : toastMessage.type === 'success' ? 'var(--success)' : 'var(--primary)',
           color: '#ffffff',
           padding: '0.65rem 1.4rem',
           borderRadius: '30px',
@@ -443,8 +484,67 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           alignItems: 'center',
           gap: '0.5rem'
         }}>
-          <span>{toastMessage.type === 'error' ? '🚫' : toastMessage.type === 'warning' ? '⚠️' : 'ℹ️'}</span>
+          <span>{toastMessage.type === 'error' ? '🚫' : toastMessage.type === 'warning' ? '⚠️' : toastMessage.type === 'success' ? '⚡' : 'ℹ️'}</span>
           <span>{toastMessage.text}</span>
+        </div>
+      )}
+
+      {/* =========================================================
+          DISCONNECTION GRACE PERIOD OVERLAY (30s TIMER)
+         ========================================================= */}
+      {disconnectGrace.disconnected && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.85)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          zIndex: 1100,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '1.5rem',
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          <div className="card" style={{
+            maxWidth: '460px',
+            width: '100%',
+            padding: '2rem',
+            textAlign: 'center',
+            border: '2px solid var(--warning)',
+            boxShadow: '0 25px 50px -12px rgba(245, 158, 11, 0.4)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1.2rem'
+          }}>
+            <div style={{ fontSize: '3rem', animation: 'pulse 1s infinite' }}>📡</div>
+            <h2 style={{ fontSize: '1.35rem', margin: 0, color: 'var(--text-main)' }}>
+              Adversaire déconnecté
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', margin: 0, lineHeight: 1.5 }}>
+              <strong style={{ color: 'var(--warning)' }}>{disconnectGrace.playerName}</strong> a perdu la connexion.
+              La partie est mise en pause.
+            </p>
+
+            <div style={{
+              background: 'rgba(245, 158, 11, 0.15)',
+              border: '1px solid var(--warning)',
+              borderRadius: '12px',
+              padding: '1rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.4rem',
+              alignItems: 'center'
+            }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Temps restant pour sa reconnexion :</span>
+              <span style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--warning)' }}>
+                {disconnectGrace.secondsRemaining}s
+              </span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Si l'adversaire ne revient pas, la victoire vous sera accordée par forfait.
+              </span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -453,7 +553,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
          ========================================================= */}
       
       {/* 1A. SENDER WAITING MODAL */}
-      {leaveRequestState === 'pending' && (
+      {leaveRequestState === 'pending' && !disconnectGrace.disconnected && (
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
@@ -520,7 +620,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       )}
 
       {/* 1B. OPPONENT CONFIRMATION MODAL */}
-      {leaveRequestState === 'received' && (
+      {leaveRequestState === 'received' && !disconnectGrace.disconnected && (
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
@@ -588,7 +688,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       {/* =========================================================
           2. IN-GAME PAUSE & CHAT MODAL (BLURRED OVERLAY)
          ========================================================= */}
-      {isPaused && leaveRequestState === 'none' && (
+      {isPaused && leaveRequestState === 'none' && !disconnectGrace.disconnected && (
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
@@ -751,15 +851,16 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       )}
 
       {/* =========================================================
-          3. FLOATING MESSENGER BUBBLES (TOP-LEFT, NON-INTRUSIVE)
+          3. FLOATING MESSENGER BUBBLES (TOP-RIGHT, NON-INTRUSIVE)
          ========================================================= */}
       <div style={{
         position: 'fixed',
         top: '4.8rem',
-        left: '1rem',
+        right: '1rem',
         zIndex: 100,
         display: 'flex',
         flexDirection: 'column',
+        alignItems: 'flex-end',
         gap: '8px',
         pointerEvents: 'none',
         maxWidth: '280px',
@@ -781,11 +882,20 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
                 boxShadow: '0 8px 20px rgba(0, 0, 0, 0.45)',
                 padding: '0.45rem 0.8rem',
                 borderRadius: '24px',
-                animation: 'slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                animation: 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                 color: 'var(--text-main)',
-                textAlign: 'left'
+                textAlign: 'right'
               }}
             >
+              <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <span style={{ fontSize: '0.7rem', color: isMe ? 'var(--primary)' : 'var(--warning)', fontWeight: 'bold', lineHeight: 1.1 }}>
+                  {isMe ? 'Vous' : bubble.senderName}
+                </span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ffffff', wordBreak: 'break-word', lineHeight: 1.2 }}>
+                  {bubble.text}
+                </span>
+              </div>
+
               <div style={{
                 fontSize: '1.2rem',
                 width: '32px',
@@ -799,33 +909,25 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
               }}>
                 {bubble.senderAvatar || '🦊'}
               </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <span style={{ fontSize: '0.7rem', color: isMe ? 'var(--primary)' : 'var(--warning)', fontWeight: 'bold', lineHeight: 1.1 }}>
-                  {isMe ? 'Vous' : bubble.senderName}
-                </span>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ffffff', wordBreak: 'break-word', lineHeight: 1.2 }}>
-                  {bubble.text}
-                </span>
-              </div>
             </div>
           );
         })}
       </div>
 
       {/* =========================================================
-          TOP ACTION BAR (QUICK CHAT, PAUSE, QUIT)
+          TOP-LEFT ACTIONS: QUITTER & PAUSE (VERTICALLY STACKED)
          ========================================================= */}
       <div style={{
         position: 'absolute',
         top: '1rem',
         left: '1rem',
         display: 'flex',
+        flexDirection: 'column',
         gap: '0.45rem',
         alignItems: 'center',
         zIndex: 60
       }}>
-        {/* Bouton Quitter (Demande avec flou) */}
+        {/* 1. Bouton Quitter */}
         <button 
           onClick={handleRequestTerminate}
           style={{ 
@@ -851,7 +953,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           </svg>
         </button>
 
-        {/* Bouton Pause (si autorisé par l'hôte) */}
+        {/* 2. Bouton Pause (si autorisé par l'hôte) */}
         {allowPause && (
           <button 
             onClick={handleTogglePause}
@@ -878,8 +980,19 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             )}
           </button>
         )}
+      </div>
 
-        {/* Bouton Quick Chat (Bulles Messenger sans pause) */}
+      {/* =========================================================
+          TOP-RIGHT ACTION: CHAT (EN HAUT A DROITE)
+         ========================================================= */}
+      <div style={{
+        position: 'absolute',
+        top: '1rem',
+        right: '1rem',
+        display: 'flex',
+        alignItems: 'center',
+        zIndex: 60
+      }}>
         <button 
           onClick={() => setIsQuickChatOpen(v => !v)}
           style={{ 
@@ -896,18 +1009,18 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             transition: 'all 0.2s',
             boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
           }}
-          title="Réactions & Chat rapide en jeu (sans pause)"
+          title="Réactions & Chat rapide en jeu"
         >
           <span style={{ fontSize: '1.1rem', lineHeight: 1 }}>💬</span>
         </button>
       </div>
 
-      {/* QUICK CHAT POPOVER (Positioned in Top-Left, does NOT block the middle word) */}
+      {/* QUICK CHAT POPOVER (Positioned in Top-Right) */}
       {isQuickChatOpen && (
         <div style={{
           position: 'absolute',
           top: '3.6rem',
-          left: '1rem',
+          right: '1rem',
           width: '270px',
           background: 'var(--bg-surface)',
           border: '2px solid var(--primary)',
@@ -1015,10 +1128,10 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
               <div 
                 key={p.id} 
                 className={`player-score ${isOvertaking ? 'leader-overtake' : ''}`} 
-                style={{ color: p.id === socket.id ? 'var(--primary)' : 'var(--text-main)' }}
+                style={{ color: p.id === socket?.id ? 'var(--primary)' : 'var(--text-main)' }}
               >
                 {isLeader && <div className="leader-crown">👑</div>}
-                <div className="name">{p.name} {p.id === socket.id ? '(Vous)' : ''}</div>
+                <div className="name">{p.name} {p.id === socket?.id ? '(Vous)' : ''}</div>
                 <div className="score">{p.score}</div>
               </div>
             );
@@ -1028,7 +1141,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
         {/* Central Game Card */}
         <div className="card" style={{ textAlign: 'center', position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', padding: '1.5rem', marginTop: '1rem', minHeight: '380px' }}>
           
-          <div style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--text-muted)' }}>
+          {/* Question Index Badge */}
+          <div style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 600 }}>
             {questionIndex + 1} / {totalQuestions}
           </div>
 
@@ -1226,8 +1340,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           from { opacity: 0; transform: scale(0.98); }
           to { opacity: 1; transform: scale(1); }
         }
-        @keyframes slideInLeft {
-          from { opacity: 0; transform: translateX(-20px) scale(0.95); }
+        @keyframes slideInRight {
+          from { opacity: 0; transform: translateX(20px) scale(0.95); }
           to { opacity: 1; transform: translateX(0) scale(1); }
         }
         @keyframes pulse {

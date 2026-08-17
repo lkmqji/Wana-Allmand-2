@@ -1048,18 +1048,183 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('disconnect', () => {
-        console.log(`User disconnected: ${socket.id}`);
-        // Chercher dans toutes les sessions si ce socket y était
-        for (const [sessionId, session] of gameManager.sessions.entries()) {
-            if (session.players[socket.id]) {
-                handlePlayerLeave(sessionId, socket.id);
+    // Direct Rejoin active session
+    socket.on('rejoin_game_session', ({ sessionId, firebaseId, playerName, avatar }) => {
+        const session = gameManager.getSession(sessionId);
+        if (!session || session.status === 'finished') {
+            socket.emit('rejoin_failed', { reason: "La partie est terminée ou n'existe plus." });
+            return;
+        }
+
+        // Find the player in session
+        let foundPlayerId = null;
+        let foundPlayer = null;
+
+        for (const [pId, p] of Object.entries(session.players || {})) {
+            if ((firebaseId && p.firebaseId && p.firebaseId === firebaseId) || p.disconnected || pId === socket.id) {
+                foundPlayerId = pId;
+                foundPlayer = p;
+                break;
             }
         }
+
+        if (!foundPlayer) {
+            socket.emit('rejoin_failed', { reason: "Joueur non reconnu dans cette session." });
+            return;
+        }
+
+        // Cancel 30s disconnect countdown timer
+        const timerKey = `${sessionId}_${foundPlayerId}`;
+        if (disconnectTimers.has(timerKey)) {
+            clearTimeout(disconnectTimers.get(timerKey));
+            disconnectTimers.delete(timerKey);
+        }
+
+        // Update socket mapping
+        if (foundPlayerId !== socket.id) {
+            delete session.players[foundPlayerId];
+            foundPlayer.id = socket.id;
+            foundPlayer.disconnected = false;
+            delete foundPlayer.disconnectedAt;
+            session.players[socket.id] = foundPlayer;
+
+            if (session.hostId === foundPlayerId) session.hostId = socket.id;
+            if (session.guestId === foundPlayerId) session.guestId = socket.id;
+        } else {
+            foundPlayer.disconnected = false;
+            delete foundPlayer.disconnectedAt;
+        }
+
+        socket.join(sessionId);
+
+        // Update online user registry
+        const u = onlineUsers.get(socket.id);
+        if (u) {
+            u.status = 'in_game';
+            u.sessionId = sessionId;
+            if (playerName) u.name = playerName;
+            if (avatar) u.avatar = avatar;
+            broadcastOnlineUsers();
+        }
+
+        // Resume game if it was paused for disconnect
+        if (session.isPaused && session.pauseReason === 'disconnect_grace') {
+            resumeGame(sessionId);
+        }
+
+        // Notify reconnecting player
+        socket.emit('rejoin_success', {
+            session,
+            isHost: session.hostId === socket.id
+        });
+
+        // Notify opponent
+        io.to(sessionId).emit('player_reconnected', {
+            playerId: socket.id,
+            playerName: foundPlayer.name
+        });
+    });
+
+    socket.on('disconnect', () => {
+        console.log(`User disconnected: ${socket.id}`);
+        handlePlayerDisconnect(socket);
         onlineUsers.delete(socket.id);
         broadcastOnlineUsers();
     });
 });
+
+const disconnectTimers = new Map();
+
+function handlePlayerDisconnect(socket) {
+    for (const [sessionId, session] of gameManager.sessions.entries()) {
+        if (session.players && session.players[socket.id]) {
+            const player = session.players[socket.id];
+            
+            // In an active game: start 30s grace countdown instead of quitting immediately
+            if (session.status === 'playing' || session.status === 'showing_results') {
+                player.disconnected = true;
+                player.disconnectedAt = Date.now();
+
+                // Pause the game while waiting
+                pauseGame(sessionId, 'disconnect_grace', socket.id, {
+                    disconnectedPlayerName: player.name,
+                    graceSeconds: 30
+                });
+
+                io.to(sessionId).emit('player_disconnected_grace', {
+                    playerId: socket.id,
+                    playerName: player.name,
+                    graceSeconds: 30
+                });
+
+                const timerKey = `${sessionId}_${socket.id}`;
+                if (disconnectTimers.has(timerKey)) {
+                    clearTimeout(disconnectTimers.get(timerKey));
+                }
+
+                const timer = setTimeout(() => {
+                    disconnectTimers.delete(timerKey);
+                    handleDisconnectForfeit(sessionId, socket.id);
+                }, 30000);
+
+                disconnectTimers.set(timerKey, timer);
+            } else {
+                handlePlayerLeave(sessionId, socket.id);
+            }
+        }
+    }
+}
+
+async function handleDisconnectForfeit(sessionId, forfeitedSocketId) {
+    const session = gameManager.getSession(sessionId);
+    if (!session || session.status === 'finished') return;
+
+    clearTimeout(session.roundTimer);
+    clearTimeout(session.autoAdvanceTimer);
+
+    const forfeitedPlayer = session.players[forfeitedSocketId];
+    const remainingPlayerId = Object.keys(session.players).find(id => id !== forfeitedSocketId);
+    const remainingPlayer = remainingPlayerId ? session.players[remainingPlayerId] : null;
+
+    session.status = 'finished';
+    session.isPaused = false;
+    session.pauseReason = null;
+
+    // Record DB stats: victory for remaining player, loss for forfeiter
+    if (forfeitedPlayer?.firebaseId) {
+        try {
+            await User.findOneAndUpdate(
+                { firebaseId: forfeitedPlayer.firebaseId },
+                { $inc: { gamesPlayed: 1 } }
+            );
+        } catch (e) {
+            console.error("DB error on forfeit:", e);
+        }
+    }
+
+    if (remainingPlayer?.firebaseId) {
+        try {
+            const dbUser = await User.findOne({ firebaseId: remainingPlayer.firebaseId });
+            if (dbUser) {
+                dbUser.gamesPlayed += 1;
+                dbUser.gamesWon += 1;
+                dbUser.xp += Math.max(remainingPlayer.score || 0, 100);
+                dbUser.level = Math.floor(dbUser.xp / 1000) + 1;
+                await dbUser.save();
+            }
+        } catch (e) {
+            console.error("DB error on forfeit victory:", e);
+        }
+    }
+
+    io.to(sessionId).emit('forfeit_game_over', {
+        players: session.players,
+        winnerId: remainingPlayerId,
+        winnerName: remainingPlayer?.name || 'Adversaire',
+        forfeitedName: forfeitedPlayer?.name || 'Joueur déconnecté',
+        vocabList: session.vocabList
+    });
+}
 
 function pauseGame(sessionId, reason, bySocketId, extraData = {}) {
     const session = gameManager.getSession(sessionId);

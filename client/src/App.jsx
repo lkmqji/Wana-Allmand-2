@@ -194,9 +194,40 @@ function App() {
     });
 
     socket.on('game_over', (data) => {
+      sessionStorage.removeItem('active_game_session');
       setPlayers(data.players);
       setSession(prev => ({ ...prev, vocabList: data.vocabList }));
       setView('results');
+    });
+
+    socket.on('forfeit_game_over', (data) => {
+      sessionStorage.removeItem('active_game_session');
+      setPlayers(data.players);
+      setSession(prev => ({ ...prev, vocabList: data.vocabList }));
+      setView('results');
+      setToastNotif({
+        icon: '🏆',
+        title: 'Victoire par forfait !',
+        message: `${data.forfeitedName} ne s'est pas reconnecté à temps.`
+      });
+      setTimeout(() => setToastNotif(null), 6000);
+    });
+
+    socket.on('rejoin_success', (data) => {
+      setSession(data.session);
+      setPlayers(data.session.players || {});
+      setIsHost(data.isHost);
+      setView('game');
+      setToastNotif({
+        icon: '⚡',
+        title: 'Partie réintégrée',
+        message: 'Vous êtes de retour dans votre partie en cours !'
+      });
+      setTimeout(() => setToastNotif(null), 4000);
+    });
+
+    socket.on('rejoin_failed', () => {
+      sessionStorage.removeItem('active_game_session');
     });
 
     socket.on('admin_announcement', (msg) => {
@@ -230,12 +261,59 @@ function App() {
       socket.off('invite_response');
       socket.off('game_started');
       socket.off('game_over');
+      socket.off('forfeit_game_over');
+      socket.off('rejoin_success');
+      socket.off('rejoin_failed');
       socket.off('admin_announcement');
       socket.off('new_notification');
       socket.off('error');
       socket.off('kicked');
     };
   }, []);
+
+  // Save active session for seamless direct rejoin if page refreshes or connection drops
+  useEffect(() => {
+    if (view === 'game' && session?.id) {
+      sessionStorage.setItem('active_game_session', JSON.stringify({
+        sessionId: session.id,
+        firebaseId: user?.uid || null,
+        playerName: playerName || 'Joueur',
+        avatar: avatar || '🦊'
+      }));
+    } else if (view === 'home') {
+      sessionStorage.removeItem('active_game_session');
+    }
+  }, [view, session?.id, user?.uid, playerName, avatar]);
+
+  // Attempt auto-rejoin on socket connect/reconnect
+  useEffect(() => {
+    const handleRejoinCheck = () => {
+      const saved = sessionStorage.getItem('active_game_session');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed?.sessionId) {
+            socket.emit('rejoin_game_session', {
+              sessionId: parsed.sessionId,
+              firebaseId: user?.uid || parsed.firebaseId,
+              playerName: playerName || parsed.playerName,
+              avatar: avatar || parsed.avatar
+            });
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
+
+    socket.on('connect', handleRejoinCheck);
+    // Also run once immediately on mount
+    handleRejoinCheck();
+
+    return () => {
+      socket.off('connect', handleRejoinCheck);
+    };
+  }, [user, playerName, avatar]);
 
   const handleAcceptInvite = () => {
     if (!incomingInvite) return;
