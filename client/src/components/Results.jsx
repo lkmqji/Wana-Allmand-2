@@ -86,18 +86,30 @@ export default function Results({ players, setView, socket, session, isHost, pla
       alert(`${declinerName || 'Votre adversaire'} a décliné la demande de revanche.`);
     };
 
+    const handleRetryCancelled = () => {
+      setIncomingProposal(null);
+    };
+
+    const handleRematchCancelled = () => {
+      setIncomingRematchProposal(null);
+    };
+
     socket.on('lobby_chat_message', handleChatMessage);
     socket.on('retry_failed_words_proposal', handleRetryProposal);
     socket.on('retry_failed_words_declined', handleRetryDeclined);
+    socket.on('retry_failed_words_cancelled', handleRetryCancelled);
     socket.on('rematch_proposal', handleRematchProposal);
     socket.on('rematch_declined', handleRematchDeclined);
+    socket.on('rematch_cancelled', handleRematchCancelled);
 
     return () => {
       socket.off('lobby_chat_message', handleChatMessage);
       socket.off('retry_failed_words_proposal', handleRetryProposal);
       socket.off('retry_failed_words_declined', handleRetryDeclined);
+      socket.off('retry_failed_words_cancelled', handleRetryCancelled);
       socket.off('rematch_proposal', handleRematchProposal);
       socket.off('rematch_declined', handleRematchDeclined);
+      socket.off('rematch_cancelled', handleRematchCancelled);
     };
   }, [socket, showChat, session]);
 
@@ -209,6 +221,16 @@ export default function Results({ players, setView, socket, session, isHost, pla
     setIncomingRematchProposal(null);
   };
 
+  const handleCancelProposal = () => {
+    setWaitingForProposalResp(false);
+    if (session?.id) socket.emit('cancel_retry_failed_words', session.id);
+  };
+
+  const handleCancelRematch = () => {
+    setWaitingForRematchResp(false);
+    if (session?.id) socket.emit('cancel_rematch', session.id);
+  };
+
   const renderDiff = (expected, actual, isCorrect, isTypo) => {
     if (!actual) return <span style={{ color: 'var(--danger)' }}>(Aucune réponse)</span>;
     if (isCorrect || isTypo) return <span style={{ color: 'var(--success)' }}>{actual}</span>;
@@ -257,7 +279,7 @@ export default function Results({ players, setView, socket, session, isHost, pla
             </div>
           </div>
           <button
-            onClick={() => setWaitingForProposalResp(false)}
+            onClick={handleCancelProposal}
             className="btn btn-secondary"
             style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
           >
@@ -289,7 +311,7 @@ export default function Results({ players, setView, socket, session, isHost, pla
             </div>
           </div>
           <button
-            onClick={() => setWaitingForRematchResp(false)}
+            onClick={handleCancelRematch}
             className="btn btn-secondary"
             style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
           >

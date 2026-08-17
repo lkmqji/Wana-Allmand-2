@@ -858,6 +858,11 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Cancel rematch proposal
+    socket.on('cancel_rematch', (sessionId) => {
+        socket.to(sessionId).emit('rematch_cancelled');
+    });
+
     // Propose to retry failed words together
     socket.on('propose_retry_failed_words', ({ sessionId, failedWords }) => {
         const session = gameManager.getSession(sessionId);
@@ -911,6 +916,11 @@ io.on('connection', (socket) => {
                 declinerName: decliner.name
             });
         }
+    });
+
+    // Cancel retry failed words proposal
+    socket.on('cancel_retry_failed_words', (sessionId) => {
+        socket.to(sessionId).emit('retry_failed_words_cancelled');
     });
 
     socket.on('request_terminate', (sessionId) => {
