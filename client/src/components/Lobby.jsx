@@ -23,6 +23,10 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
   const [loadingPublicLists, setLoadingPublicLists] = useState(false);
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
 
+  // Input states for free-typing and erasing
+  const [wordCountInput, setWordCountInput] = useState(String(session?.vocabList?.length || 10));
+  const [roundsInput, setRoundsInput] = useState(String(session?.settings?.rounds || session?.vocabList?.length || 10));
+
   // Keep a ref of original words to detect real changes on blur
   const wordsRef = useRef(session?.vocabList || []);
 
@@ -38,11 +42,21 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
     if (session?.vocabList) {
       setWords(session.vocabList);
       wordsRef.current = session.vocabList;
+      setWordCountInput(String(session.vocabList.length));
     }
     if (session?.settings) {
       setSettings(session.settings);
+      setRoundsInput(String(session.settings.rounds || session.vocabList?.length || 10));
     }
   }, [session]);
+
+  useEffect(() => {
+    setWordCountInput(String(words.length));
+  }, [words.length]);
+
+  useEffect(() => {
+    setRoundsInput(String(settings.rounds || words.length));
+  }, [settings.rounds, words.length]);
 
   // Request online users & public lists on lobby mount
   useEffect(() => {
@@ -950,54 +964,177 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                   🎲 Nombre de mots dans la liste :
                 </label>
                 <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                  <input
-                    type="number"
-                    className="input-field"
-                    value={words.length}
-                    disabled={!isHost}
-                    min={1}
-                    max={maxAvailableWordsCount}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value) || 1;
-                      handleWordCountChange(val);
-                    }}
-                    style={{ flex: 1, padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}
-                  />
+                  {/* Editable Arrow Box */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '10px',
+                    padding: '4px 8px',
+                    flex: 1
+                  }}>
+                    {isHost && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = parseInt(wordCountInput) || words.length || 1;
+                          const next = Math.max(1, current - 1);
+                          setWordCountInput(String(next));
+                          handleWordCountChange(next);
+                        }}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 4px' }}
+                      >
+                        &#9664;
+                      </button>
+                    )}
+
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={wordCountInput}
+                      disabled={!isHost}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9]/g, '');
+                        setWordCountInput(val);
+                      }}
+                      onBlur={() => {
+                        const parsed = parseInt(wordCountInput);
+                        const clamped = !parsed || parsed < 1 ? words.length || 1 : Math.min(parsed, maxAvailableWordsCount);
+                        setWordCountInput(String(clamped));
+                        if (clamped !== words.length) {
+                          handleWordCountChange(clamped);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.target.blur();
+                      }}
+                      style={{
+                        width: '100%',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-main)',
+                        textAlign: 'center',
+                        fontWeight: 'bold',
+                        fontSize: '0.95rem',
+                        outline: 'none'
+                      }}
+                    />
+
+                    {isHost && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = parseInt(wordCountInput) || words.length || 1;
+                          const next = Math.min(maxAvailableWordsCount, current + 1);
+                          setWordCountInput(String(next));
+                          handleWordCountChange(next);
+                        }}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 4px' }}
+                      >
+                        &#9654;
+                      </button>
+                    )}
+                  </div>
+
                   {isHost && (
                     <button
                       onClick={handleShuffleWords}
                       className="btn btn-secondary"
-                      style={{ width: 'auto', padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                      style={{ width: 'auto', padding: '0.45rem 0.65rem', fontSize: '0.85rem' }}
                       title="Mélanger les mots"
                     >
                       🎲
                     </button>
                   )}
                 </div>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.2rem' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
                   Total disponible actuellement : <strong>{maxAvailableWordsCount} mots</strong>
                 </span>
               </div>
 
-              {/* Rounds */}
+              {/* Option 2: Questions à jouer (Rounds) */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
                   🎯 Questions à jouer :
                 </label>
-                <input
-                  type="number"
-                  className="input-field"
-                  value={settings.rounds || words.length}
-                  disabled={!isHost}
-                  min={1}
-                  max={Math.max(1, words.length)}
-                  onChange={(e) => {
-                    const val = Math.max(1, Math.min(words.length, parseInt(e.target.value) || 1));
-                    handleUpdateSettings({ ...settings, rounds: val }, `Nombre de questions réglé à ${val}`);
-                  }}
-                  style={{ padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}
-                />
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Mots dispos dans la salle : {words.length}</span>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: 'rgba(255,255,255,0.08)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '10px',
+                  padding: '4px 8px'
+                }}>
+                  {isHost && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = parseInt(roundsInput) || settings.rounds || words.length || 1;
+                        const next = Math.max(1, current - 1);
+                        setRoundsInput(String(next));
+                        handleUpdateSettings({ ...settings, rounds: next }, `Nombre de questions réglé à ${next}`);
+                      }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 4px' }}
+                    >
+                      &#9664;
+                    </button>
+                  )}
+
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={roundsInput}
+                    disabled={!isHost}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      setRoundsInput(val);
+                    }}
+                    onBlur={() => {
+                      const parsed = parseInt(roundsInput);
+                      const maxRounds = Math.max(1, words.length);
+                      const clamped = !parsed || parsed < 1 ? maxRounds : Math.min(parsed, maxRounds);
+                      setRoundsInput(String(clamped));
+                      if (clamped !== settings.rounds) {
+                        handleUpdateSettings({ ...settings, rounds: clamped }, `Nombre de questions réglé à ${clamped}`);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.target.blur();
+                    }}
+                    style={{
+                      width: '100%',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-main)',
+                      textAlign: 'center',
+                      fontWeight: 'bold',
+                      fontSize: '0.95rem',
+                      outline: 'none'
+                    }}
+                  />
+
+                  {isHost && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = parseInt(roundsInput) || settings.rounds || words.length || 1;
+                        const maxRounds = Math.max(1, words.length);
+                        const next = Math.min(maxRounds, current + 1);
+                        setRoundsInput(String(next));
+                        handleUpdateSettings({ ...settings, rounds: next }, `Nombre de questions réglé à ${next}`);
+                      }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 4px' }}
+                    >
+                      &#9654;
+                    </button>
+                  )}
+                </div>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
+                  Mots dispos dans la salle : {words.length}
+                </span>
               </div>
 
               {/* Time per word */}
