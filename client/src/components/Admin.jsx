@@ -31,6 +31,17 @@ export default function Admin({ user, onClose }) {
   // Announcement input
   const [announcementText, setAnnouncementText] = useState("");
 
+  // Notification sender state
+  const [notifForm, setNotifForm] = useState({
+    title: "",
+    message: "",
+    type: "info",
+    icon: "📢",
+    targetType: "all", // "all" or "specific"
+    selectedUserIds: []
+  });
+  const [notifUserSearch, setNotifUserSearch] = useState("");
+
   const isAdmin = Boolean(user && ADMIN_UID && user.uid === ADMIN_UID);
 
   const fetchHeaders = useMemo(() => ({
@@ -126,6 +137,51 @@ export default function Admin({ user, onClose }) {
       }
     } catch {
       showErrorMessage("Erreur lors de la diffusion de l'annonce.");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  // Send Notification to all or specific users
+  const handleSendNotification = async () => {
+    if (!notifForm.title.trim() || !notifForm.message.trim()) {
+      return showErrorMessage("Veuillez renseigner un titre et un message.");
+    }
+    if (notifForm.targetType === "specific" && notifForm.selectedUserIds.length === 0) {
+      return showErrorMessage("Veuillez sélectionner au moins un utilisateur cible.");
+    }
+
+    setSaving("send_notif");
+    try {
+      const res = await fetch(`${API_URL}/api/admin/notifications?adminUid=${user.uid}`, {
+        method: "POST",
+        headers: fetchHeaders,
+        body: JSON.stringify({
+          adminUid: user.uid,
+          title: notifForm.title,
+          message: notifForm.message,
+          type: notifForm.type,
+          icon: notifForm.icon,
+          targetType: notifForm.targetType,
+          targetUserIds: notifForm.selectedUserIds
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showSuccessMessage(`Notification envoyée avec succès (${data.count} destinataire${data.count > 1 ? 's' : ''}) !`);
+        setNotifForm({
+          title: "",
+          message: "",
+          type: "info",
+          icon: "📢",
+          targetType: "all",
+          selectedUserIds: []
+        });
+      } else {
+        showErrorMessage(data.error || "Erreur lors de l'envoi.");
+      }
+    } catch (e) {
+      showErrorMessage("Erreur réseau lors de l'envoi de la notification.");
     } finally {
       setSaving(null);
     }
@@ -716,6 +772,186 @@ export default function Admin({ user, onClose }) {
                         {saving === "announcement" ? "Envoi..." : "Diffuser"}
                       </button>
                     </div>
+                  </div>
+
+                  {/* Targeted / Global Notification Dispatcher */}
+                  <div className="card" style={{ display: "flex", flexDirection: "column", gap: "1.2rem", padding: "1.4rem", background: "linear-gradient(135deg, rgba(99,102,241,0.08), transparent)", border: "1px solid rgba(99,102,241,0.3)" }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <span style={{ fontSize: "1.4rem" }}>📬</span>
+                        <h3 style={{ margin: 0, fontSize: "1.15rem", color: "#a78bfa" }}>Envoyer une Notification aux Utilisateurs</h3>
+                      </div>
+                      <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", margin: "0.3rem 0 0 0" }}>
+                        Envoyez une notification persistante dans la boîte de réception des joueurs (globale ou ciblée).
+                      </p>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "1rem" }}>
+                      <div>
+                        <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", display: "block", marginBottom: "0.3rem" }}>
+                          Titre de la notification :
+                        </label>
+                        <input
+                          type="text"
+                          className="input-field"
+                          placeholder="Ex: 🎉 Nouveau défi de vocabulaire disponible !"
+                          value={notifForm.title}
+                          onChange={(e) => setNotifForm(prev => ({ ...prev, title: e.target.value }))}
+                          style={{ margin: 0 }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", display: "block", marginBottom: "0.3rem" }}>
+                          Type / Icône :
+                        </label>
+                        <select
+                          className="input-field"
+                          value={notifForm.icon}
+                          onChange={(e) => {
+                            const icon = e.target.value;
+                            const type = icon === "🎁" ? "reward" : icon === "🏆" ? "tournament" : icon === "⚠️" ? "alert" : "announcement";
+                            setNotifForm(prev => ({ ...prev, icon, type }));
+                          }}
+                          style={{ margin: 0, padding: "0.7rem 1rem", fontSize: "1rem" }}
+                        >
+                          <option value="📢">📢 Annonce</option>
+                          <option value="🎁">🎁 Récompense</option>
+                          <option value="🏆">🏆 Tournoi / Défi</option>
+                          <option value="⚠️">⚠️ Alerte</option>
+                          <option value="💡">💡 Astuce</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", display: "block", marginBottom: "0.3rem" }}>
+                        Message détaillé :
+                      </label>
+                      <textarea
+                        className="input-field"
+                        rows={3}
+                        placeholder="Rédigez le texte de la notification ici..."
+                        value={notifForm.message}
+                        onChange={(e) => setNotifForm(prev => ({ ...prev, message: e.target.value }))}
+                        style={{ margin: 0, resize: "vertical" }}
+                      />
+                    </div>
+
+                    {/* Target Selector */}
+                    <div>
+                      <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", display: "block", marginBottom: "0.5rem" }}>
+                        Destinataires :
+                      </label>
+                      <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", marginBottom: "0.8rem" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontSize: "0.9rem" }}>
+                          <input
+                            type="radio"
+                            name="notifTarget"
+                            checked={notifForm.targetType === "all"}
+                            onChange={() => setNotifForm(prev => ({ ...prev, targetType: "all", selectedUserIds: [] }))}
+                          />
+                          <span>🌐 <strong>Tous les utilisateurs</strong> (Global)</span>
+                        </label>
+
+                        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontSize: "0.9rem" }}>
+                          <input
+                            type="radio"
+                            name="notifTarget"
+                            checked={notifForm.targetType === "specific"}
+                            onChange={() => setNotifForm(prev => ({ ...prev, targetType: "specific" }))}
+                          />
+                          <span>👤 <strong>Sélectionner des utilisateurs</strong> ({notifForm.selectedUserIds.length} sélectionné{notifForm.selectedUserIds.length > 1 ? 's' : ''})</span>
+                        </label>
+                      </div>
+
+                      {/* Specific user selection box */}
+                      {notifForm.targetType === "specific" && (
+                        <div style={{
+                          background: "var(--bg-main)", border: "1px solid var(--border-color)",
+                          borderRadius: "12px", padding: "1rem", display: "flex", flexDirection: "column", gap: "0.8rem"
+                        }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                            <input
+                              type="text"
+                              className="input-field"
+                              placeholder="🔍 Filtrer les utilisateurs par nom..."
+                              value={notifUserSearch}
+                              onChange={(e) => setNotifUserSearch(e.target.value)}
+                              style={{ margin: 0, flex: 1, minWidth: "180px", padding: "0.4rem 0.8rem", fontSize: "0.85rem" }}
+                            />
+                            <div style={{ display: "flex", gap: "0.5rem" }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const allIds = users.map(u => u.firebaseId);
+                                  setNotifForm(prev => ({ ...prev, selectedUserIds: allIds }));
+                                }}
+                                className="btn btn-secondary"
+                                style={{ padding: "0.35rem 0.6rem", fontSize: "0.75rem" }}
+                              >
+                                Tout cocher
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setNotifForm(prev => ({ ...prev, selectedUserIds: [] }))}
+                                className="btn btn-secondary"
+                                style={{ padding: "0.35rem 0.6rem", fontSize: "0.75rem" }}
+                              >
+                                Décocher
+                              </button>
+                            </div>
+                          </div>
+
+                          <div style={{ maxHeight: "180px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                            {users
+                              .filter(u => u.name?.toLowerCase().includes(notifUserSearch.toLowerCase()))
+                              .map(u => {
+                                const isChecked = notifForm.selectedUserIds.includes(u.firebaseId);
+                                return (
+                                  <label
+                                    key={u.firebaseId}
+                                    style={{
+                                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                                      padding: "0.4rem 0.6rem", borderRadius: "8px",
+                                      background: isChecked ? "rgba(99,102,241,0.15)" : "transparent",
+                                      cursor: "pointer", fontSize: "0.85rem"
+                                    }}
+                                  >
+                                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => {
+                                          setNotifForm(prev => {
+                                            const current = new Set(prev.selectedUserIds);
+                                            if (current.has(u.firebaseId)) current.delete(u.firebaseId);
+                                            else current.add(u.firebaseId);
+                                            return { ...prev, selectedUserIds: Array.from(current) };
+                                          });
+                                        }}
+                                      />
+                                      <span style={{ fontWeight: "bold" }}>{u.name}</span>
+                                    </div>
+                                    <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>
+                                      Lvl {u.level || 1} • {u.xp || 0} pts
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={handleSendNotification}
+                      disabled={saving === "send_notif"}
+                      className="btn btn-primary"
+                      style={{ padding: "0.8rem 1.5rem", fontSize: "0.95rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}
+                    >
+                      {saving === "send_notif" ? "⏳ Envoi en cours..." : "🚀 Envoyer la Notification"}
+                    </button>
                   </div>
                 </div>
               )}

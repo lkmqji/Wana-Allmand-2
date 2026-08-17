@@ -10,7 +10,9 @@ export default function Layout({
   toggleTheme,
   rightPanelContent,
   isAdmin,
-  onOpenAdmin
+  onOpenAdmin,
+  unreadCount = 0,
+  onOpenNotifications
 }) {
   const navItems = [
     { id: 'learn', label: 'Apprendre', icon: '🏠' },
@@ -27,7 +29,26 @@ export default function Layout({
         <h2 style={{ fontSize: '1.2rem', margin: 0, fontWeight: 800, color: 'var(--primary)' }}>
           WANA ALLMAND
         </h2>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+          {/* Notifications Button Mobile */}
+          <button
+            onClick={onOpenNotifications}
+            style={{ position: 'relative', background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1.2rem', padding: '0.2rem' }}
+            title="Notifications"
+          >
+            🔔
+            {unreadCount > 0 && (
+              <span style={{
+                position: 'absolute', top: '-2px', right: '-4px',
+                background: 'var(--danger)', color: 'white', fontSize: '0.65rem',
+                fontWeight: 'bold', borderRadius: '10px', padding: '0.1rem 0.35rem',
+                minWidth: '16px', textAlign: 'center', lineHeight: '1'
+              }}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+
           <button 
             onClick={toggleTheme} 
             style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1.2rem' }}
@@ -76,6 +97,24 @@ export default function Layout({
         </div>
 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+          {/* Notifications Button Desktop */}
+          <button
+            onClick={onOpenNotifications}
+            className="nav-item"
+            style={{ width: '100%', background: unreadCount > 0 ? 'rgba(99,102,241,0.15)' : 'transparent', border: 'none', justifyContent: 'flex-start', position: 'relative' }}
+          >
+            <span style={{ fontSize: '1.2rem' }}>🔔</span>
+            <span style={{ flex: 1, textAlign: 'left' }}>Notifications</span>
+            {unreadCount > 0 && (
+              <span style={{
+                background: 'var(--danger)', color: 'white', fontSize: '0.75rem',
+                fontWeight: 'bold', borderRadius: '10px', padding: '0.15rem 0.5rem'
+              }}>
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
           {isAdmin && onOpenAdmin && (
             <button
               onClick={onOpenAdmin}

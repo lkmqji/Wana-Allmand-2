@@ -7,6 +7,7 @@ import Results from './components/Results';
 import Review from './components/Review';
 import Layout from './components/Layout';
 import Admin from './components/Admin';
+import NotificationCenter from './components/NotificationCenter';
 import { auth, loginWithGoogle, logout, deleteAccount } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -33,6 +34,10 @@ function App() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [toastNotif, setToastNotif] = useState(null);
   const [serverGuestMode, setServerGuestMode] = useState(true); // from server config
   const [theme, setTheme] = useState('dark');
   const [leaderboard, setLeaderboard] = useState([]);
@@ -69,6 +74,8 @@ function App() {
       setIsAuthLoading(false);
       if (currentUser) {
         if (!playerName) setPlayerName(currentUser.displayName || '');
+        // Register personal user socket room for direct notifications
+        socket.emit('register_user', currentUser.uid);
         // Sync with backend
         fetch(`${API_URL}/api/users/sync`, {
           method: 'POST',
@@ -79,6 +86,22 @@ function App() {
     });
     return () => unsubscribe();
   }, [playerName]);
+
+  // Fetch notifications for user or guest
+  useEffect(() => {
+    const targetUserId = user ? user.uid : (isGuest ? 'guest' : '');
+    if (targetUserId) {
+      fetch(`${API_URL}/api/notifications/${targetUserId}`)
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setNotifications(data);
+            setUnreadCount(data.filter(n => !n.isRead).length);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user, isGuest]);
 
   useEffect(() => {
     fetch(`${API_URL}/api/leaderboard`)
@@ -135,6 +158,13 @@ function App() {
       setAnnouncement(msg);
     });
 
+    socket.on('new_notification', (notif) => {
+      setNotifications(prev => [notif, ...prev]);
+      setUnreadCount(prev => prev + 1);
+      setToastNotif(notif);
+      setTimeout(() => setToastNotif(null), 6000);
+    });
+
     socket.on('error', (msg) => {
       setError(msg);
     });
@@ -146,6 +176,7 @@ function App() {
       socket.off('game_started');
       socket.off('game_over');
       socket.off('admin_announcement');
+      socket.off('new_notification');
       socket.off('error');
       socket.off('kicked');
     };
@@ -290,7 +321,27 @@ function App() {
         rightPanelContent={<RightPanelContent />}
         isAdmin={isAdmin}
         onOpenAdmin={() => setShowAdmin(true)}
+        unreadCount={unreadCount}
+        onOpenNotifications={() => setShowNotifications(true)}
       >
+        {/* Live Notification Pop-up Toast */}
+        {toastNotif && (
+          <div style={{
+            position: 'fixed', top: '1.5rem', right: '1.5rem', zIndex: 1200,
+            background: 'var(--bg-surface)', border: '2px solid var(--primary)',
+            borderRadius: '16px', padding: '1rem 1.2rem', boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'flex-start', gap: '0.8rem', maxWidth: '380px',
+            animation: 'fadeIn 0.3s ease-out'
+          }}>
+            <span style={{ fontSize: '1.6rem' }}>{toastNotif.icon || '🔔'}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: 'var(--text-main)' }}>{toastNotif.title}</div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{toastNotif.message}</div>
+            </div>
+            <button onClick={() => setToastNotif(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
+          </div>
+        )}
+
         {announcement && (
           <div style={{
             background: 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(167,139,250,0.2))',
@@ -353,6 +404,18 @@ function App() {
         {view === 'lobby' && <Lobby socket={socket} session={session} players={players} isHost={isHost} setView={setView} />}
         {view === 'results' && <Results players={players} setView={setView} socket={socket} session={session} isHost={isHost} setVocabListForReview={setVocabListForReview} />}
       </Layout>
+
+      {/* User Notifications Center Modal */}
+      <NotificationCenter
+        user={user}
+        socket={socket}
+        isOpen={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        unreadCount={unreadCount}
+        setUnreadCount={setUnreadCount}
+        notifications={notifications}
+        setNotifications={setNotifications}
+      />
 
       {/* Admin Panel - Only accessible by the confirmed admin */}
       {showAdmin && isAdmin && <Admin user={user} onClose={() => setShowAdmin(false)} />}

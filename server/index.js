@@ -9,6 +9,7 @@ const mongoose = require('mongoose');
 const List = require('./models/List');
 const User = require('./models/User');
 const Config = require('./models/Config');
+const Notification = require('./models/Notification');
 require('dotenv').config();
 
 // MongoDB Connection
@@ -144,6 +145,112 @@ app.post('/api/admin/config', verifyAdmin, async (req, res) => {
         res.json({ success: true, [setting]: value });
     } catch (err) {
         res.status(500).json({ error: 'Config update error' });
+    }
+});
+
+// ---- NOTIFICATIONS ENDPOINTS ----
+
+// Get notifications for a user
+app.get('/api/notifications/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const query = userId && userId !== 'guest' 
+            ? { $or: [{ userId: 'ALL' }, { userId: userId }] }
+            : { userId: 'ALL' };
+
+        const notifs = await Notification.find(query).sort({ createdAt: -1 }).limit(50).lean();
+        const enriched = notifs.map(n => ({
+            ...n,
+            isRead: userId && userId !== 'guest' ? (n.readBy || []).includes(userId) : false
+        }));
+        res.json(enriched);
+    } catch (err) {
+        console.error("Error fetching notifications:", err);
+        res.status(500).json({ error: "Erreur récupération notifications" });
+    }
+});
+
+// Mark single notification as read
+app.put('/api/notifications/:id/read', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        if (!userId) return res.status(400).json({ error: "userId requis" });
+        await Notification.findByIdAndUpdate(req.params.id, {
+            $addToSet: { readBy: userId }
+        });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: "Erreur marquage lecture" });
+    }
+});
+
+// Mark all notifications as read for a user
+app.put('/api/notifications/read-all', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        if (!userId) return res.status(400).json({ error: "userId requis" });
+        await Notification.updateMany(
+            { $or: [{ userId: 'ALL' }, { userId: userId }] },
+            { $addToSet: { readBy: userId } }
+        );
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: "Erreur marquage tout lu" });
+    }
+});
+
+// Delete single notification
+app.delete('/api/notifications/:id', async (req, res) => {
+    try {
+        await Notification.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: "Erreur suppression notification" });
+    }
+});
+
+// Admin sends notification (ALL or specific users)
+app.post('/api/admin/notifications', verifyAdmin, async (req, res) => {
+    try {
+        const { title, message, type = 'info', icon = '📢', targetType = 'all', targetUserIds = [] } = req.body;
+        if (!title?.trim() || !message?.trim()) {
+            return res.status(400).json({ error: "Le titre et le message sont requis." });
+        }
+
+        const createdNotifs = [];
+
+        if (targetType === 'all') {
+            const notif = await Notification.create({
+                userId: 'ALL',
+                title: title.trim(),
+                message: message.trim(),
+                type,
+                icon
+            });
+            createdNotifs.push(notif);
+            // Broadcast live to all connected sockets
+            io.emit('new_notification', notif);
+        } else if (targetType === 'specific' && Array.isArray(targetUserIds) && targetUserIds.length > 0) {
+            for (const tUserId of targetUserIds) {
+                const notif = await Notification.create({
+                    userId: tUserId,
+                    title: title.trim(),
+                    message: message.trim(),
+                    type,
+                    icon
+                });
+                createdNotifs.push(notif);
+                // Send to specific user room
+                io.to(`user_${tUserId}`).emit('new_notification', notif);
+            }
+        } else {
+            return res.status(400).json({ error: "Veuillez sélectionner au moins un utilisateur cible." });
+        }
+
+        res.json({ success: true, count: createdNotifs.length, notifications: createdNotifs });
+    } catch (err) {
+        console.error("Admin notification error:", err);
+        res.status(500).json({ error: "Erreur lors de l'envoi de la notification." });
     }
 });
 
@@ -380,6 +487,13 @@ app.get('/api/leaderboard', async (req, res) => {
 
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
+
+    // Join personal user room for direct notifications
+    socket.on('register_user', (firebaseId) => {
+        if (firebaseId) {
+            socket.join(`user_${firebaseId}`);
+        }
+    });
 
     const handlePlayerLeave = (sessionId, playerId) => {
         const result = gameManager.leaveSession(sessionId, playerId);
