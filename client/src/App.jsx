@@ -133,12 +133,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (vocabListForReview) {
-      setView('review');
-    }
-  }, [vocabListForReview]);
-
-  useEffect(() => {
     socket.on('session_created', (sessionId) => {
       setSession({ id: sessionId });
       setIsHost(true);
