@@ -273,6 +273,14 @@ function App() {
     setIncomingInvite(null);
   };
 
+  // Fallback timeout to ensure auth loading never hangs indefinitely
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsAuthLoading(false);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
   const RightPanelContent = () => {
     if (view === 'lobby') {
       return (
@@ -285,12 +293,12 @@ function App() {
     return (
       <div>
         <h3>Classement Mondial 🏆</h3>
-        {leaderboard.length === 0 ? (
+        {(!Array.isArray(leaderboard) || leaderboard.length === 0) ? (
           <p className="text-muted" style={{ fontSize: '0.9rem' }}>Chargement du classement...</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
             {leaderboard.slice(0, 5).map((player, idx) => (
-              <div key={player._id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem', background: idx === 0 ? 'rgba(251, 191, 36, 0.1)' : 'var(--bg-surface)' }}>
+              <div key={player._id || idx} className="card" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem', background: idx === 0 ? 'rgba(251, 191, 36, 0.1)' : 'var(--bg-surface)' }}>
                 <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: idx === 0 ? '#f59e0b' : 'var(--text-muted)' }}>#{idx + 1}</span>
                 <span style={{ flex: 1, fontWeight: 'bold' }}>{player.name}</span>
                 <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{player.xp || 0} pts</span>
