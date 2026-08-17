@@ -64,6 +64,10 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
     if (isReconnecting) return;
     setIsReconnecting(true);
 
+    if (!socket.connected) {
+      socket.connect();
+    }
+
     let targetSessionId = lastSessionInfo?.sessionId || null;
     if (!targetSessionId) {
       try {
@@ -78,13 +82,21 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
     const currentName = formatPlayerName(playerName || user?.displayName || (isGuest ? 'Invité' : ''));
     const finalName = currentName ? `${avatar} ${currentName}` : `${avatar} Joueur`;
 
-    socket.emit('rejoin_session', {
-      sessionId: targetSessionId,
-      clientPlayerKey: getClientPlayerKey(),
-      firebaseId: user?.uid || null,
-      playerName: finalName,
-      avatar: avatar || '🦊'
-    });
+    const emitRejoin = () => {
+      socket.emit('rejoin_session', {
+        sessionId: targetSessionId,
+        clientPlayerKey: getClientPlayerKey(),
+        firebaseId: user?.uid || null,
+        playerName: finalName,
+        avatar: avatar || '🦊'
+      });
+    };
+
+    if (socket.connected) {
+      emitRejoin();
+    } else {
+      socket.once('connect', emitRejoin);
+    }
 
     // Safety timeout after 4s
     setTimeout(() => {

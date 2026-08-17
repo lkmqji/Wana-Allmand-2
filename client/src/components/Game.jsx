@@ -20,13 +20,25 @@ const PAUSE_PRESET_PHRASES = [
 ];
 
 export default function Game({ socket, session, playerName = '', avatar = '🦊' }) {
-  const [question, setQuestion] = useState('');
-  const [questionIndex, setQuestionIndex] = useState(0);
-  const [totalQuestions, setTotalQuestions] = useState(session?.settings?.rounds || 0);
-  const [timeRemaining, setTimeRemaining] = useState(15);
+  const initialQ = (session?.currentQuestionIndex >= 0 && session?.vocabList?.[session.currentQuestionIndex])
+    ? session.vocabList[session.currentQuestionIndex].question
+    : '';
+  const initialRoundResult = (session?.status === 'showing_results' && session?.currentQuestionIndex >= 0 && session?.vocabList?.[session.currentQuestionIndex])
+    ? { players: session.players || {}, correctAnswer: session.vocabList[session.currentQuestionIndex].answer }
+    : null;
+
+  const [question, setQuestion] = useState(initialQ);
+  const [questionIndex, setQuestionIndex] = useState(session?.currentQuestionIndex >= 0 ? session.currentQuestionIndex : 0);
+  const [totalQuestions, setTotalQuestions] = useState(session?.settings?.rounds || session?.vocabList?.length || 0);
+  const [timeRemaining, setTimeRemaining] = useState(session?.settings?.timePerWord || 15);
   const [answer, setAnswer] = useState('');
-  const [hasAnswered, setHasAnswered] = useState(false);
-  const [roundResult, setRoundResult] = useState(null); // { players: {}, correctAnswer: '' }
+  const [hasAnswered, setHasAnswered] = useState(() => {
+    if (session?.currentQuestionIndex >= 0 && socket?.id && session?.players?.[socket.id]?.answers?.[session.currentQuestionIndex]) {
+      return true;
+    }
+    return false;
+  });
+  const [roundResult, setRoundResult] = useState(initialRoundResult);
   const [players, setPlayers] = useState(session?.players || {});
   
   const [jokers, setJokers] = useState(2);
