@@ -559,9 +559,9 @@ io.on('connection', (socket) => {
         }
     };
 
-    socket.on('create_session', ({ vocabList, settings, playerName, firebaseId, avatar }) => {
+    socket.on('create_session', ({ vocabList, settings, playerName, firebaseId, avatar, clientPlayerKey }) => {
         const formattedPlayerName = formatPlayerName(playerName);
-        const sessionId = gameManager.createSession(socket.id, formattedPlayerName, firebaseId);
+        const sessionId = gameManager.createSession(socket.id, formattedPlayerName, firebaseId, clientPlayerKey);
         gameManager.setVocabList(sessionId, vocabList, settings);
         socket.join(sessionId);
         const session = gameManager.getSession(sessionId);
@@ -578,9 +578,9 @@ io.on('connection', (socket) => {
         socket.emit('session_created', session);
     });
 
-    socket.on('join_session', ({ sessionId, playerName, firebaseId, avatar }) => {
+    socket.on('join_session', ({ sessionId, playerName, firebaseId, avatar, clientPlayerKey }) => {
         const formattedPlayerName = formatPlayerName(playerName);
-        const result = gameManager.joinSession(sessionId, socket.id, formattedPlayerName, firebaseId);
+        const result = gameManager.joinSession(sessionId, socket.id, formattedPlayerName, firebaseId, clientPlayerKey);
         if (result.error) {
             socket.emit('error', result.error);
         } else {
@@ -1051,11 +1051,16 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Direct Rejoin active session
-    socket.on('rejoin_game_session', ({ sessionId, firebaseId, playerName, avatar }) => {
+    // Direct Rejoin active session (game or lobby)
+    const handleRejoin = ({ sessionId, clientPlayerKey, firebaseId, playerName, avatar }) => {
+        if (!sessionId) {
+            socket.emit('rejoin_failed', { reason: "Code de session manquant." });
+            return;
+        }
+
         const session = gameManager.getSession(sessionId);
-        if (!session || session.status === 'finished') {
-            socket.emit('rejoin_failed', { reason: "La partie est terminée ou n'existe plus." });
+        if (!session) {
+            socket.emit('rejoin_failed', { reason: "Session introuvable ou expirée." });
             return;
         }
 
@@ -1064,10 +1069,26 @@ io.on('connection', (socket) => {
         let foundPlayer = null;
 
         for (const [pId, p] of Object.entries(session.players || {})) {
-            if ((firebaseId && p.firebaseId && p.firebaseId === firebaseId) || p.disconnected || pId === socket.id) {
+            if (
+                (clientPlayerKey && p.clientPlayerKey && p.clientPlayerKey === clientPlayerKey) ||
+                (firebaseId && p.firebaseId && p.firebaseId === firebaseId) ||
+                pId === socket.id ||
+                (p.disconnected && (p.name === playerName || Object.keys(session.players).length === 1))
+            ) {
                 foundPlayerId = pId;
                 foundPlayer = p;
                 break;
+            }
+        }
+
+        // Fallback: if session only has 1 disconnected player, allow reconnection
+        if (!foundPlayer) {
+            for (const [pId, p] of Object.entries(session.players || {})) {
+                if (p.disconnected) {
+                    foundPlayerId = pId;
+                    foundPlayer = p;
+                    break;
+                }
             }
         }
 
@@ -1076,7 +1097,7 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // Cancel 30s disconnect countdown timer
+        // Cancel any pending disconnect countdown timers for this player
         const timerKey = `${sessionId}_${foundPlayerId}`;
         if (disconnectTimers.has(timerKey)) {
             clearTimeout(disconnectTimers.get(timerKey));
@@ -1087,6 +1108,7 @@ io.on('connection', (socket) => {
         if (foundPlayerId !== socket.id) {
             delete session.players[foundPlayerId];
             foundPlayer.id = socket.id;
+            if (clientPlayerKey) foundPlayer.clientPlayerKey = clientPlayerKey;
             foundPlayer.disconnected = false;
             delete foundPlayer.disconnectedAt;
             session.players[socket.id] = foundPlayer;
@@ -1101,11 +1123,12 @@ io.on('connection', (socket) => {
         socket.join(sessionId);
 
         // Update online user registry
+        const formattedPlayerName = formatPlayerName(playerName) || foundPlayer.name;
         const u = onlineUsers.get(socket.id);
         if (u) {
-            u.status = 'in_game';
+            u.status = session.status === 'playing' || session.status === 'showing_results' ? 'in_game' : 'in_lobby';
             u.sessionId = sessionId;
-            if (playerName) u.name = formatPlayerName(playerName);
+            if (formattedPlayerName) u.name = formattedPlayerName;
             if (avatar) u.avatar = avatar;
             broadcastOnlineUsers();
         }
@@ -1115,18 +1138,33 @@ io.on('connection', (socket) => {
             resumeGame(sessionId);
         }
 
-        // Notify reconnecting player
+        // Notify reconnecting player with full state
         socket.emit('rejoin_success', {
             session,
+            status: session.status,
             isHost: session.hostId === socket.id
         });
 
-        // Notify opponent
-        io.to(sessionId).emit('player_reconnected', {
-            playerId: socket.id,
-            playerName: foundPlayer.name
-        });
-    });
+        // Notify room
+        if (session.status === 'waiting') {
+            io.to(sessionId).emit('player_joined', session.players);
+            io.to(sessionId).emit('session_updated', session);
+            io.to(sessionId).emit('lobby_chat_message', {
+                id: Math.random().toString(36).substring(2, 9),
+                isSystem: true,
+                text: `${foundPlayer.name} est de retour dans la salle d'attente ! 👋`,
+                timestamp: Date.now()
+            });
+        } else {
+            io.to(sessionId).emit('player_reconnected', {
+                playerId: socket.id,
+                playerName: foundPlayer.name
+            });
+        }
+    };
+
+    socket.on('rejoin_session', handleRejoin);
+    socket.on('rejoin_game_session', handleRejoin);
 
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.id}`);
@@ -1142,13 +1180,16 @@ function handlePlayerDisconnect(socket) {
     for (const [sessionId, session] of gameManager.sessions.entries()) {
         if (session.players && session.players[socket.id]) {
             const player = session.players[socket.id];
-            
-            // In an active game: start 30s grace countdown instead of quitting immediately
-            if (session.status === 'playing' || session.status === 'showing_results') {
-                player.disconnected = true;
-                player.disconnectedAt = Date.now();
+            player.disconnected = true;
+            player.disconnectedAt = Date.now();
 
-                // Pause the game while waiting
+            const timerKey = `${sessionId}_${socket.id}`;
+            if (disconnectTimers.has(timerKey)) {
+                clearTimeout(disconnectTimers.get(timerKey));
+            }
+
+            // In an active game: start 30s grace countdown for forfeit
+            if (session.status === 'playing' || session.status === 'showing_results') {
                 pauseGame(sessionId, 'disconnect_grace', socket.id, {
                     disconnectedPlayerName: player.name,
                     graceSeconds: 30
@@ -1160,15 +1201,19 @@ function handlePlayerDisconnect(socket) {
                     graceSeconds: 30
                 });
 
-                const timerKey = `${sessionId}_${socket.id}`;
-                if (disconnectTimers.has(timerKey)) {
-                    clearTimeout(disconnectTimers.get(timerKey));
-                }
-
                 const timer = setTimeout(() => {
                     disconnectTimers.delete(timerKey);
                     handleDisconnectForfeit(sessionId, socket.id);
                 }, 30000);
+
+                disconnectTimers.set(timerKey, timer);
+            } else if (session.status === 'waiting') {
+                // In lobby: 60s grace period so closing tab / refreshing doesn't destroy room immediately
+                io.to(sessionId).emit('session_updated', session);
+                const timer = setTimeout(() => {
+                    disconnectTimers.delete(timerKey);
+                    handlePlayerLeave(sessionId, socket.id);
+                }, 60000);
 
                 disconnectTimers.set(timerKey, timer);
             } else {

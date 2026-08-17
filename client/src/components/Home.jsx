@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { exampleLists } from '../data/exampleLists';
-import { formatPlayerName } from '../utils/formatters';
+import { formatPlayerName, getClientPlayerKey } from '../utils/formatters';
 
 export default function Home({ socket, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout, deleteAccount, activeTab, leaderboard, isGuest, setIsGuest, isAdmin, onOpenAdmin }) {
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
@@ -34,7 +34,8 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
       settings: { rounds: validWords.length, timePerWord: 15, powerupsEnabled: false },
       playerName: finalName,
       firebaseId: user?.uid,
-      avatar
+      avatar,
+      clientPlayerKey: getClientPlayerKey()
     });
   };
 
@@ -330,7 +331,13 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
     e.preventDefault();
     if (joinCode.length === 4) {
       const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Invité`;
-      socket.emit('join_session', { sessionId: joinCode.toUpperCase(), playerName: finalName, firebaseId: user?.uid });
+      socket.emit('join_session', {
+        sessionId: joinCode.toUpperCase(),
+        playerName: finalName,
+        firebaseId: user?.uid,
+        avatar,
+        clientPlayerKey: getClientPlayerKey()
+      });
     }
   };
 

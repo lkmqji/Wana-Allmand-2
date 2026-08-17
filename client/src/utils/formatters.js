@@ -27,3 +27,20 @@ export function formatPlayerName(name, max = 8) {
 
   return trimmed.length > max ? trimmed.slice(0, max) : trimmed;
 }
+
+/**
+ * Gets or creates a persistent client player key stored in localStorage
+ */
+export function getClientPlayerKey() {
+  try {
+    let key = localStorage.getItem('wana_client_player_key');
+    if (!key) {
+      key = 'usr_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now().toString(36);
+      localStorage.setItem('wana_client_player_key', key);
+    }
+    return key;
+  } catch (e) {
+    return 'usr_' + Math.random().toString(36).substring(2, 10);
+  }
+}
+

@@ -10,7 +10,7 @@ import NotificationCenter from './components/NotificationCenter';
 import InviteModal from './components/InviteModal';
 import { auth, loginWithGoogle, logout, deleteAccount } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { formatPlayerName } from './utils/formatters';
+import { formatPlayerName, getClientPlayerKey } from './utils/formatters';
 
 // Connect to server (uses env variable or fallback to localhost)
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -202,7 +202,7 @@ function App() {
     });
 
     socket.on('forfeit_game_over', (data) => {
-      sessionStorage.removeItem('active_game_session');
+      localStorage.removeItem('wana_active_session');
       setPlayers(data.players);
       setSession(prev => ({ ...prev, vocabList: data.vocabList }));
       setView('results');
@@ -217,18 +217,27 @@ function App() {
     socket.on('rejoin_success', (data) => {
       setSession(data.session);
       setPlayers(data.session.players || {});
-      setIsHost(data.isHost);
-      setView('game');
+      setIsHost(Boolean(data.isHost));
+
+      const sessStatus = data.session.status || data.status;
+      if (sessStatus === 'playing' || sessStatus === 'showing_results') {
+        setView('game');
+      } else if (sessStatus === 'waiting') {
+        setView('lobby');
+      } else if (sessStatus === 'finished') {
+        setView('results');
+      }
+
       setToastNotif({
         icon: '⚡',
-        title: 'Partie réintégrée',
-        message: 'Vous êtes de retour dans votre partie en cours !'
+        title: 'Session réintégrée',
+        message: 'Vous êtes de retour dans votre session !'
       });
       setTimeout(() => setToastNotif(null), 4000);
     });
 
     socket.on('rejoin_failed', () => {
-      sessionStorage.removeItem('active_game_session');
+      localStorage.removeItem('wana_active_session');
     });
 
     socket.on('admin_announcement', (msg) => {
@@ -272,43 +281,45 @@ function App() {
     };
   }, []);
 
-  // Save active session for seamless direct rejoin if page refreshes or connection drops
+  // Save active session to localStorage so closing/reopening browser directly rejoins lobby or game
   useEffect(() => {
-    if (view === 'game' && session?.id) {
-      sessionStorage.setItem('active_game_session', JSON.stringify({
+    if (['game', 'lobby', 'results'].includes(view) && session?.id) {
+      localStorage.setItem('wana_active_session', JSON.stringify({
         sessionId: session.id,
+        view,
+        clientPlayerKey: getClientPlayerKey(),
         firebaseId: user?.uid || null,
         playerName: playerName || 'Joueur',
         avatar: avatar || '🦊'
       }));
     } else if (view === 'home') {
-      sessionStorage.removeItem('active_game_session');
+      localStorage.removeItem('wana_active_session');
     }
   }, [view, session?.id, user?.uid, playerName, avatar]);
 
-  // Attempt auto-rejoin on socket connect/reconnect
+  // Attempt auto-rejoin on socket connect/reconnect and initial mount
   useEffect(() => {
     const handleRejoinCheck = () => {
-      const saved = sessionStorage.getItem('active_game_session');
-      if (saved) {
-        try {
+      try {
+        const saved = localStorage.getItem('wana_active_session');
+        if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed?.sessionId) {
-            socket.emit('rejoin_game_session', {
+            socket.emit('rejoin_session', {
               sessionId: parsed.sessionId,
-              firebaseId: user?.uid || parsed.firebaseId,
-              playerName: playerName || parsed.playerName,
-              avatar: avatar || parsed.avatar
+              clientPlayerKey: getClientPlayerKey(),
+              firebaseId: user?.uid || parsed.firebaseId || null,
+              playerName: playerName || parsed.playerName || '',
+              avatar: avatar || parsed.avatar || '🦊'
             });
           }
-        } catch (e) {
-          console.error(e);
         }
+      } catch (e) {
+        console.error(e);
       }
     };
 
     socket.on('connect', handleRejoinCheck);
-    // Also run once immediately on mount
     handleRejoinCheck();
 
     return () => {

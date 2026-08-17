@@ -7,7 +7,7 @@ class GameManager {
         this.sessions = new Map();
     }
 
-    createSession(hostId, hostName, firebaseId) {
+    createSession(hostId, hostName, firebaseId, clientPlayerKey) {
         // Generate a random 4 letter/number code
         const sessionId = Math.random().toString(36).substring(2, 6).toUpperCase();
         const formattedName = formatPlayerName(hostName) || 'Hôte';
@@ -21,7 +21,7 @@ class GameManager {
             settings: { rounds: 0, timePerWord: 15, powerupsEnabled: false, allowPause: true },
             currentQuestionIndex: -1,
             players: {
-                [hostId]: { id: hostId, firebaseId: firebaseId || null, name: formattedName, score: 0, answers: {} }
+                [hostId]: { id: hostId, firebaseId: firebaseId || null, clientPlayerKey: clientPlayerKey || null, name: formattedName, score: 0, answers: {} }
             },
             roundTimer: null,
             answersThisRound: 0
@@ -30,14 +30,14 @@ class GameManager {
         return sessionId;
     }
 
-    joinSession(sessionId, guestId, guestName, firebaseId) {
+    joinSession(sessionId, guestId, guestName, firebaseId, clientPlayerKey) {
         const session = this.sessions.get(sessionId);
         if (!session) return { error: "Session introuvable." };
         if (session.guestId) return { error: "Session déjà pleine." };
         
         const formattedName = formatPlayerName(guestName) || 'Invité';
         session.guestId = guestId;
-        session.players[guestId] = { id: guestId, firebaseId: firebaseId || null, name: formattedName, score: 0, answers: {} };
+        session.players[guestId] = { id: guestId, firebaseId: firebaseId || null, clientPlayerKey: clientPlayerKey || null, name: formattedName, score: 0, answers: {} };
         return { success: true, session };
     }
 

@@ -156,7 +156,8 @@ export default function Results({ players, setView, socket, session, isHost, pla
       settings: { rounds: failedWords.length, timePerWord: 15, powerupsEnabled: false },
       playerName: pName,
       firebaseId: user?.uid || null,
-      avatar: avatar || '🦊'
+      avatar: avatar || '🦊',
+      clientPlayerKey: getClientPlayerKey()
     });
   };
 
