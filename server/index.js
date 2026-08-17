@@ -485,6 +485,20 @@ app.get('/api/leaderboard', async (req, res) => {
     }
 });
 
+const onlineUsers = new Map();
+
+function broadcastOnlineUsers() {
+    const list = Array.from(onlineUsers.values()).map(u => ({
+        socketId: u.socketId,
+        firebaseId: u.firebaseId,
+        name: u.name,
+        avatar: u.avatar || '👤',
+        status: u.status || 'available',
+        sessionId: u.sessionId || null
+    }));
+    io.emit('online_users_update', list);
+}
+
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
@@ -495,30 +509,143 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Register / update online user identity
+    socket.on('register_online_user', ({ firebaseId, name, avatar }) => {
+        if (firebaseId) {
+            socket.join(`user_${firebaseId}`);
+        }
+        const existing = onlineUsers.get(socket.id);
+        onlineUsers.set(socket.id, {
+            socketId: socket.id,
+            firebaseId: firebaseId || null,
+            name: name || 'Joueur',
+            avatar: avatar || '👤',
+            status: existing?.status || 'available',
+            sessionId: existing?.sessionId || null
+        });
+        broadcastOnlineUsers();
+    });
+
+    socket.on('get_online_users', () => {
+        broadcastOnlineUsers();
+    });
+
     const handlePlayerLeave = (sessionId, playerId) => {
         const result = gameManager.leaveSession(sessionId, playerId);
+        const leavingUser = onlineUsers.get(playerId);
+        if (leavingUser) {
+            leavingUser.status = 'available';
+            leavingUser.sessionId = null;
+            broadcastOnlineUsers();
+        }
         if (result && !result.destroyed) {
             io.to(sessionId).emit('player_joined', result.session.players);
             // Si l'hôte vient de changer, informez le nouveau
             io.to(sessionId).emit('session_joined', result.session);
+            io.to(sessionId).emit('lobby_chat_message', {
+                id: Math.random().toString(36).substring(2, 9),
+                isSystem: true,
+                text: `${leavingUser?.name || 'Un joueur'} a quitté la salle.`,
+                timestamp: Date.now()
+            });
         }
     };
 
-    socket.on('create_session', ({ vocabList, settings, playerName, firebaseId }) => {
+    socket.on('create_session', ({ vocabList, settings, playerName, firebaseId, avatar }) => {
         const sessionId = gameManager.createSession(socket.id, playerName, firebaseId);
         gameManager.setVocabList(sessionId, vocabList, settings);
         socket.join(sessionId);
+        
+        const userObj = onlineUsers.get(socket.id);
+        if (userObj) {
+            userObj.status = 'in_lobby';
+            userObj.sessionId = sessionId;
+            if (playerName) userObj.name = playerName;
+            if (avatar) userObj.avatar = avatar;
+            broadcastOnlineUsers();
+        }
+
         socket.emit('session_created', sessionId);
     });
 
-    socket.on('join_session', ({ sessionId, playerName, firebaseId }) => {
+    socket.on('join_session', ({ sessionId, playerName, firebaseId, avatar }) => {
         const result = gameManager.joinSession(sessionId, socket.id, playerName, firebaseId);
         if (result.error) {
             socket.emit('error', result.error);
         } else {
             socket.join(sessionId);
+            const userObj = onlineUsers.get(socket.id);
+            if (userObj) {
+                userObj.status = 'in_lobby';
+                userObj.sessionId = sessionId;
+                if (playerName) userObj.name = playerName;
+                if (avatar) userObj.avatar = avatar;
+                broadcastOnlineUsers();
+            }
+
             io.to(sessionId).emit('player_joined', result.session.players);
             socket.emit('session_joined', result.session);
+
+            // Announce in lobby chat
+            io.to(sessionId).emit('lobby_chat_message', {
+                id: Math.random().toString(36).substring(2, 9),
+                isSystem: true,
+                text: `${playerName || 'Un nouveau joueur'} a rejoint la salle d'attente ! 👋`,
+                timestamp: Date.now()
+            });
+        }
+    });
+
+    // Lobby Chat messaging
+    socket.on('send_lobby_chat', ({ sessionId, text, senderName, senderAvatar }) => {
+        if (!sessionId || !text || !text.trim()) return;
+        const msg = {
+            id: Math.random().toString(36).substring(2, 9),
+            senderId: socket.id,
+            senderName: senderName || 'Joueur',
+            senderAvatar: senderAvatar || '💬',
+            text: text.trim(),
+            timestamp: Date.now()
+        };
+        io.to(sessionId).emit('lobby_chat_message', msg);
+    });
+
+    // Game Invites
+    socket.on('send_game_invite', ({ targetSocketId, targetFirebaseId, sessionId }) => {
+        const session = gameManager.getSession(sessionId);
+        if (!session) {
+            return socket.emit('error', "La session n'existe plus.");
+        }
+        const sender = onlineUsers.get(socket.id) || { name: 'Un hôte', avatar: '🎮' };
+        
+        const inviteData = {
+            inviteId: Math.random().toString(36).substring(2, 10),
+            sessionId: session.id,
+            hostSocketId: socket.id,
+            hostName: sender.name,
+            hostAvatar: sender.avatar,
+            vocabList: session.vocabList || [],
+            settings: session.settings || { rounds: (session.vocabList || []).length, timePerWord: 15 },
+            createdAt: Date.now()
+        };
+
+        if (targetSocketId) {
+            io.to(targetSocketId).emit('game_invite_received', inviteData);
+        } else if (targetFirebaseId) {
+            io.to(`user_${targetFirebaseId}`).emit('game_invite_received', inviteData);
+        }
+        
+        socket.emit('invite_sent_success', { targetSocketId, targetFirebaseId });
+    });
+
+    socket.on('respond_game_invite', ({ inviteId, hostSocketId, accepted, sessionId, playerName, avatar }) => {
+        if (hostSocketId) {
+            io.to(hostSocketId).emit('invite_response', {
+                inviteId,
+                accepted,
+                playerName: playerName || 'Invité',
+                avatar: avatar || '👤'
+            });
         }
     });
 
@@ -533,6 +660,12 @@ io.on('connection', (socket) => {
                 session.vocabList.sort(() => Math.random() - 0.5);
             }
             
+            for (const pId in session.players) {
+                const u = onlineUsers.get(pId);
+                if (u) u.status = 'in_game';
+            }
+            broadcastOnlineUsers();
+
             io.to(sessionId).emit('game_started');
             
             // Wait a moment for clients to render the Game component before sending the first question
@@ -600,7 +733,10 @@ io.on('connection', (socket) => {
             for (const pId in session.players) {
                 session.players[pId].score = 0;
                 session.players[pId].answers = {};
+                const u = onlineUsers.get(pId);
+                if (u) u.status = 'in_lobby';
             }
+            broadcastOnlineUsers();
             io.to(sessionId).emit('session_joined', session); // Send back to lobby
         }
     });
@@ -674,6 +810,8 @@ io.on('connection', (socket) => {
                 handlePlayerLeave(sessionId, socket.id);
             }
         }
+        onlineUsers.delete(socket.id);
+        broadcastOnlineUsers();
     });
 });
 

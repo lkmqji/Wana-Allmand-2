@@ -8,6 +8,7 @@ import Review from './components/Review';
 import Layout from './components/Layout';
 import Admin from './components/Admin';
 import NotificationCenter from './components/NotificationCenter';
+import InviteModal from './components/InviteModal';
 import { auth, loginWithGoogle, logout, deleteAccount } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -41,6 +42,8 @@ function App() {
   const [serverGuestMode, setServerGuestMode] = useState(true); // from server config
   const [theme, setTheme] = useState('dark');
   const [leaderboard, setLeaderboard] = useState([]);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [incomingInvite, setIncomingInvite] = useState(null);
 
   const isAdmin = Boolean(user && ADMIN_UID && user.uid === ADMIN_UID);
 
@@ -67,6 +70,18 @@ function App() {
       })
       .catch(() => {});
   }, []);
+
+  // Sync user profile with online users registry on server
+  useEffect(() => {
+    const currentName = playerName || user?.displayName || (isGuest ? 'Invité' : '');
+    if (currentName || user) {
+      socket.emit('register_online_user', {
+        firebaseId: user?.uid || null,
+        name: currentName ? `${avatar} ${currentName}` : `${avatar} Joueur`,
+        avatar: avatar || '🦊'
+      });
+    }
+  }, [user, playerName, avatar, isGuest]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -144,6 +159,33 @@ function App() {
       setPlayers(updatedPlayers);
     });
 
+    socket.on('online_users_update', (users) => {
+      if (Array.isArray(users)) {
+        setOnlineUsers(users);
+      }
+    });
+
+    socket.on('game_invite_received', (inviteData) => {
+      setIncomingInvite(inviteData);
+    });
+
+    socket.on('invite_response', (resp) => {
+      if (resp.accepted) {
+        setToastNotif({
+          icon: '⚔️',
+          title: 'Invitation acceptée !',
+          message: `${resp.playerName} a accepté votre invitation et rejoint la salle !`
+        });
+      } else {
+        setToastNotif({
+          icon: 'ℹ️',
+          title: 'Invitation déclinée',
+          message: `${resp.playerName} a décliné votre invitation.`
+        });
+      }
+      setTimeout(() => setToastNotif(null), 5000);
+    });
+
     socket.on('game_started', () => {
       setView('game');
     });
@@ -173,6 +215,9 @@ function App() {
       socket.off('session_created');
       socket.off('session_joined');
       socket.off('player_joined');
+      socket.off('online_users_update');
+      socket.off('game_invite_received');
+      socket.off('invite_response');
       socket.off('game_started');
       socket.off('game_over');
       socket.off('admin_announcement');
@@ -181,6 +226,47 @@ function App() {
       socket.off('kicked');
     };
   }, []);
+
+  const handleAcceptInvite = () => {
+    if (!incomingInvite) return;
+    const finalName = playerName ? `${avatar} ${playerName}` : `${avatar} Invité`;
+    
+    socket.emit('respond_game_invite', {
+      inviteId: incomingInvite.inviteId,
+      hostSocketId: incomingInvite.hostSocketId,
+      accepted: true,
+      sessionId: incomingInvite.sessionId,
+      playerName: finalName,
+      avatar,
+      firebaseId: user?.uid
+    });
+
+    socket.emit('join_session', {
+      sessionId: incomingInvite.sessionId,
+      playerName: finalName,
+      firebaseId: user?.uid,
+      avatar
+    });
+
+    setIncomingInvite(null);
+  };
+
+  const handleRejectInvite = () => {
+    if (!incomingInvite) return;
+    const finalName = playerName ? `${avatar} ${playerName}` : `${avatar} Invité`;
+
+    socket.emit('respond_game_invite', {
+      inviteId: incomingInvite.inviteId,
+      hostSocketId: incomingInvite.hostSocketId,
+      accepted: false,
+      sessionId: incomingInvite.sessionId,
+      playerName: finalName,
+      avatar,
+      firebaseId: user?.uid
+    });
+
+    setIncomingInvite(null);
+  };
 
   const RightPanelContent = () => {
     if (view === 'lobby') {
@@ -401,9 +487,30 @@ function App() {
             }} 
           />
         )}
-        {view === 'lobby' && <Lobby socket={socket} session={session} players={players} isHost={isHost} setView={setView} />}
+        {view === 'lobby' && (
+          <Lobby 
+            socket={socket} 
+            session={session} 
+            players={players} 
+            isHost={isHost} 
+            setView={setView} 
+            onlineUsers={onlineUsers}
+            playerName={playerName}
+            avatar={avatar}
+            user={user}
+          />
+        )}
         {view === 'results' && <Results players={players} setView={setView} socket={socket} session={session} isHost={isHost} setVocabListForReview={setVocabListForReview} />}
       </Layout>
+
+      {/* Real-time Game Invite Modal */}
+      {incomingInvite && (
+        <InviteModal 
+          invite={incomingInvite}
+          onAccept={handleAcceptInvite}
+          onReject={handleRejectInvite}
+        />
+      )}
 
       {/* User Notifications Center Modal */}
       <NotificationCenter
