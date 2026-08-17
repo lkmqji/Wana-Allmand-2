@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import confetti from 'canvas-confetti';
+import { formatPlayerName } from '../utils/formatters';
 
 export default function Results({ players, setView, socket, session, isHost, playerName, avatar, user }) {
   const playerArr = Object.values(players || {}).sort((a, b) => b.score - a.score);
@@ -128,7 +129,7 @@ export default function Results({ players, setView, socket, session, isHost, pla
   const handleSendChatMessage = (e) => {
     e?.preventDefault();
     if (!chatInput.trim() || !session?.id) return;
-    const currentName = playerName || user?.displayName || (players[socket.id]?.name) || 'Moi';
+    const currentName = formatPlayerName(playerName || user?.displayName || (players[socket.id]?.name) || 'Moi');
     socket.emit('send_lobby_chat', {
       sessionId: session.id,
       text: chatInput.trim(),
@@ -149,7 +150,7 @@ export default function Results({ players, setView, socket, session, isHost, pla
   };
 
   const createSoloFailedSession = (failedWords) => {
-    const pName = playerName || (session?.players?.[socket.id]?.name) || 'Joueur';
+    const pName = formatPlayerName(playerName || (session?.players?.[socket.id]?.name) || 'Joueur');
     socket.emit('create_session', {
       vocabList: failedWords.map((w, idx) => ({ ...w, id: idx + 1 })),
       settings: { rounds: failedWords.length, timePerWord: 15, powerupsEnabled: false },
@@ -328,7 +329,7 @@ export default function Results({ players, setView, socket, session, isHost, pla
         
         {!isDraw && winner && (
           <h2 style={{ color: 'var(--success)', marginBottom: '3rem', fontSize: '2rem' }}>
-            {winner.name} gagne avec {winner.score} pts 🏆
+            {formatPlayerName(winner.name)} gagne avec {winner.score} pts 🏆
           </h2>
         )}
 
@@ -345,7 +346,7 @@ export default function Results({ players, setView, socket, session, isHost, pla
               border: `2px solid ${i === 0 && !isDraw ? 'var(--success)' : 'var(--border-color)'}`
             }}>
               <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
-                {i === 0 ? '🥇' : '🥈'} {p.name} {p.id === socket.id ? '(Vous)' : ''}
+                {i === 0 ? '🥇' : '🥈'} {formatPlayerName(p.name)} {p.id === socket.id ? '(Vous)' : ''}
               </span>
               <span style={{ fontSize: '2.5rem', fontWeight: '800', color: i === 0 && !isDraw ? 'var(--success)' : 'var(--primary)' }}>
                 {p.score} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>pts</span>
@@ -438,7 +439,7 @@ export default function Results({ players, setView, socket, session, isHost, pla
                     const ans = p.answers && p.answers[index];
                     return (
                       <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>{p.name} :</span>
+                        <span style={{ color: 'var(--text-muted)' }}>{formatPlayerName(p.name)} :</span>
                         <span style={{ fontWeight: 'bold' }}>
                           {ans ? renderDiff(ans.expected, ans.answer, ans.score >= 100, ans.isTypo) : <span style={{ color: 'var(--danger)' }}>(Non répondu)</span>}
                         </span>
@@ -483,7 +484,7 @@ export default function Results({ players, setView, socket, session, isHost, pla
               Rejouer les fautes ensemble ?
             </h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
-              <strong>{incomingProposal.requesterName}</strong> propose de refaire une session ciblée sur les{' '}
+              <strong>{formatPlayerName(incomingProposal.requesterName)}</strong> propose de refaire une session ciblée sur les{' '}
               <strong style={{ color: 'var(--danger)' }}>{incomingProposal.count} mots manqués</strong> de cette partie !
             </p>
             <div style={{ display: 'flex', gap: '0.8rem' }}>
@@ -537,7 +538,7 @@ export default function Results({ players, setView, socket, session, isHost, pla
               Demande de Revanche !
             </h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
-              <strong>{incomingRematchProposal.requesterName}</strong> vous propose une Revanche !<br />
+              <strong>{formatPlayerName(incomingRematchProposal.requesterName)}</strong> vous propose une Revanche !<br />
               Souhaitez-vous retourner dans la salle d'attente pour rejouer ?
             </p>
             <div style={{ display: 'flex', gap: '0.8rem' }}>

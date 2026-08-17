@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { exampleLists, getAllDefaultWords } from '../data/exampleLists';
+import { formatPlayerName } from '../utils/formatters';
 
 export default function Lobby({ socket, session, players, isHost, setView, onlineUsers = [], playerName, avatar, user }) {
   // Tabs: 'chat', 'online', 'words', 'settings'
@@ -35,7 +36,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
 
   // Find host player name
   const hostPlayer = Object.values(players || {}).find(p => p.id === session?.hostId) || Object.values(players || {})[0];
-  const hostDisplayName = hostPlayer?.name || "l'hôte";
+  const hostDisplayName = formatPlayerName(hostPlayer?.name) || "l'hôte";
 
   // Sync state when session is updated from server
   useEffect(() => {
@@ -162,7 +163,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
     e?.preventDefault();
     if (!inputMsg.trim()) return;
 
-    const displayName = playerName || user?.displayName || 'Moi';
+    const displayName = formatPlayerName(playerName || user?.displayName || 'Moi');
     socket.emit('send_lobby_chat', {
       sessionId: session?.id,
       text: inputMsg.trim(),
@@ -560,7 +561,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                       gap: '0.25rem'
                     }}>
                       <span>{m.senderAvatar || '👤'}</span>
-                      <span>{isMe ? 'Vous' : m.senderName}</span>
+                      <span>{isMe ? 'Vous' : formatPlayerName(m.senderName)}</span>
                       <span style={{ opacity: 0.6 }}>• {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
 
@@ -680,7 +681,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                         <span style={{ fontSize: '1.2rem' }}>{u.avatar || '👤'}</span>
                         <div>
                           <div style={{ fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)' }}>
-                            {u.name}
+                            {formatPlayerName(u.name)}
                           </div>
                           <div style={{ fontSize: '0.7rem', color: isBusy ? 'var(--warning)' : 'var(--success)' }}>
                             {isBusy ? '🟡 En partie' : '🟢 Disponible'}
@@ -1257,7 +1258,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                 }}
               >
                 <span>{i === 0 ? '👑' : '⚔️'}</span>
-                <span>{p.name} {p.id === socket.id ? '(Vous)' : ''}</span>
+                <span>{formatPlayerName(p.name)} {p.id === socket.id ? '(Vous)' : ''}</span>
 
                 {isHost && p.id !== socket.id && (
                   <button

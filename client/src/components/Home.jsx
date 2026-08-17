@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { exampleLists } from '../data/exampleLists';
+import { formatPlayerName } from '../utils/formatters';
 
 export default function Home({ socket, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout, deleteAccount, activeTab, leaderboard, isGuest, setIsGuest, isAdmin, onOpenAdmin }) {
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
@@ -27,7 +28,7 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
   const handleStartDirectSession = (wordList) => {
     const validWords = (wordList || []).filter(w => w.question?.trim() && w.answer?.trim());
     if (validWords.length === 0) return alert("Aucun mot valide dans cette liste !");
-    const finalName = playerName ? `${avatar} ${playerName}` : `${avatar} Hôte`;
+    const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Hôte`;
     socket.emit('create_session', {
       vocabList: validWords.map((w, idx) => ({ ...w, id: idx + 1 })),
       settings: { rounds: validWords.length, timePerWord: 15, powerupsEnabled: false },
@@ -328,7 +329,7 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
   const handleJoin = (e) => {
     e.preventDefault();
     if (joinCode.length === 4) {
-      const finalName = playerName ? `${avatar} ${playerName}` : `${avatar} Invité`;
+      const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Invité`;
       socket.emit('join_session', { sessionId: joinCode.toUpperCase(), playerName: finalName, firebaseId: user?.uid });
     }
   };
@@ -711,7 +712,7 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
                     {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
                   </span>
                   <div style={{ flex: 1 }}>
-                    <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{player.name}</h3>
+                    <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{formatPlayerName(player.name)}</h3>
                   </div>
                   <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)' }}>
                     {player.xp || 0} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>pts</span>
@@ -770,8 +771,9 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
                 type="text" 
                 className="input-field" 
                 placeholder="Pseudo (ex: Wail...)" 
+                maxLength={8}
                 value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
+                onChange={(e) => setPlayerName(e.target.value.slice(0, 8))}
                 style={{ flex: 1 }}
               />
             </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { formatPlayerName } from "../utils/formatters";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const ADMIN_UID = import.meta.env.VITE_ADMIN_UID;
@@ -552,7 +553,7 @@ export default function Admin({ user, onClose }) {
                           filteredUsers.map((u) => (
                             <tr key={u.firebaseId} style={{ borderBottom: "1px solid var(--border-color)" }}>
                               <td style={{ padding: "0.75rem" }}>
-                                <div style={{ fontWeight: "bold" }}>{u.name}</div>
+                                <div style={{ fontWeight: "bold" }}>{formatPlayerName(u.name)}</div>
                                 <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{u.firebaseId}</div>
                               </td>
                               <td style={{ padding: "0.75rem" }}>
@@ -931,7 +932,7 @@ export default function Admin({ user, onClose }) {
                                           });
                                         }}
                                       />
-                                      <span style={{ fontWeight: "bold" }}>{u.name}</span>
+                                      <span style={{ fontWeight: "bold" }}>{formatPlayerName(u.name)}</span>
                                     </div>
                                     <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>
                                       Lvl {u.level || 1} • {u.xp || 0} pts

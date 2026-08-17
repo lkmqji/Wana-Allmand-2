@@ -1,4 +1,5 @@
 const { calculateScore } = require('../utils/levenshtein');
+const { formatPlayerName } = require('../utils/formatters');
 
 class GameManager {
     constructor() {
@@ -9,6 +10,7 @@ class GameManager {
     createSession(hostId, hostName, firebaseId) {
         // Generate a random 4 letter/number code
         const sessionId = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const formattedName = formatPlayerName(hostName) || 'Hôte';
         
         this.sessions.set(sessionId, {
             id: sessionId,
@@ -19,7 +21,7 @@ class GameManager {
             settings: { rounds: 0, timePerWord: 15, powerupsEnabled: false, allowPause: true },
             currentQuestionIndex: -1,
             players: {
-                [hostId]: { id: hostId, firebaseId: firebaseId || null, name: hostName || 'Hôte', score: 0, answers: {} }
+                [hostId]: { id: hostId, firebaseId: firebaseId || null, name: formattedName, score: 0, answers: {} }
             },
             roundTimer: null,
             answersThisRound: 0
@@ -33,8 +35,9 @@ class GameManager {
         if (!session) return { error: "Session introuvable." };
         if (session.guestId) return { error: "Session déjà pleine." };
         
+        const formattedName = formatPlayerName(guestName) || 'Invité';
         session.guestId = guestId;
-        session.players[guestId] = { id: guestId, firebaseId: firebaseId || null, name: guestName || 'Invité', score: 0, answers: {} };
+        session.players[guestId] = { id: guestId, firebaseId: firebaseId || null, name: formattedName, score: 0, answers: {} };
         return { success: true, session };
     }
 

@@ -10,6 +10,7 @@ const List = require('./models/List');
 const User = require('./models/User');
 const Config = require('./models/Config');
 const Notification = require('./models/Notification');
+const { formatPlayerName } = require('./utils/formatters');
 require('dotenv').config();
 
 // MongoDB Connection
@@ -518,7 +519,7 @@ io.on('connection', (socket) => {
         onlineUsers.set(socket.id, {
             socketId: socket.id,
             firebaseId: firebaseId || null,
-            name: name || 'Joueur',
+            name: formatPlayerName(name) || 'Joueur',
             avatar: avatar || '👤',
             status: existing?.status || 'available',
             sessionId: existing?.sessionId || null
@@ -559,7 +560,8 @@ io.on('connection', (socket) => {
     };
 
     socket.on('create_session', ({ vocabList, settings, playerName, firebaseId, avatar }) => {
-        const sessionId = gameManager.createSession(socket.id, playerName, firebaseId);
+        const formattedPlayerName = formatPlayerName(playerName);
+        const sessionId = gameManager.createSession(socket.id, formattedPlayerName, firebaseId);
         gameManager.setVocabList(sessionId, vocabList, settings);
         socket.join(sessionId);
         const session = gameManager.getSession(sessionId);
@@ -568,7 +570,7 @@ io.on('connection', (socket) => {
         if (userObj) {
             userObj.status = 'in_lobby';
             userObj.sessionId = sessionId;
-            if (playerName) userObj.name = playerName;
+            if (formattedPlayerName) userObj.name = formattedPlayerName;
             if (avatar) userObj.avatar = avatar;
             broadcastOnlineUsers();
         }
@@ -577,7 +579,8 @@ io.on('connection', (socket) => {
     });
 
     socket.on('join_session', ({ sessionId, playerName, firebaseId, avatar }) => {
-        const result = gameManager.joinSession(sessionId, socket.id, playerName, firebaseId);
+        const formattedPlayerName = formatPlayerName(playerName);
+        const result = gameManager.joinSession(sessionId, socket.id, formattedPlayerName, firebaseId);
         if (result.error) {
             socket.emit('error', result.error);
         } else {
@@ -586,7 +589,7 @@ io.on('connection', (socket) => {
             if (userObj) {
                 userObj.status = 'in_lobby';
                 userObj.sessionId = sessionId;
-                if (playerName) userObj.name = playerName;
+                if (formattedPlayerName) userObj.name = formattedPlayerName;
                 if (avatar) userObj.avatar = avatar;
                 broadcastOnlineUsers();
             }
@@ -598,7 +601,7 @@ io.on('connection', (socket) => {
             io.to(sessionId).emit('lobby_chat_message', {
                 id: Math.random().toString(36).substring(2, 9),
                 isSystem: true,
-                text: `${playerName || 'Un nouveau joueur'} a rejoint la salle d'attente ! 👋`,
+                text: `${formattedPlayerName || 'Un nouveau joueur'} a rejoint la salle d'attente ! 👋`,
                 timestamp: Date.now()
             });
         }
@@ -610,7 +613,7 @@ io.on('connection', (socket) => {
         const msg = {
             id: Math.random().toString(36).substring(2, 9),
             senderId: socket.id,
-            senderName: senderName || 'Joueur',
+            senderName: formatPlayerName(senderName) || 'Joueur',
             senderAvatar: senderAvatar || '💬',
             text: text.trim(),
             timestamp: Date.now()
@@ -652,7 +655,7 @@ io.on('connection', (socket) => {
             io.to(hostSocketId).emit('invite_response', {
                 inviteId,
                 accepted,
-                playerName: playerName || 'Invité',
+                playerName: formatPlayerName(playerName) || 'Invité',
                 avatar: avatar || '👤'
             });
         }
@@ -1102,7 +1105,7 @@ io.on('connection', (socket) => {
         if (u) {
             u.status = 'in_game';
             u.sessionId = sessionId;
-            if (playerName) u.name = playerName;
+            if (playerName) u.name = formatPlayerName(playerName);
             if (avatar) u.avatar = avatar;
             broadcastOnlineUsers();
         }

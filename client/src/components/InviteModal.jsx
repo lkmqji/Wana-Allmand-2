@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatPlayerName } from '../utils/formatters';
 
 export default function InviteModal({ invite, onAccept, onReject }) {
   const [showFullList, setShowFullList] = useState(true);
@@ -55,7 +56,7 @@ export default function InviteModal({ invite, onAccept, onReject }) {
             Invitation à une partie !
           </h2>
           <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.95rem' }}>
-            <strong style={{ color: 'var(--primary)' }}>{hostName}</strong> vous invite à rejoindre son duel.
+            <strong style={{ color: 'var(--primary)' }}>{formatPlayerName(hostName)}</strong> vous invite à rejoindre son duel.
           </p>
 
           {/* Session Code Badge */}

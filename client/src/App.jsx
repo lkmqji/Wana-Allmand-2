@@ -10,6 +10,7 @@ import NotificationCenter from './components/NotificationCenter';
 import InviteModal from './components/InviteModal';
 import { auth, loginWithGoogle, logout, deleteAccount } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { formatPlayerName } from './utils/formatters';
 
 // Connect to server (uses env variable or fallback to localhost)
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -71,7 +72,7 @@ function App() {
   // Sync user profile with online users registry on server and on socket connect/reconnect
   useEffect(() => {
     const registerUserOnline = () => {
-      const currentName = playerName || user?.displayName || (isGuest ? 'Invité' : '');
+      const currentName = formatPlayerName(playerName || user?.displayName || (isGuest ? 'Invité' : ''));
       socket.emit('register_online_user', {
         firebaseId: user?.uid || null,
         name: currentName ? `${avatar} ${currentName}` : `${avatar} Joueur`,
@@ -93,7 +94,7 @@ function App() {
       setUser(currentUser);
       setIsAuthLoading(false);
       if (currentUser) {
-        if (!playerName) setPlayerName(currentUser.displayName || '');
+        if (!playerName) setPlayerName(formatPlayerName(currentUser.displayName || ''));
         // Register personal user socket room for direct notifications
         socket.emit('register_user', currentUser.uid);
         // Sync with backend
@@ -177,13 +178,13 @@ function App() {
         setToastNotif({
           icon: '⚔️',
           title: 'Invitation acceptée !',
-          message: `${resp.playerName} a accepté votre invitation et rejoint la salle !`
+          message: `${formatPlayerName(resp.playerName)} a accepté votre invitation et rejoint la salle !`
         });
       } else {
         setToastNotif({
           icon: 'ℹ️',
           title: 'Invitation déclinée',
-          message: `${resp.playerName} a décliné votre invitation.`
+          message: `${formatPlayerName(resp.playerName)} a décliné votre invitation.`
         });
       }
       setTimeout(() => setToastNotif(null), 5000);
@@ -317,7 +318,7 @@ function App() {
 
   const handleAcceptInvite = () => {
     if (!incomingInvite) return;
-    const finalName = playerName ? `${avatar} ${playerName}` : `${avatar} Invité`;
+    const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Invité`;
     
     socket.emit('respond_game_invite', {
       inviteId: incomingInvite.inviteId,
@@ -341,7 +342,7 @@ function App() {
 
   const handleRejectInvite = () => {
     if (!incomingInvite) return;
-    const finalName = playerName ? `${avatar} ${playerName}` : `${avatar} Invité`;
+    const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Invité`;
 
     socket.emit('respond_game_invite', {
       inviteId: incomingInvite.inviteId,
@@ -383,7 +384,7 @@ function App() {
             {leaderboard.slice(0, 5).map((player, idx) => (
               <div key={player._id || idx} className="card" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem', background: idx === 0 ? 'rgba(251, 191, 36, 0.1)' : 'var(--bg-surface)' }}>
                 <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: idx === 0 ? '#f59e0b' : 'var(--text-muted)' }}>#{idx + 1}</span>
-                <span style={{ flex: 1, fontWeight: 'bold' }}>{player.name}</span>
+                <span style={{ flex: 1, fontWeight: 'bold' }}>{formatPlayerName(player.name)}</span>
                 <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{player.xp || 0} pts</span>
               </div>
             ))}

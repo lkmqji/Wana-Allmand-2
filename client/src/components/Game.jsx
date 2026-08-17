@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { formatPlayerName } from '../utils/formatters';
 
 const PRESET_PHRASES = [
   "💥 Ouch!",
@@ -290,7 +291,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     socket.on('player_reconnected', (data) => {
       setDisconnectGrace({ disconnected: false, playerName: '', secondsRemaining: 30 });
       setIsPaused(false);
-      showToast(`⚡ ${data.playerName || 'Adversaire'} s'est reconnecté ! La partie reprend.`, 'success');
+      showToast(`⚡ ${formatPlayerName(data.playerName) || 'Adversaire'} s'est reconnecté ! La partie reprend.`, 'success');
     });
 
     socket.on('ready_count', (data) => {
@@ -522,7 +523,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
               Adversaire déconnecté
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', margin: 0, lineHeight: 1.5 }}>
-              <strong style={{ color: 'var(--warning)' }}>{disconnectGrace.playerName}</strong> a perdu la connexion.
+              <strong style={{ color: 'var(--warning)' }}>{formatPlayerName(disconnectGrace.playerName)}</strong> a perdu la connexion.
               La partie est mise en pause.
             </p>
 
@@ -650,7 +651,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
               Demande pour quitter la partie
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', margin: 0, lineHeight: 1.5 }}>
-              <strong style={{ color: 'var(--text-main)' }}>{leaveRequesterName}</strong> souhaite arrêter et quitter la partie en cours.
+              <strong style={{ color: 'var(--text-main)' }}>{formatPlayerName(leaveRequesterName)}</strong> souhaite arrêter et quitter la partie en cours.
             </p>
             
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '0.5rem', flexWrap: 'wrap' }}>
@@ -721,7 +722,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
                 <div>
                   <h3 style={{ margin: 0, fontSize: '1.15rem', color: 'var(--text-main)' }}>Partie en Pause</h3>
                   <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Mise en pause par <strong>{pauseData?.pausedByName || 'un joueur'}</strong>
+                    Mise en pause par <strong>{formatPlayerName(pauseData?.pausedByName) || 'un joueur'}</strong>
                   </p>
                 </div>
               </div>
@@ -784,7 +785,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
                         gap: '0.25rem'
                       }}>
                         <span>{m.senderAvatar || '👤'}</span>
-                        <span>{isMe ? 'Vous' : m.senderName}</span>
+                        <span>{isMe ? 'Vous' : formatPlayerName(m.senderName)}</span>
                       </div>
                       <div style={{
                         padding: '0.45rem 0.75rem',
@@ -889,7 +890,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             >
               <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <span style={{ fontSize: '0.7rem', color: isMe ? 'var(--primary)' : 'var(--warning)', fontWeight: 'bold', lineHeight: 1.1 }}>
-                  {isMe ? 'Vous' : bubble.senderName}
+                  {isMe ? 'Vous' : formatPlayerName(bubble.senderName)}
                 </span>
                 <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ffffff', wordBreak: 'break-word', lineHeight: 1.2 }}>
                   {bubble.text}
@@ -1131,7 +1132,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
                 style={{ color: p.id === socket?.id ? 'var(--primary)' : 'var(--text-main)' }}
               >
                 {isLeader && <div className="leader-crown">👑</div>}
-                <div className="name">{p.name} {p.id === socket?.id ? '(Vous)' : ''}</div>
+                <div className="name">{formatPlayerName(p.name)} {p.id === socket?.id ? '(Vous)' : ''}</div>
                 <div className="score">{p.score}</div>
               </div>
             );
@@ -1289,7 +1290,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
                   const isCorrect = playerAns?.score >= 100;
                   return (
                     <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-surface-hover)', borderRadius: '12px', border: '2px solid var(--border-color)', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{p.name}</span>
+                      <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{formatPlayerName(p.name)}</span>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end' }}>
                           <span style={{ fontWeight: 'bold' }}>

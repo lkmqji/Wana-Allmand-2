@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatPlayerName } from '../utils/formatters';
 
 export default function Layout({ 
   children, 
@@ -147,7 +148,7 @@ export default function Layout({
                 style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid var(--border-color)' }} 
               />
               <span style={{ fontWeight: 'bold', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {user.displayName}
+                {formatPlayerName(user.displayName)}
               </span>
             </div>
           ) : (
