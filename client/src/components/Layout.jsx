@@ -9,6 +9,7 @@ export default function Layout({
   theme, 
   toggleTheme,
   rightPanelContent,
+  isAdmin,
   onOpenAdmin
 }) {
   const navItems = [
@@ -33,7 +34,7 @@ export default function Layout({
           >
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
-          {onOpenAdmin && (
+          {isAdmin && onOpenAdmin && (
             <button
               onClick={onOpenAdmin}
               title="Panneau Admin"
@@ -75,7 +76,7 @@ export default function Layout({
         </div>
 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-          {onOpenAdmin && (
+          {isAdmin && onOpenAdmin && (
             <button
               onClick={onOpenAdmin}
               className="nav-item"

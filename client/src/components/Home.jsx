@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export default function Home({ socket, setVocabListForReview, setEditingListInfo, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout, deleteAccount, activeTab, leaderboard, isGuest, setIsGuest, onOpenAdmin }) {
+export default function Home({ socket, setVocabListForReview, setEditingListInfo, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout, deleteAccount, activeTab, leaderboard, isGuest, setIsGuest, isAdmin, onOpenAdmin }) {
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
   const [prepTab, setPrepTab] = useState('pdf'); // 'pdf', 'text', 'examples', 'settings'
   const [joinCode, setJoinCode] = useState('');
@@ -727,7 +727,7 @@ export default function Home({ socket, setVocabListForReview, setEditingListInfo
             </div>
           )}
 
-          {user && (
+          {user && isAdmin && onOpenAdmin && (
             <div className="card" style={{ marginBottom: '1rem', background: 'rgba(99,102,241,0.08)', borderColor: 'rgba(99,102,241,0.3)' }}>
               <h3 style={{ marginBottom: '0.5rem', color: '#a78bfa' }}>🛡️ Administration</h3>
               <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>

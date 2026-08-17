@@ -9,14 +9,18 @@ export default function Admin({ user, onClose }) {
   const [saving, setSaving] = useState(null);
   const [message, setMessage] = useState("");
 
-  const isAdmin = user && ADMIN_UID && user.uid === ADMIN_UID;
+  const isAdmin = Boolean(user && ADMIN_UID && user.uid === ADMIN_UID);
 
   useEffect(() => {
-    fetch(`${API_URL}/api/config`)
-      .then(r => r.json())
-      .then(data => { setConfig(data); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
+    if (isAdmin) {
+      fetch(`${API_URL}/api/config`)
+        .then(r => r.json())
+        .then(data => { setConfig(data); setLoading(false); })
+        .catch(() => setLoading(false));
+    }
+  }, [isAdmin]);
+
+  if (!isAdmin) return null;
 
   const toggle = async (setting, currentValue) => {
     setSaving(setting);
@@ -79,15 +83,7 @@ export default function Admin({ user, onClose }) {
           </div>
         </div>
 
-        {!isAdmin ? (
-          <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "12px", padding: "1.5rem", textAlign: "center" }}>
-            <span style={{ fontSize: "2rem" }}>🚫</span>
-            <h3 style={{ color: "var(--danger)", margin: "0.5rem 0" }}>Accès refusé</h3>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", margin: 0 }}>
-              {!user ? "Connecte-toi d'abord." : !ADMIN_UID ? "Configure VITE_ADMIN_UID dans Vercel." : "Ton compte n'est pas administrateur."}
-            </p>
-          </div>
-        ) : loading ? (
+        {loading ? (
           <p style={{ color: "var(--text-muted)", textAlign: "center" }}>Chargement...</p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>

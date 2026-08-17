@@ -12,6 +12,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 
 // Connect to server (uses env variable or fallback to localhost)
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const ADMIN_UID = import.meta.env.VITE_ADMIN_UID;
 const socket = io(API_URL, {
   transports: ['websocket'],
   upgrade: false
@@ -36,14 +37,18 @@ function App() {
   const [theme, setTheme] = useState('dark');
   const [leaderboard, setLeaderboard] = useState([]);
 
+  const isAdmin = Boolean(user && ADMIN_UID && user.uid === ADMIN_UID);
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Detect ?admin in URL
+  // Detect ?admin in URL - ONLY for the admin user
   useEffect(() => {
-    if (window.location.search.includes('admin')) setShowAdmin(true);
-  }, []);
+    if (isAdmin && window.location.search.includes('admin')) {
+      setShowAdmin(true);
+    }
+  }, [isAdmin]);
 
   // Fetch server config (guest mode etc.)
   useEffect(() => {
@@ -250,27 +255,8 @@ function App() {
                 👤 Continuer en tant qu'invité
               </button>
             )}
-
-            {/* Quick Admin Access Button on Login */}
-            <button
-              onClick={() => setShowAdmin(true)}
-              style={{
-                marginTop: '0.5rem',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-muted)',
-                fontSize: '0.8rem',
-                cursor: 'pointer',
-                textDecoration: 'underline'
-              }}
-            >
-              🛡️ Panneau Administrateur
-            </button>
           </div>
         </div>
-
-        {/* Admin Panel rendered on Login Screen if opened */}
-        {showAdmin && <Admin user={user} onClose={() => setShowAdmin(false)} />}
       </div>
     );
   }
@@ -292,6 +278,7 @@ function App() {
         theme={theme}
         toggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
         rightPanelContent={<RightPanelContent />}
+        isAdmin={isAdmin}
         onOpenAdmin={() => setShowAdmin(true)}
       >
         {error && (
@@ -317,6 +304,7 @@ function App() {
             leaderboard={leaderboard}
             isGuest={isGuest}
             setIsGuest={setIsGuest}
+            isAdmin={isAdmin}
             onOpenAdmin={() => setShowAdmin(true)}
           />
         )}
@@ -336,8 +324,8 @@ function App() {
         {view === 'results' && <Results players={players} setView={setView} socket={socket} session={session} isHost={isHost} setVocabListForReview={setVocabListForReview} />}
       </Layout>
 
-      {/* Admin Panel */}
-      {showAdmin && <Admin user={user} onClose={() => setShowAdmin(false)} />}
+      {/* Admin Panel - Only accessible by the confirmed admin */}
+      {showAdmin && isAdmin && <Admin user={user} onClose={() => setShowAdmin(false)} />}
     </>
   );
 }
