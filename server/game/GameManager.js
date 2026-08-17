@@ -16,7 +16,7 @@ class GameManager {
             guestId: null,
             status: 'waiting', // waiting, playing, finished
             vocabList: [],
-            settings: { rounds: 20, timePerWord: 15 },
+            settings: { rounds: 0, timePerWord: 15, powerupsEnabled: false },
             currentQuestionIndex: -1,
             players: {
                 [hostId]: { id: hostId, firebaseId: firebaseId || null, name: hostName || 'Hôte', score: 0, answers: {} }
@@ -63,15 +63,15 @@ class GameManager {
     setVocabList(sessionId, vocabList, settings) {
         const session = this.sessions.get(sessionId);
         if (session) {
-            session.settings = settings || { rounds: vocabList.length, timePerWord: 15 };
-            
-            // Si on demande moins de rounds que la taille totale, on mélange et on coupe
-            if (session.settings.rounds < vocabList.length) {
-                const shuffled = [...vocabList].sort(() => 0.5 - Math.random());
-                session.vocabList = shuffled.slice(0, session.settings.rounds);
-            } else {
-                session.vocabList = vocabList;
-            }
+            session.vocabList = vocabList;
+            const rounds = (settings && typeof settings.rounds === 'number' && settings.rounds > 0)
+                ? Math.min(settings.rounds, vocabList.length)
+                : vocabList.length;
+            session.settings = {
+                ...(settings || {}),
+                rounds: rounds,
+                timePerWord: settings?.timePerWord || 15
+            };
         }
     }
 
@@ -128,7 +128,11 @@ class GameManager {
         session.answersThisRound = 0;
         session.currentQuestionIndex += 1;
 
-        if (session.currentQuestionIndex >= session.vocabList.length) {
+        const maxQuestions = (session.settings && session.settings.rounds > 0)
+            ? Math.min(session.settings.rounds, session.vocabList.length)
+            : session.vocabList.length;
+
+        if (session.currentQuestionIndex >= maxQuestions || session.currentQuestionIndex >= session.vocabList.length) {
             session.status = 'finished';
             return { finished: true };
         }

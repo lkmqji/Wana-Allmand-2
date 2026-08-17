@@ -30,7 +30,7 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
     const finalName = playerName ? `${avatar} ${playerName}` : `${avatar} Hôte`;
     socket.emit('create_session', {
       vocabList: validWords.map((w, idx) => ({ ...w, id: idx + 1 })),
-      settings: { rounds: Math.min(20, validWords.length), timePerWord: 15, powerupsEnabled: false },
+      settings: { rounds: validWords.length, timePerWord: 15, powerupsEnabled: false },
       playerName: finalName,
       firebaseId: user?.uid,
       avatar

@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 export default function Review({ vocabList, onCreateSession, user, setView, editingListInfo }) {
   const [words, setWords] = useState(vocabList);
-  const [rounds, setRounds] = useState(Math.min(20, vocabList.length));
+  const [rounds, setRounds] = useState(vocabList.length);
   const [timePerWord, setTimePerWord] = useState(15);
   const [powerupsEnabled, setPowerupsEnabled] = useState(false);
   const [listName, setListName] = useState(editingListInfo?.name || '');
