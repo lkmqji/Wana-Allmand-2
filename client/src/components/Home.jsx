@@ -778,9 +778,9 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
                 type="text" 
                 className="input-field" 
                 placeholder="Pseudo (ex: Wail...)" 
-                maxLength={8}
+                maxLength={32}
                 value={playerName}
-                onChange={(e) => setPlayerName(e.target.value.slice(0, 8))}
+                onChange={(e) => setPlayerName(formatPlayerName(e.target.value, 8))}
                 style={{ flex: 1 }}
               />
             </div>

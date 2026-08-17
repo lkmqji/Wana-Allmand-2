@@ -3,8 +3,21 @@
  */
 
 /**
- * Truncates a player name to a maximum number of characters (default: 8).
- * Preserves leading avatar/emoji if present (e.g., "🦊 Alexandre" -> "🦊 Alexandr").
+ * Safely extracts Unicode graphemes (user-perceived characters/emojis)
+ * to avoid splitting surrogate pairs or multi-codepoint emojis.
+ */
+function getGraphemes(str) {
+  if (!str) return [];
+  if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+    return Array.from(segmenter.segment(str), s => s.segment);
+  }
+  return Array.from(str);
+}
+
+/**
+ * Truncates a player name to a maximum number of characters/emojis (default: 8).
+ * Fully supports emojis anywhere in the name without corrupting surrogate pairs.
  * 
  * @param {string} name - Player name to format
  * @param {number} max - Maximum character length (default: 8)
@@ -15,17 +28,19 @@ export function formatPlayerName(name, max = 8) {
   const trimmed = name.trim();
   if (!trimmed) return '';
 
-  // Match leading emoji/avatar prefix (e.g., 🦊, 🐼, 🦁, 👤, 👑, etc.)
-  const emojiMatch = trimmed.match(/^(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*|\p{Emoji})\s*(.*)$/u);
+  // Check if string starts with an avatar emoji prefix followed by space (e.g., "🦊 Alexandre" or "🐼 تلميذة")
+  const emojiMatch = trimmed.match(/^(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*|\p{Emoji})\s+(.*)$/u);
   if (emojiMatch && emojiMatch[1]) {
-    const emoji = emojiMatch[1];
+    const avatar = emojiMatch[1];
     const rest = emojiMatch[2];
-    if (!rest) return emoji;
-    const truncatedRest = rest.length > max ? rest.slice(0, max) : rest;
-    return `${emoji} ${truncatedRest}`;
+    if (!rest) return avatar;
+    const restGraphemes = getGraphemes(rest);
+    const truncatedRest = restGraphemes.length > max ? restGraphemes.slice(0, max).join('') : rest;
+    return `${avatar} ${truncatedRest}`;
   }
 
-  return trimmed.length > max ? trimmed.slice(0, max) : trimmed;
+  const allGraphemes = getGraphemes(trimmed);
+  return allGraphemes.length > max ? allGraphemes.slice(0, max).join('') : trimmed;
 }
 
 /**
@@ -43,4 +58,3 @@ export function getClientPlayerKey() {
     return 'usr_' + Math.random().toString(36).substring(2, 10);
   }
 }
-
