@@ -8,7 +8,8 @@ export default function Layout({
   loginWithGoogle, 
   theme, 
   toggleTheme,
-  rightPanelContent
+  rightPanelContent,
+  onOpenAdmin
 }) {
   const navItems = [
     { id: 'learn', label: 'Apprendre', icon: '🏠' },
@@ -32,6 +33,15 @@ export default function Layout({
           >
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
+          {onOpenAdmin && (
+            <button
+              onClick={onOpenAdmin}
+              title="Panneau Admin"
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1.2rem' }}
+            >
+              🛡️
+            </button>
+          )}
           {user ? (
             <img 
               src={user.photoURL} 
@@ -64,7 +74,18 @@ export default function Layout({
           ))}
         </div>
 
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+          {onOpenAdmin && (
+            <button
+              onClick={onOpenAdmin}
+              className="nav-item"
+              style={{ width: '100%', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', justifyContent: 'flex-start', color: '#a78bfa' }}
+            >
+              <span style={{ fontSize: '1.2rem' }}>🛡️</span>
+              Admin
+            </button>
+          )}
+
           <button 
             onClick={toggleTheme} 
             className="nav-item" 

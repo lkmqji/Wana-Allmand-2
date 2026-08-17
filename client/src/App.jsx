@@ -250,72 +250,95 @@ function App() {
                 👤 Continuer en tant qu'invité
               </button>
             )}
+
+            {/* Quick Admin Access Button on Login */}
+            <button
+              onClick={() => setShowAdmin(true)}
+              style={{
+                marginTop: '0.5rem',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                textDecoration: 'underline'
+              }}
+            >
+              🛡️ Panneau Administrateur
+            </button>
           </div>
         </div>
+
+        {/* Admin Panel rendered on Login Screen if opened */}
+        {showAdmin && <Admin user={user} onClose={() => setShowAdmin(false)} />}
       </div>
     );
   }
 
   return (
-    <Layout 
-      activeTab={activeTab} 
-      onNavigate={(tab) => {
-        setActiveTab(tab);
-        // If on results/lobby/review, go back to home when navigating
-        if (['results', 'lobby', 'review'].includes(view)) {
-          setView('home');
-        }
-      }}
-      user={user}
-      loginWithGoogle={loginWithGoogle}
-      logout={logout}
-      theme={theme}
-      toggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-      rightPanelContent={<RightPanelContent />}
-    >
-      {error && (
-        <div style={{ background: 'var(--danger)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
-          {error} <button onClick={() => setError('')} style={{background:'none',border:'none',color:'white',cursor:'pointer'}}>X</button>
-        </div>
-      )}
-      
-      {view === 'home' && (
-        <Home 
-          socket={socket} 
-          setVocabListForReview={setVocabListForReview} 
-          setEditingListInfo={setEditingListInfo}
-          playerName={playerName} 
-          setPlayerName={setPlayerName}
-          avatar={avatar}
-          setAvatar={setAvatar}
-          user={user}
-          loginWithGoogle={loginWithGoogle}
-          logout={() => { logout(); setIsGuest(false); }}
-          deleteAccount={deleteAccount}
-          activeTab={activeTab}
-          leaderboard={leaderboard}
-          isGuest={isGuest}
-          setIsGuest={setIsGuest}
-        />
-      )}
-      {view === 'review' && (
-        <Review 
-          vocabList={vocabListForReview} 
-          editingListInfo={editingListInfo}
-          user={user}
-          setView={setView}
-          onCreateSession={(finalList, settings) => {
-            const finalName = playerName ? `${avatar} ${playerName}` : `${avatar} Hôte`;
-            socket.emit('create_session', { vocabList: finalList, settings, playerName: finalName, firebaseId: user?.uid });
-          }} 
-        />
-      )}
-      {view === 'lobby' && <Lobby socket={socket} session={session} players={players} isHost={isHost} setView={setView} />}
-      {view === 'results' && <Results players={players} setView={setView} socket={socket} session={session} isHost={isHost} setVocabListForReview={setVocabListForReview} />}
-    </Layout>
+    <>
+      <Layout 
+        activeTab={activeTab} 
+        onNavigate={(tab) => {
+          setActiveTab(tab);
+          // If on results/lobby/review, go back to home when navigating
+          if (['results', 'lobby', 'review'].includes(view)) {
+            setView('home');
+          }
+        }}
+        user={user}
+        loginWithGoogle={loginWithGoogle}
+        logout={logout}
+        theme={theme}
+        toggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+        rightPanelContent={<RightPanelContent />}
+        onOpenAdmin={() => setShowAdmin(true)}
+      >
+        {error && (
+          <div style={{ background: 'var(--danger)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+            {error} <button onClick={() => setError('')} style={{background:'none',border:'none',color:'white',cursor:'pointer'}}>X</button>
+          </div>
+        )}
+        
+        {view === 'home' && (
+          <Home 
+            socket={socket} 
+            setVocabListForReview={setVocabListForReview} 
+            setEditingListInfo={setEditingListInfo}
+            playerName={playerName} 
+            setPlayerName={setPlayerName}
+            avatar={avatar}
+            setAvatar={setAvatar}
+            user={user}
+            loginWithGoogle={loginWithGoogle}
+            logout={() => { logout(); setIsGuest(false); }}
+            deleteAccount={deleteAccount}
+            activeTab={activeTab}
+            leaderboard={leaderboard}
+            isGuest={isGuest}
+            setIsGuest={setIsGuest}
+            onOpenAdmin={() => setShowAdmin(true)}
+          />
+        )}
+        {view === 'review' && (
+          <Review 
+            vocabList={vocabListForReview} 
+            editingListInfo={editingListInfo}
+            user={user}
+            setView={setView}
+            onCreateSession={(finalList, settings) => {
+              const finalName = playerName ? `${avatar} ${playerName}` : `${avatar} Hôte`;
+              socket.emit('create_session', { vocabList: finalList, settings, playerName: finalName, firebaseId: user?.uid });
+            }} 
+          />
+        )}
+        {view === 'lobby' && <Lobby socket={socket} session={session} players={players} isHost={isHost} setView={setView} />}
+        {view === 'results' && <Results players={players} setView={setView} socket={socket} session={session} isHost={isHost} setVocabListForReview={setVocabListForReview} />}
+      </Layout>
 
-    {/* Admin Panel */}
-    {showAdmin && <Admin user={user} onClose={() => setShowAdmin(false)} />}
+      {/* Admin Panel */}
+      {showAdmin && <Admin user={user} onClose={() => setShowAdmin(false)} />}
+    </>
   );
 }
 

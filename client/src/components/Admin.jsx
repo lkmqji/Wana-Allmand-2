@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const ADMIN_UID = import.meta.env.VITE_ADMIN_UID;
@@ -61,8 +61,22 @@ export default function Admin({ user, onClose }) {
 
         {/* UID Info */}
         <div style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: "12px", padding: "1rem", marginBottom: "1.5rem" }}>
-          <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "0.3rem" }}>Ton Firebase UID (copie-le pour configurer VITE_ADMIN_UID) :</div>
-          <code style={{ fontSize: "0.85rem", color: "#a78bfa", wordBreak: "break-all" }}>{user?.uid || "Non connecté"}</code>
+          <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "0.3rem" }}>Ton Firebase UID (à copier dans Vercel & Render) :</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+            <code style={{ fontSize: "0.85rem", color: "#a78bfa", wordBreak: "break-all" }}>{user?.uid || "Non connecté (connectez-vous avec Google)"}</code>
+            {user?.uid && (
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(user.uid);
+                  alert("UID copié dans le presse-papiers !");
+                }}
+                className="btn btn-secondary"
+                style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', flexShrink: 0 }}
+              >
+                📋 Copier
+              </button>
+            )}
+          </div>
         </div>
 
         {!isAdmin ? (
