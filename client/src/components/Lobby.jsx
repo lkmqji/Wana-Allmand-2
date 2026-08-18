@@ -505,9 +505,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
       {/* =========================================================
           TASK 4 : ARÈNE ESPORT (STREET FIGHTER / SMASH BROS STYLE)
          ========================================================= */}
-      <div className="card arena-main-card" style={{
-        background: 'linear-gradient(135deg, var(--bg-surface) 0%, rgba(99, 102, 241, 0.08) 50%, var(--bg-surface) 100%)',
-        borderColor: 'var(--border-color)',
+      <div className="card card-arena arena-main-card" style={{
         padding: '1.25rem 1rem',
         position: 'relative',
         overflow: 'hidden'
@@ -765,7 +763,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
       {/* =========================================================
           CONSOLE DE BORD / DASHBOARD DE CONFIGURATION (EN DESSOUS)
          ========================================================= */}
-      <div className="card" style={{ padding: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+      <div className="card card-secondary-elevated" style={{ padding: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
         
         {/* Action Controls Bar */}
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -802,21 +800,25 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
           )}
         </div>
 
-        {/* Floating Toast inside Lobby when looking at other tabs (Task 5) */}
+        {/* Floating Toast inside Lobby when looking at other tabs (Task 2 & 5) */}
         {lobbyChatToast && activeTab !== 'chat' && (
           <div 
             className="discord-chat-toast"
-            style={{ position: 'fixed', top: '1.2rem', left: '50%', transform: 'translateX(-50%)', zIndex: 9999 }}
             onClick={() => {
               setActiveTab('chat');
               setUnreadChatCount(0);
               setLobbyChatToast(null);
             }}
           >
-            <span className="discord-toast-avatar">{lobbyChatToast.senderAvatar || '💬'}</span>
+            <div className="discord-toast-avatar-container">
+              <span className="discord-toast-avatar">{lobbyChatToast.senderAvatar || '💬'}</span>
+            </div>
             <div className="discord-toast-content">
-              <span className="discord-toast-sender">{lobbyChatToast.senderName}</span>
-              <span className="discord-toast-text"> : {lobbyChatToast.text}</span>
+              <div className="discord-toast-header">
+                <span className="discord-toast-sender">{lobbyChatToast.senderName}</span>
+                <span className="discord-toast-badge">Chat</span>
+              </div>
+              <div className="discord-toast-text">{lobbyChatToast.text}</div>
             </div>
             <button 
               type="button"
@@ -825,6 +827,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                 e.stopPropagation();
                 setLobbyChatToast(null);
               }}
+              title="Fermer"
             >
               ×
             </button>

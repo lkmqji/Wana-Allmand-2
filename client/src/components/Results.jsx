@@ -441,9 +441,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
       {/* =========================================================
           TASK 3 : REDESIGN DU PODIUM ESPORT & MOBILE COMPACT ROW
          ========================================================= */}
-      <div className="card" style={{
-        background: 'linear-gradient(135deg, var(--bg-surface) 0%, rgba(99, 102, 241, 0.08) 50%, var(--bg-surface) 100%)',
-        borderColor: 'var(--border-color)',
+      <div className="card card-arena" style={{
         padding: '1.2rem 1rem',
         marginBottom: '1.2rem',
         position: 'relative',
@@ -696,7 +694,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
       {/* =========================================================
           MINI-CHAT DIRECTEMENT INTÉGRÉ (RÉSULTATS)
          ========================================================= */}
-      <div className="card" style={{
+      <div className="card card-secondary-elevated" style={{
         padding: '0.9rem 1rem',
         marginBottom: '1rem',
         textAlign: 'left'

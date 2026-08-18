@@ -22,9 +22,12 @@ body[data-theme="midnight"] {
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
   --border-color: #243044;
-  --logo-glow: 0 0 20px rgba(99, 102, 241, 0.6);
-  --glass-bg: rgba(21, 30, 46, 0.75);
-  
+  /* Visual Elevation & Hierarchy System (Task 1) */
+  --card-bg-elevated: linear-gradient(145deg, var(--card-bg) 0%, rgba(0, 0, 0, 0.28) 100%);
+  --card-arena-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, var(--card-bg) 100%);
+  --card-arena-border: rgba(255, 255, 255, 0.12);
+  --card-arena-shadow: 0 16px 36px rgba(0, 0, 0, 0.35), 0 0 20px rgba(99, 102, 241, 0.08);
+
   /* Layout */
   --sidebar-width: 250px;
   --right-panel-width: 300px;
@@ -1018,15 +1021,47 @@ h1, h2, h3, h4 {
 }
 
 /* ----------------------------------
-   GLOBAL DISCORD-LIKE CHAT TOAST (TASK 5)
+   CARD ELEVATION & VISUAL HIERARCHY (TASK 1)
 ---------------------------------- */
-@keyframes slideInTop {
+
+/* Top Card: Primary Arena (Glassmorphism, crisp subtle border, elevated glow) */
+.card-arena {
+  background: var(--card-arena-bg, linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, var(--card-bg) 100%)) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35), 0 0 24px rgba(99, 102, 241, 0.1) !important;
+  border-radius: 22px;
+  position: relative;
+}
+
+/* Bottom Card: Secondary / Console / Sunken Dashboard (One step below with internal depth) */
+.card-secondary-elevated {
+  background: var(--card-bg-elevated, linear-gradient(145deg, var(--card-bg) 0%, rgba(0, 0, 0, 0.28) 100%)) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.25) !important;
+  border-radius: 20px;
+  position: relative;
+}
+
+/* ----------------------------------
+   PREMIUM GAMER / DISCORD CHAT TOAST (TASK 2)
+---------------------------------- */
+@keyframes slideInTopBouncy {
   0% {
-    transform: translate(-50%, -100%);
+    transform: translate(-50%, -120%) scale(0.9);
     opacity: 0;
   }
+  65% {
+    transform: translate(-50%, 8px) scale(1.02);
+    opacity: 1;
+  }
+  85% {
+    transform: translate(-50%, -3px) scale(0.99);
+    opacity: 1;
+  }
   100% {
-    transform: translate(-50%, 0);
+    transform: translate(-50%, 0) scale(1);
     opacity: 1;
   }
 }
@@ -1037,68 +1072,115 @@ h1, h2, h3, h4 {
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
-  background: var(--bg-surface);
-  border: 2px solid var(--primary);
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.45), 0 0 20px rgba(99, 102, 241, 0.25);
-  border-radius: 14px;
-  padding: 0.65rem 1rem;
+  background: linear-gradient(135deg, rgba(21, 30, 46, 0.88), rgba(15, 23, 42, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 4px solid var(--accent-primary, var(--primary));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 0 25px rgba(99, 102, 241, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 0.75rem 1.1rem;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  max-width: 90vw;
-  width: 420px;
-  animation: slideInTop 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  gap: 0.85rem;
+  max-width: 92vw;
+  width: 440px;
+  animation: slideInTopBouncy 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
   cursor: pointer;
-  backdrop-filter: blur(12px);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+  user-select: none;
 }
 
 .discord-chat-toast:hover {
-  transform: translate(-50%, -2px);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 0 25px rgba(99, 102, 241, 0.35);
+  transform: translate(-50%, -3px) scale(1.01);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.65), 0 0 32px rgba(99, 102, 241, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.discord-toast-avatar-container {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(236, 72, 153, 0.2));
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
 }
 
 .discord-toast-avatar {
-  font-size: 1.6rem;
+  font-size: 1.55rem;
   line-height: 1;
-  flex-shrink: 0;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
 }
 
 .discord-toast-content {
   flex: 1;
   min-width: 0;
-  font-size: 0.88rem;
-  line-height: 1.35;
-  color: var(--text-main);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.discord-toast-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .discord-toast-sender {
   font-weight: 800;
-  color: var(--primary);
+  font-size: 0.92rem;
+  color: var(--accent-primary, var(--primary));
+  letter-spacing: 0.2px;
+}
+
+.discord-toast-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  line-height: 1;
 }
 
 .discord-toast-text {
-  color: var(--text-main);
-  font-weight: 600;
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .discord-toast-close {
-  background: none;
-  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   line-height: 1;
-  padding: 0 0.2rem;
-  transition: color 0.15s ease;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
   flex-shrink: 0;
 }
 
 .discord-toast-close:hover {
-  color: var(--text-main);
+  background: rgba(239, 68, 68, 0.2);
+  border-color: var(--danger);
+  color: #ffffff;
+  transform: scale(1.1);
 }
 

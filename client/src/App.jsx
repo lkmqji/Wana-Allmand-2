@@ -793,7 +793,7 @@ function App() {
         unreadCount={unreadCount}
         onOpenNotifications={() => setShowNotifications(true)}
       >
-        {/* Global Discord-like Chat Floating Toast (Task 5) */}
+        {/* Global Discord-like Chat Floating Toast (Task 2 & 5) */}
         {discordToast && (
           <div 
             className="discord-chat-toast"
@@ -808,10 +808,15 @@ function App() {
               setDiscordToast(null);
             }}
           >
-            <span className="discord-toast-avatar">{discordToast.senderAvatar || '💬'}</span>
+            <div className="discord-toast-avatar-container">
+              <span className="discord-toast-avatar">{discordToast.senderAvatar || '💬'}</span>
+            </div>
             <div className="discord-toast-content">
-              <span className="discord-toast-sender">{discordToast.senderName}</span>
-              <span className="discord-toast-text"> : {discordToast.text}</span>
+              <div className="discord-toast-header">
+                <span className="discord-toast-sender">{discordToast.senderName}</span>
+                <span className="discord-toast-badge">Salon</span>
+              </div>
+              <div className="discord-toast-text">{discordToast.text}</div>
             </div>
             <button 
               type="button"
@@ -820,6 +825,7 @@ function App() {
                 e.stopPropagation();
                 setDiscordToast(null);
               }}
+              title="Fermer"
             >
               ×
             </button>
