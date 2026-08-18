@@ -77,9 +77,10 @@ export default function Results({ players = {}, setView, socket, session, isHost
   const isDraw = playerArr.length > 1 && playerArr[0].score === playerArr[1].score;
   const isSolo = playerArr.length <= 1;
 
-  // Mini-Chat input & bottom ref
+  // Mini-Chat input & list ref
   const [chatInput, setChatInput] = useState('');
-  const chatBottomRef = useRef(null);
+  const [floatingBubbles, setFloatingBubbles] = useState([]);
+  const chatListRef = useRef(null);
 
   // Proposal for failed words replay
   const [incomingProposal, setIncomingProposal] = useState(null);
@@ -122,12 +123,21 @@ export default function Results({ players = {}, setView, socket, session, isHost
   // Chat message listener & proposal listeners
   useEffect(() => {
     const handleChatMessage = (msg) => {
+      if (!msg) return;
       if (setChatMessages) {
         setChatMessages(prev => {
           if (msg.id && prev.some(m => m.id === msg.id)) return prev;
           return [...prev, msg];
         });
       }
+
+      // Add to floating bubbles (visible for 3.5s in top-right)
+      const bubbleId = msg.id || (Date.now() + '-' + Math.random());
+      const bubbleMsg = { ...msg, id: bubbleId };
+      setFloatingBubbles(prev => [...prev.slice(-3), bubbleMsg]);
+      setTimeout(() => {
+        setFloatingBubbles(prev => prev.filter(b => b.id !== bubbleId));
+      }, 3500);
     };
 
     const handleRetryProposal = (proposal) => {
@@ -165,6 +175,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
     };
 
     socket.on('lobby_chat_message', handleChatMessage);
+    socket.on('game_chat_message', handleChatMessage);
     socket.on('retry_failed_words_proposal', handleRetryProposal);
     socket.on('retry_failed_words_declined', handleRetryDeclined);
     socket.on('retry_failed_words_cancelled', handleRetryCancelled);
@@ -174,6 +185,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
 
     return () => {
       socket.off('lobby_chat_message', handleChatMessage);
+      socket.off('game_chat_message', handleChatMessage);
       socket.off('retry_failed_words_proposal', handleRetryProposal);
       socket.off('retry_failed_words_declined', handleRetryDeclined);
       socket.off('retry_failed_words_cancelled', handleRetryCancelled);
@@ -183,9 +195,11 @@ export default function Results({ players = {}, setView, socket, session, isHost
     };
   }, [socket, session, setChatMessages]);
 
-  // Auto-scroll chat
+  // Auto-scroll internal chat container only (prevents full window jumping in portrait mode)
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatListRef.current) {
+      chatListRef.current.scrollTop = chatListRef.current.scrollHeight;
+    }
   }, [chatMessages]);
 
   // TASK 2: Telegram Burst Generator
@@ -239,6 +253,20 @@ export default function Results({ players = {}, setView, socket, session, isHost
         });
       }
     }
+
+    // Instant local floating bubble
+    const bubbleId = Date.now() + '-' + Math.random();
+    const localBubble = {
+      id: bubbleId,
+      text: content,
+      senderName: currentName,
+      senderAvatar: avatar || '🦊',
+      senderId: socket.id
+    };
+    setFloatingBubbles(prev => [...prev.slice(-3), localBubble]);
+    setTimeout(() => {
+      setFloatingBubbles(prev => prev.filter(b => b.id !== bubbleId));
+    }, 3500);
 
     socket.emit('send_lobby_chat', {
       sessionId: session.id,
@@ -372,6 +400,68 @@ export default function Results({ players = {}, setView, socket, session, isHost
   return (
     <div style={{ maxWidth: '820px', margin: '0 auto', width: '100%', textAlign: 'center', position: 'relative' }}>
       
+      {/* Floating Chat Bubbles */}
+      <div style={{
+        position: 'fixed',
+        top: '4.8rem',
+        right: '1rem',
+        zIndex: 100,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        gap: '8px',
+        pointerEvents: 'none',
+        maxWidth: '280px',
+        width: 'calc(100vw - 2rem)'
+      }}>
+        {floatingBubbles.map((bubble) => {
+          const isMe = bubble.senderId === socket.id;
+          return (
+            <div
+              key={bubble.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                background: 'rgba(31, 41, 55, 0.95)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                border: isMe ? '1.5px solid var(--primary)' : '1.5px solid var(--warning)',
+                boxShadow: '0 8px 20px rgba(0, 0, 0, 0.45)',
+                padding: '0.45rem 0.8rem',
+                borderRadius: '24px',
+                animation: 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                color: 'var(--text-main)',
+                textAlign: 'right'
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <span style={{ fontSize: '0.7rem', color: isMe ? 'var(--primary)' : 'var(--warning)', fontWeight: 'bold', lineHeight: 1.1 }}>
+                  {isMe ? 'Vous' : formatPlayerName(bubble.senderName)}
+                </span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ffffff', wordBreak: 'break-word', lineHeight: 1.2 }}>
+                  {bubble.text}
+                </span>
+              </div>
+
+              <div style={{
+                fontSize: '1.2rem',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: isMe ? 'rgba(99, 102, 241, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                {bubble.senderAvatar || '🦊'}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       {/* Waiting Indicator for multiplayer failed words proposal */}
       {waitingForProposalResp && (
         <div style={{
@@ -736,19 +826,22 @@ export default function Results({ players = {}, setView, socket, session, isHost
         </div>
 
         {/* Mini-Chat Messages List */}
-        <div style={{
-          height: '100px',
-          overflowY: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.35rem',
-          paddingRight: '0.3rem',
-          marginBottom: '0.5rem',
-          background: 'var(--bg-main)',
-          borderRadius: '10px',
-          padding: '0.5rem',
-          border: '1px solid var(--border-color)'
-        }}>
+        <div 
+          ref={chatListRef}
+          style={{
+            height: '100px',
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.35rem',
+            paddingRight: '0.3rem',
+            marginBottom: '0.5rem',
+            background: 'var(--bg-main)',
+            borderRadius: '10px',
+            padding: '0.5rem',
+            border: '1px solid var(--border-color)'
+          }}
+        >
           {chatMessages.length === 0 ? (
             <div style={{ margin: 'auto', fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center' }}>
               Échangez avec votre adversaire avant de relancer ! 👋
@@ -785,7 +878,6 @@ export default function Results({ players = {}, setView, socket, session, isHost
               );
             })
           )}
-          <div ref={chatBottomRef} />
         </div>
 
         {/* Mini-Chat Input */}
