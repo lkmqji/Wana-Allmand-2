@@ -190,6 +190,16 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     }
   }, [chatMessages, isPaused]);
 
+  // Reaction & Quick Message Cooldown Countdown ticker (5s)
+  useEffect(() => {
+    if (reactionCooldown > 0) {
+      const timer = setInterval(() => {
+        setReactionCooldown(c => Math.max(0, c - 1));
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [reactionCooldown]);
+
   // Socket Events
   useEffect(() => {
     const onNewQuestion = (data) => {
@@ -870,19 +880,21 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
               {PAUSE_PRESET_PHRASES.map((preset, idx) => (
                 <button
                   key={idx}
+                  disabled={reactionCooldown > 0}
                   onClick={() => handleSendQuickMessage(preset)}
                   style={{
-                    background: 'rgba(255, 255, 255, 0.06)',
+                    background: reactionCooldown > 0 ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.06)',
                     border: '1px solid var(--border-color)',
-                    color: 'var(--text-main)',
+                    color: reactionCooldown > 0 ? 'var(--text-muted)' : 'var(--text-main)',
                     borderRadius: '16px',
                     padding: '0.25rem 0.6rem',
                     fontSize: '0.75rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s'
+                    cursor: reactionCooldown > 0 ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.15s',
+                    opacity: reactionCooldown > 0 ? 0.6 : 1
                   }}
                 >
-                  {preset}
+                  {preset} {reactionCooldown > 0 ? `(${reactionCooldown}s)` : ''}
                 </button>
               ))}
             </div>
@@ -1112,6 +1124,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             {PRESET_PHRASES.map((preset, idx) => (
               <button
                 key={idx}
+                disabled={reactionCooldown > 0}
                 onClick={() => {
                   handleSendQuickMessage(preset);
                   setIsQuickChatOpen(false);
@@ -1119,27 +1132,30 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
                 style={{
                   background: 'var(--bg-main)',
                   border: '1px solid var(--border-color)',
-                  color: 'var(--text-main)',
+                  color: reactionCooldown > 0 ? 'var(--text-muted)' : 'var(--text-main)',
                   borderRadius: '8px',
                   padding: '0.35rem 0.5rem',
                   fontSize: '0.75rem',
-                  cursor: 'pointer',
+                  cursor: reactionCooldown > 0 ? 'not-allowed' : 'pointer',
                   textAlign: 'left',
                   transition: 'all 0.15s',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
-                  textOverflow: 'ellipsis'
+                  textOverflow: 'ellipsis',
+                  opacity: reactionCooldown > 0 ? 0.6 : 1
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--primary)';
-                  e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)';
+                  if (reactionCooldown === 0) {
+                    e.currentTarget.style.borderColor = 'var(--primary)';
+                    e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)';
+                  }
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.borderColor = 'var(--border-color)';
                   e.currentTarget.style.background = 'var(--bg-main)';
                 }}
               >
-                {preset}
+                {preset} {reactionCooldown > 0 ? `(${reactionCooldown}s)` : ''}
               </button>
             ))}
           </div>
