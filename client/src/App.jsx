@@ -8,6 +8,10 @@ import Layout from './components/Layout';
 import Admin from './components/Admin';
 import NotificationCenter from './components/NotificationCenter';
 import InviteModal from './components/InviteModal';
+import OnboardingTour from './components/OnboardingTour';
+import CustomizationShop from './components/CustomizationShop';
+import AITutorModal from './components/AITutorModal';
+import MatchSchedulerModal from './components/MatchSchedulerModal';
 import { auth, loginWithGoogle, logout, deleteAccount } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { formatPlayerName, getClientPlayerKey } from './utils/formatters';
@@ -22,13 +26,13 @@ const socket = io(API_URL, {
 
 function App() {
   const [view, setView] = useState('home'); // home, lobby, game, results
-  const [activeTab, setActiveTab] = useState('learn'); // learn, lists, community, profile
+  const [activeTab, setActiveTab] = useState('learn'); // learn, medical, reader, vault, lists, community, stats, profile
   const [session, setSession] = useState(null);
   const [players, setPlayers] = useState({});
   const [isHost, setIsHost] = useState(false);
   const [error, setError] = useState('');
   const [playerName, setPlayerName] = useState('');
-  const [avatar, setAvatar] = useState('🦊');
+  const [avatar, setAvatar] = useState(() => localStorage.getItem('wana_avatar') || '🦊');
   const [user, setUser] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
@@ -39,10 +43,25 @@ function App() {
   const [toastNotif, setToastNotif] = useState(null);
   const [serverGuestMode, setServerGuestMode] = useState(true); // from server config
   const [comingSoonFeaturesEnabled, setComingSoonFeaturesEnabled] = useState(false);
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState(() => localStorage.getItem('wana_theme') || 'dark');
   const [leaderboard, setLeaderboard] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [incomingInvite, setIncomingInvite] = useState(null);
+  const [lists, setLists] = useState([]);
+
+  // New Modals State
+  const [showTour, setShowTour] = useState(false);
+  const [showShop, setShowShop] = useState(false);
+  const [showAITutor, setShowAITutor] = useState(false);
+  const [showScheduler, setShowScheduler] = useState(false);
+
+  // Auto-launch Onboarding Tour on first visit
+  useEffect(() => {
+    const tourDone = localStorage.getItem('wana_onboarding_completed');
+    if (!tourDone) {
+      setShowTour(true);
+    }
+  }, []);
 
   const isAdmin = Boolean(user && ADMIN_UID && user.uid === ADMIN_UID);
 
@@ -523,6 +542,10 @@ function App() {
         onOpenAdmin={() => setShowAdmin(true)}
         unreadCount={unreadCount}
         onOpenNotifications={() => setShowNotifications(true)}
+        onOpenShop={() => setShowShop(true)}
+        onOpenAITutor={() => setShowAITutor(true)}
+        onOpenScheduler={() => setShowScheduler(true)}
+        onOpenTour={() => setShowTour(true)}
       >
         {/* Live Notification Pop-up Toast */}
         {toastNotif && (
@@ -535,16 +558,16 @@ function App() {
           }}>
             <span style={{ fontSize: '1.6rem' }}>{toastNotif.icon || '🔔'}</span>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: 'var(--text-main)' }}>{toastNotif.title}</div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{toastNotif.message}</div>
+              <div style={{ fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '0.2rem' }}>{toastNotif.title}</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: '1.3' }}>{toastNotif.message}</div>
             </div>
-            <button onClick={() => setToastNotif(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
+            <button onClick={() => setToastNotif(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.1rem' }}>×</button>
           </div>
         )}
 
         {announcement && (
           <div style={{
-            background: 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(167,139,250,0.2))',
+            background: 'rgba(99, 102, 241, 0.15)',
             border: '1px solid var(--primary)',
             padding: '0.8rem 1.2rem',
             borderRadius: '12px',
@@ -635,6 +658,50 @@ function App() {
         notifications={notifications}
         setNotifications={setNotifications}
       />
+
+      {/* Onboarding Interactive Tour */}
+      <OnboardingTour
+        isOpen={showTour}
+        onClose={() => setShowTour(false)}
+        onNavigateTab={(tab) => setActiveTab(tab)}
+      />
+
+      {/* Customization & Themes Shop */}
+      {showShop && (
+        <CustomizationShop
+          userLevel={user?.level || Math.floor((user?.xp || 0) / 1000) + 1}
+          userXp={user?.xp || 0}
+          currentTheme={theme}
+          onSelectTheme={(th) => setTheme(th)}
+          currentAvatar={avatar}
+          onSelectAvatar={(av) => setAvatar(av)}
+          onClose={() => setShowShop(false)}
+        />
+      )}
+
+      {/* AI Pedagogical Tutor Modal */}
+      <AITutorModal
+        isOpen={showAITutor}
+        onClose={() => setShowAITutor(false)}
+      />
+
+      {/* Match Scheduler Modal */}
+      {showScheduler && (
+        <MatchSchedulerModal
+          user={user}
+          playerName={playerName}
+          avatar={avatar}
+          onlineUsers={onlineUsers}
+          lists={lists}
+          onClose={() => setShowScheduler(false)}
+          onLaunchScheduledMatch={(schedule) => {
+            setShowScheduler(false);
+            // If list exists, create room
+            setActiveTab('learn');
+            setView('home');
+          }}
+        />
+      )}
 
       {/* Admin Panel - Only accessible by the confirmed admin */}
       {showAdmin && isAdmin && <Admin user={user} onClose={() => setShowAdmin(false)} />}

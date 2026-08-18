@@ -1120,27 +1120,45 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
         opacity: isBlurred ? 0.6 : 1
       }}>
         
-        {/* Scoreboard Header */}
-        <div className="score-board card" style={{ padding: '0.5rem 1rem', marginBottom: '1rem' }}>
+        {/* Scoreboard Header (Grid for 2 to 8 players) */}
+        <div className="card" style={{ 
+          display: 'grid', 
+          gridTemplateColumns: `repeat(auto-fit, minmax(110px, 1fr))`,
+          gap: '0.6rem',
+          padding: '0.6rem 0.8rem', 
+          marginBottom: '0.8rem' 
+        }}>
           {Object.values(players).map((p) => {
             const isLeader = p.id === leaderId;
             const isOvertaking = p.id === overtakerId;
+            const isMe = p.id === socket?.id;
             return (
               <div 
                 key={p.id} 
                 className={`player-score ${isOvertaking ? 'leader-overtake' : ''}`} 
-                style={{ color: p.id === socket?.id ? 'var(--primary)' : 'var(--text-main)' }}
+                style={{ 
+                  background: isMe ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-main)',
+                  border: isLeader ? '2px solid var(--warning)' : isMe ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                  borderRadius: '14px',
+                  padding: '0.4rem 0.6rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  position: 'relative'
+                }}
               >
-                {isLeader && <div className="leader-crown">👑</div>}
-                <div className="name">{formatPlayerName(p.name)} {p.id === socket?.id ? '(Vous)' : ''}</div>
-                <div className="score">{p.score}</div>
+                {isLeader && <div className="leader-crown" style={{ top: '-10px', right: '-4px' }}>👑</div>}
+                <div className="name" style={{ fontSize: '0.8rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100px' }}>
+                  {formatPlayerName(p.name)} {isMe ? '(Vous)' : ''}
+                </div>
+                <div className="score" style={{ fontSize: '1.4rem', fontWeight: 800 }}>{p.score}</div>
               </div>
             );
           })}
         </div>
 
         {/* Central Game Card */}
-        <div className="card" style={{ textAlign: 'center', position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', padding: '1.5rem', marginTop: '1rem', minHeight: '380px' }}>
+        <div className="card" style={{ textAlign: 'center', position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', padding: '1.5rem', marginTop: '0.5rem', minHeight: '380px' }}>
           
           {/* Question Index Badge */}
           <div style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 600 }}>
@@ -1153,12 +1171,16 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             </div>
           )}
           
-          {/* Mot à traduire */}
+          {/* Mot / Question à traduire ou mini-jeu */}
           <div style={{ marginTop: '1.5rem' }}>
-            <h2 style={{ fontSize: '1rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-              Traduisez en allemand :
+            <h2 style={{ fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+              {session?.settings?.gameMode === 'luckentext' ? '🧩 Complétez le texte à trous :' :
+               session?.settings?.gameMode === 'conjugation' ? '⚡ Donnez la forme conjuguée exacte :' :
+               session?.settings?.gameMode === 'visual' ? '🖼️ Devinez le nom et l\'article :' :
+               'Traduisez en allemand :'}
             </h2>
-            <h1 style={{ fontSize: 'clamp(1.5rem, 6vw, 2.5rem)', marginBottom: '0', color: 'var(--text-main)', wordBreak: 'break-word' }}>
+            
+            <h1 style={{ fontSize: 'clamp(1.4rem, 5.5vw, 2.2rem)', marginBottom: '0', color: 'var(--text-main)', wordBreak: 'break-word' }}>
               {question || 'Chargement...'}
             </h1>
           </div>

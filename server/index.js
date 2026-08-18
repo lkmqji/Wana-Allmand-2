@@ -10,6 +10,7 @@ const List = require('./models/List');
 const User = require('./models/User');
 const Config = require('./models/Config');
 const Notification = require('./models/Notification');
+const MatchSchedule = require('./models/MatchSchedule');
 const { formatPlayerName } = require('./utils/formatters');
 require('dotenv').config();
 
@@ -350,6 +351,160 @@ app.post('/api/extract', upload.single('file'), async (req, res) => {
     } catch (err) {
         console.error("Extract route error:", err);
         res.status(500).json({ error: "Erreur lors de l'extraction." });
+    }
+});
+
+// ---- AI PEDAGOGICAL TUTOR ENDPOINT ----
+app.post('/api/ai/tutor', async (req, res) => {
+    try {
+        const { message, context, history = [] } = req.body;
+        if (!message || !message.trim()) {
+            return res.status(400).json({ error: "Message requis." });
+        }
+
+        if (process.env.GEMINI_API_KEY) {
+            try {
+                const systemPrompt = `Tu es "Wana Tutor", l'assistant IA pédagogique d'excellence de l'application Wana-Allmand.
+Ton rôle est d'aider les apprenants de la langue allemande (tous niveaux, du débutant A1 au niveau médical B2/C1).
+Directives pédagogiques :
+1. Donne des explications claires, bienveillantes, concises et ultra-structurées en français avec les termes allemands en gras.
+2. Donne toujours les articles (der/die/das), les pluriels, ou les règles mnémotechniques adaptées.
+3. Inclus systématiquement un exemple court en contexte allemand avec sa traduction française.
+4. Si l'utilisateur demande une prononciation ou une aide sur un verbe/déclinaison, fournis la phonétique simplifiée et la règle exacte.
+5. Utilise des emojis adaptés (🇩🇪, 💡, 📝, 🎯, 🩺 si médical).`;
+
+                const contents = [
+                    { role: 'user', parts: [{ text: `${systemPrompt}\n\nContexte additionnel : ${context || 'Général'}` }] },
+                    { role: 'model', parts: [{ text: "Bonjour ! Ich bin Wana Tutor 🇩🇪. Comment puis-je t'aider aujourd'hui dans ton apprentissage de l'allemand ?" }] }
+                ];
+
+                // Append last few messages of history if any
+                if (Array.isArray(history)) {
+                    history.slice(-6).forEach(h => {
+                        if (h.role && h.text) {
+                            contents.push({
+                                role: h.role === 'assistant' ? 'model' : 'user',
+                                parts: [{ text: h.text }]
+                            });
+                        }
+                    });
+                }
+
+                contents.push({ role: 'user', parts: [{ text: message }] });
+
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents })
+                });
+
+                const data = await response.json();
+                if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+                    const reply = data.candidates[0].content.parts[0].text;
+                    return res.json({ reply });
+                }
+            } catch (geminiErr) {
+                console.error("Gemini AI Tutor error:", geminiErr);
+            }
+        }
+
+        // Deterministic intelligent fallback if Gemini key is absent
+        const lower = message.toLowerCase();
+        let fallback = "Je suis ton tuteur d'allemand ! 🇩🇪 Voici quelques conseils clés :\n- Pense à toujours mémoriser le mot avec son article (**der, die, das**).\n- Les noms prennent tous une majuscule en allemand !\n- Pose-moi une question précise sur un mot, une règle de grammaire ou le vocabulaire médical.";
+        
+        if (lower.includes('akkusativ') || lower.includes('accusatif') || lower.includes('dativ') || lower.includes('datif')) {
+            fallback = "💡 **Accusatif vs Datif** :\n- **Accusatif** (Complément d'Objet Direct / Déplacement) : *der* devient **den** (ex: *Ich sehe den Tisch*).\n- **Datif** (Complément d'Attribution / Position statique) : *der/das* deviennent **dem**, *die* devient **der** (ex: *Ich bin in dem (im) Zimmer*).";
+        } else if (lower.includes('der') || lower.includes('die') || lower.includes('das') || lower.includes('article') || lower.includes('genre')) {
+            fallback = "💡 **Astuces pour les genres allemands** :\n- **der (masculin)** : Jours, mois, saisons, métiers masculins, mots en *-ling, -or, -ist*.\n- **die (féminin)** : 95% des mots en *-ung, -heit, -keit, -schaft, -tion, -tät, -e*.\n- **das (neutre)** : Diminutifs (*-chen, -lein*), infinitifs substantivés (*das Essen*), mots en *-ment, -um*.";
+        } else if (lower.includes('médical') || lower.includes('hopital') || lower.includes('docteur') || lower.includes('arzt')) {
+            fallback = "🩺 **Allemand Médical Pro** :\n- Le médecin : **der Arzt / die Ärztin**\n- L'hôpital : **das Krankenhaus**\n- La tension : **der Blutdruck**\n- Examiner un patient : **einen Patienten untersuchen**\n- N'hésite pas à explorer notre module spécialisé Médical dans l'accueil !";
+        }
+
+        return res.json({ reply: fallback });
+    } catch (err) {
+        console.error("AI Tutor endpoint error:", err);
+        res.status(500).json({ error: "Erreur lors de la génération de réponse du tuteur." });
+    }
+});
+
+// ---- MATCH SCHEDULING ENDPOINTS ----
+
+// Get schedules for a user (either host or guest)
+app.get('/api/schedules/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        if (!userId) return res.status(400).json({ error: "UserId requis" });
+        const schedules = await MatchSchedule.find({
+            $or: [{ hostId: userId }, { guestId: userId }]
+        }).sort({ scheduledDate: 1 }).limit(20);
+        res.json(schedules);
+    } catch (err) {
+        res.status(500).json({ error: "Erreur lors de la récupération des matchs planifiés." });
+    }
+});
+
+// Create a match schedule
+app.post('/api/schedules', async (req, res) => {
+    try {
+        const { hostId, hostName, hostAvatar, guestId, guestName, scheduledDate, note, listId, listName } = req.body;
+        if (!hostId || !hostName || !scheduledDate) {
+            return res.status(400).json({ error: "Champs requis manquants." });
+        }
+        const schedule = await MatchSchedule.create({
+            hostId,
+            hostName: formatPlayerName(hostName) || 'Hôte',
+            hostAvatar: hostAvatar || '🦊',
+            guestId: guestId || null,
+            guestName: formatPlayerName(guestName) || 'Invité',
+            scheduledDate: new Date(scheduledDate),
+            note: note || '',
+            listId: listId || null,
+            listName: listName || 'Vocabulaire général',
+            status: 'pending'
+        });
+
+        // If target guest is specified, send an in-app notification
+        if (guestId && guestId !== 'guest') {
+            const notif = await Notification.create({
+                userId: guestId,
+                title: "📅 Duel planifié !",
+                message: `${schedule.hostName} t'a invité(e) à un match le ${new Date(scheduledDate).toLocaleDateString('fr-FR')} à ${new Date(scheduledDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.`,
+                type: 'game',
+                icon: '⚔️'
+            });
+            io.to(`user_${guestId}`).emit('new_notification', notif);
+        }
+
+        res.json(schedule);
+    } catch (err) {
+        console.error("Create schedule error:", err);
+        res.status(500).json({ error: "Erreur lors de la création de la planification." });
+    }
+});
+
+// Update match schedule status
+app.put('/api/schedules/:id/status', async (req, res) => {
+    try {
+        const { status } = req.body;
+        const schedule = await MatchSchedule.findByIdAndUpdate(
+            req.params.id,
+            { status },
+            { new: true }
+        );
+        if (!schedule) return res.status(404).json({ error: "Match introuvable." });
+        res.json(schedule);
+    } catch (err) {
+        res.status(500).json({ error: "Erreur mise à jour match." });
+    }
+});
+
+// Delete match schedule
+app.delete('/api/schedules/:id', async (req, res) => {
+    try {
+        await MatchSchedule.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: "Erreur suppression match." });
     }
 });
 
@@ -1292,6 +1447,7 @@ function pauseGame(sessionId, reason, bySocketId, extraData = {}) {
     // Clear active timers
     clearTimeout(session.roundTimer);
     clearTimeout(session.autoAdvanceTimer);
+    clearTimeout(session.pauseSafetyTimer);
 
     // Calculate time remaining for current round
     if (session.status === 'playing' && session.roundStartTime && session.roundDuration) {
@@ -1310,8 +1466,23 @@ function pauseGame(sessionId, reason, bySocketId, extraData = {}) {
         pausedBy: bySocketId,
         pausedByName: requesterName,
         timeRemaining: (session.roundTimeRemaining || session.settings.timePerWord * 1000) / 1000,
+        maxPauseSeconds: 45,
         ...extraData
     });
+
+    // Auto-resume after 45s safety limit to avoid stalling
+    session.pauseSafetyTimer = setTimeout(() => {
+        if (session.isPaused) {
+            resumeGame(sessionId);
+            io.to(sessionId).emit('lobby_chat_message', {
+                id: Math.random().toString(36).substring(2, 9),
+                isSystem: true,
+                text: "⏱️ Temps de pause maximum écoulé (45s). La partie reprend !",
+                timestamp: Date.now()
+            });
+        }
+    }, 45000);
+
     return true;
 }
 
@@ -1319,6 +1490,7 @@ function resumeGame(sessionId) {
     const session = gameManager.getSession(sessionId);
     if (!session || !session.isPaused) return false;
 
+    clearTimeout(session.pauseSafetyTimer);
     session.isPaused = false;
     const previousReason = session.pauseReason;
     session.pauseReason = null;

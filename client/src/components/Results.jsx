@@ -334,23 +334,23 @@ export default function Results({ players, setView, socket, session, isHost, pla
           </h2>
         )}
 
-        {/* Players podium list */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2.5rem' }}>
+        {/* Players podium list (supports 2 to 8 players) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginBottom: '2.5rem' }}>
           {playerArr.map((p, i) => (
             <div key={p.id} style={{ 
               display: 'flex', 
               justifyContent: 'space-between', 
               alignItems: 'center',
-              padding: '1.5rem',
-              background: i === 0 && !isDraw ? 'rgba(34, 197, 94, 0.1)' : 'var(--bg-main)',
+              padding: '1.2rem 1.5rem',
+              background: i === 0 && !isDraw ? 'rgba(34, 197, 94, 0.1)' : i === 1 ? 'rgba(99, 102, 241, 0.08)' : i === 2 ? 'rgba(245, 158, 11, 0.08)' : 'var(--bg-main)',
               borderRadius: '16px',
-              border: `2px solid ${i === 0 && !isDraw ? 'var(--success)' : 'var(--border-color)'}`
+              border: `2px solid ${i === 0 && !isDraw ? 'var(--success)' : i === 1 ? 'var(--primary)' : 'var(--border-color)'}`
             }}>
-              <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
-                {i === 0 ? '🥇' : '🥈'} {formatPlayerName(p.name)} {p.id === socket.id ? '(Vous)' : ''}
+              <span style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
+                {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`} {formatPlayerName(p.name)} {p.id === socket.id ? '(Vous)' : ''}
               </span>
-              <span style={{ fontSize: '2.5rem', fontWeight: '800', color: i === 0 && !isDraw ? 'var(--success)' : 'var(--primary)' }}>
-                {p.score} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>pts</span>
+              <span style={{ fontSize: '2rem', fontWeight: '800', color: i === 0 && !isDraw ? 'var(--success)' : 'var(--primary)' }}>
+                {p.score} <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>pts</span>
               </span>
             </div>
           ))}

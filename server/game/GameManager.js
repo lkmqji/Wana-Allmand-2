@@ -15,16 +15,33 @@ class GameManager {
         this.sessions.set(sessionId, {
             id: sessionId,
             hostId: hostId,
-            guestId: null,
             status: 'waiting', // waiting, playing, finished
             vocabList: [],
-            settings: { rounds: 0, timePerWord: 15, powerupsEnabled: false, allowPause: true },
+            settings: { 
+                rounds: 0, 
+                timePerWord: 15, 
+                powerupsEnabled: false, 
+                allowPause: true,
+                maxPlayers: 8,
+                gameMode: 'standard' // 'standard', 'luckentext', 'conjugation', 'visual'
+            },
             currentQuestionIndex: -1,
             players: {
-                [hostId]: { id: hostId, firebaseId: firebaseId || null, clientPlayerKey: clientPlayerKey || null, name: formattedName, score: 0, answers: {} }
+                [hostId]: { 
+                    id: hostId, 
+                    firebaseId: firebaseId || null, 
+                    clientPlayerKey: clientPlayerKey || null, 
+                    name: formattedName, 
+                    score: 0, 
+                    answers: {},
+                    pausesUsed: 0
+                }
             },
             roundTimer: null,
-            answersThisRound: 0
+            autoAdvanceTimer: null,
+            pauseSafetyTimer: null,
+            answersThisRound: 0,
+            readyPlayers: new Set()
         });
 
         return sessionId;
@@ -33,11 +50,22 @@ class GameManager {
     joinSession(sessionId, guestId, guestName, firebaseId, clientPlayerKey) {
         const session = this.sessions.get(sessionId);
         if (!session) return { error: "Session introuvable." };
-        if (session.guestId) return { error: "Session déjà pleine." };
         
-        const formattedName = formatPlayerName(guestName) || 'Invité';
-        session.guestId = guestId;
-        session.players[guestId] = { id: guestId, firebaseId: firebaseId || null, clientPlayerKey: clientPlayerKey || null, name: formattedName, score: 0, answers: {} };
+        const maxPlayers = session.settings?.maxPlayers || 8;
+        const currentCount = Object.keys(session.players || {}).length;
+        if (currentCount >= maxPlayers) return { error: `Session pleine (max ${maxPlayers} joueurs).` };
+        
+        const formattedName = formatPlayerName(guestName) || `Joueur ${currentCount + 1}`;
+        session.players[guestId] = { 
+            id: guestId, 
+            firebaseId: firebaseId || null, 
+            clientPlayerKey: clientPlayerKey || null, 
+            name: formattedName, 
+            score: 0, 
+            answers: {},
+            pausesUsed: 0
+        };
+
         return { success: true, session };
     }
 
@@ -46,20 +74,21 @@ class GameManager {
         if (!session) return null;
         
         delete session.players[playerId];
-        if (session.guestId === playerId) {
-            session.guestId = null;
-        } else if (session.hostId === playerId) {
-            // If host leaves, we might want to reassign host or destroy session.
-            // For now, just mark hostId as null or reassign to guest if needed.
-            // A simpler approach: if a player leaves, just remove them.
-            if (session.guestId) {
-                session.hostId = session.guestId; // Guest becomes host
-                session.guestId = null;
-            } else {
-                this.sessions.delete(sessionId);
-                return { destroyed: true };
-            }
+        const remainingPlayerIds = Object.keys(session.players);
+
+        if (remainingPlayerIds.length === 0) {
+            clearTimeout(session.roundTimer);
+            clearTimeout(session.autoAdvanceTimer);
+            clearTimeout(session.pauseSafetyTimer);
+            this.sessions.delete(sessionId);
+            return { destroyed: true };
         }
+
+        // If the host leaves, pass host authority to the next player
+        if (session.hostId === playerId) {
+            session.hostId = remainingPlayerIds[0];
+        }
+
         return { session };
     }
 
@@ -71,9 +100,10 @@ class GameManager {
                 ? Math.min(settings.rounds, vocabList.length)
                 : vocabList.length;
             session.settings = {
+                ...(session.settings || {}),
                 ...(settings || {}),
                 rounds: rounds,
-                timePerWord: settings?.timePerWord || 15
+                timePerWord: settings?.timePerWord || session.settings?.timePerWord || 15
             };
             session.currentQuestionIndex = -1;
             session.answersThisRound = 0;
@@ -84,21 +114,21 @@ class GameManager {
         return this.sessions.get(sessionId);
     }
     
-    // Will be handled more complexly in index.js for timeouts, but this handles state
     submitAnswer(sessionId, playerId, answer, timeRemaining) {
         const session = this.sessions.get(sessionId);
         if (!session || session.status !== 'playing') return null;
 
         const currentWord = session.vocabList[session.currentQuestionIndex];
-        const { score, isTypo } = calculateScore(currentWord.answer, answer);
+        const expected = currentWord.answer || currentWord.expected || '';
+        const { score, isTypo } = calculateScore(expected, answer);
         
-        // Bonus for speed (optional)
+        // Bonus for speed
         const bonus = (score === 100 && timeRemaining > 0) ? Math.floor(timeRemaining) : 0;
         const totalScore = score + bonus;
 
         session.players[playerId].answers[session.currentQuestionIndex] = {
             answer,
-            expected: currentWord.answer,
+            expected: expected,
             score: totalScore,
             isTypo
         };
@@ -106,7 +136,7 @@ class GameManager {
         session.players[playerId].score += totalScore;
         session.answersThisRound += 1;
 
-        // Check for 3-streak
+        // Check for 3-streak for powerups
         let streak = 0;
         for (let i = session.currentQuestionIndex; i >= 0; i--) {
             const ans = session.players[playerId].answers[i];
@@ -114,13 +144,21 @@ class GameManager {
             else break;
         }
 
+        // Target a random opponent or the leading opponent
         let powerUpTarget = null;
         if (session.settings.powerupsEnabled !== false && streak > 0 && streak % 3 === 0) {
-            powerUpTarget = Object.keys(session.players).find(id => id !== playerId);
+            const opponents = Object.keys(session.players).filter(id => id !== playerId);
+            if (opponents.length > 0) {
+                // target opponent with highest score
+                opponents.sort((a, b) => (session.players[b]?.score || 0) - (session.players[a]?.score || 0));
+                powerUpTarget = opponents[0];
+            }
         }
 
+        const totalActivePlayers = Object.values(session.players).filter(p => !p.disconnected).length;
+
         return {
-            allAnswered: session.answersThisRound === Object.keys(session.players).length,
+            allAnswered: session.answersThisRound >= totalActivePlayers,
             playerScore: session.players[playerId].score,
             powerUpTarget
         };

@@ -1,16 +1,22 @@
 import { useState, useEffect } from 'react';
 import { exampleLists } from '../data/exampleLists';
+import { MEDICAL_MODULES } from '../data/medicalData';
+import { LUCKENTEXT_LIST, CONJUGATION_LIST, VISUAL_QUIZ_LIST } from '../data/miniGamesData';
+import InteractiveReader from './InteractiveReader';
 import { formatPlayerName, getClientPlayerKey } from '../utils/formatters';
 
 export default function Home({ socket, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout, deleteAccount, activeTab, leaderboard, isGuest, setIsGuest, isAdmin, comingSoonFeaturesEnabled = false, onOpenAdmin }) {
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
-  const [prepTab, setPrepTab] = useState('pdf'); // 'pdf', 'text', 'examples', 'settings'
+  const [prepTab, setPrepTab] = useState('pdf'); // 'pdf', 'text', 'examples', 'minigames', 'settings'
   const [joinCode, setJoinCode] = useState('');
   const [rawText, setRawText] = useState('la table = der Tisch\nla chaise = der Stuhl\nla maison = das Haus');
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [archivedLists, setArchivedLists] = useState([]);
   const [publicLists, setPublicLists] = useState([]);
+  const [failedWords, setFailedWords] = useState([]);
+  const [failedWordsFilter, setFailedWordsFilter] = useState('');
+  const [selectedMedicalModule, setSelectedMedicalModule] = useState(null);
   const [isConnected, setIsConnected] = useState(true);
   const [soloWordCount, setSoloWordCount] = useState(10);
   const [showWordEditor, setShowWordEditor] = useState(false);
@@ -25,13 +31,19 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
   const [listTitle, setListTitle] = useState('');
   const [importNotice, setImportNotice] = useState('');
 
-  const handleStartDirectSession = (wordList) => {
+  const handleStartDirectSession = (wordList, settingsOverride = {}) => {
     const validWords = (wordList || []).filter(w => w.question?.trim() && w.answer?.trim());
     if (validWords.length === 0) return alert("Aucun mot valide dans cette liste !");
     const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Hôte`;
     socket.emit('create_session', {
       vocabList: validWords.map((w, idx) => ({ ...w, id: idx + 1 })),
-      settings: { rounds: validWords.length, timePerWord: 15, powerupsEnabled: false },
+      settings: { 
+        rounds: validWords.length, 
+        timePerWord: 15, 
+        powerupsEnabled: false,
+        gameMode: settingsOverride.gameMode || 'standard',
+        ...(settingsOverride || {})
+      },
       playerName: finalName,
       firebaseId: user?.uid,
       avatar,
@@ -502,7 +514,7 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
                 </button>
               </div>
 
-              {/* BOX 3 : Coller du texte (unlocked for admin or if enabled) */}
+              {/* BOX 3 : Coller du texte */}
               <div className="card" style={{ position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 {!isAdmin && !comingSoonFeaturesEnabled && (
                   <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -536,6 +548,81 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
                 </button>
               </div>
 
+            </div>
+
+            {/* ---- DIVERSIFICATION DES MINI-JEUX ---- */}
+            <div style={{ marginTop: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.2rem', marginBottom: '0.8rem' }}>🎮 Nouveaux Mini-Jeux &amp; Défis Spéciaux</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                {/* Mode Lückentext */}
+                <div 
+                  className="card" 
+                  style={{ cursor: 'pointer', borderColor: '#38bdf8', display: 'flex', flexDirection: 'column', gap: '0.5rem', transition: 'all 0.2s' }}
+                  onClick={() => handleStartDirectSession(LUCKENTEXT_LIST, { gameMode: 'luckentext' })}
+                  onMouseOver={e => e.currentTarget.style.transform = 'translateY(-3px)'}
+                  onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '1.8rem' }}>🧩</span>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '1rem', color: '#38bdf8' }}>Lückentext</h4>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Textes à trous</span>
+                    </div>
+                  </div>
+                  <p className="text-muted" style={{ fontSize: '0.82rem', margin: 0 }}>
+                    Complète la phrase en trouvant le bon article ou la bonne déclinaison.
+                  </p>
+                  <button className="btn btn-primary" style={{ marginTop: 'auto', padding: '0.4rem', fontSize: '0.85rem', background: '#0284c7' }}>
+                    Jouer en 1v1 ➔
+                  </button>
+                </div>
+
+                {/* Mode Conjugaison */}
+                <div 
+                  className="card" 
+                  style={{ cursor: 'pointer', borderColor: '#f59e0b', display: 'flex', flexDirection: 'column', gap: '0.5rem', transition: 'all 0.2s' }}
+                  onClick={() => handleStartDirectSession(CONJUGATION_LIST, { gameMode: 'conjugation' })}
+                  onMouseOver={e => e.currentTarget.style.transform = 'translateY(-3px)'}
+                  onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '1.8rem' }}>⚡</span>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '1rem', color: '#f59e0b' }}>Verben Level Up</h4>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Sprint Conjugaison</span>
+                    </div>
+                  </div>
+                  <p className="text-muted" style={{ fontSize: '0.82rem', margin: 0 }}>
+                    Trouve la forme exacte des verbes forts et irréguliers contre la montre.
+                  </p>
+                  <button className="btn btn-primary" style={{ marginTop: 'auto', padding: '0.4rem', fontSize: '0.85rem', background: '#d97706' }}>
+                    Jouer en 1v1 ➔
+                  </button>
+                </div>
+
+                {/* Mode Quiz Visuel */}
+                <div 
+                  className="card" 
+                  style={{ cursor: 'pointer', borderColor: '#ec4899', display: 'flex', flexDirection: 'column', gap: '0.5rem', transition: 'all 0.2s' }}
+                  onClick={() => handleStartDirectSession(VISUAL_QUIZ_LIST, { gameMode: 'visual' })}
+                  onMouseOver={e => e.currentTarget.style.transform = 'translateY(-3px)'}
+                  onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '1.8rem' }}>🖼️</span>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '1rem', color: '#ec4899' }}>Devine l'Image</h4>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Quiz Visuel</span>
+                    </div>
+                  </div>
+                  <p className="text-muted" style={{ fontSize: '0.82rem', margin: 0 }}>
+                    Devine le nom et l'article allemand de l'illustration affichée à l'écran.
+                  </p>
+                  <button className="btn btn-primary" style={{ marginTop: 'auto', padding: '0.4rem', fontSize: '0.85rem', background: '#db2777' }}>
+                    Jouer en 1v1 ➔
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -769,6 +856,160 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
                   <button onClick={() => handleStartDirectSession(list.words)} className="btn btn-secondary" style={{ color: 'var(--warning)', borderColor: 'var(--warning)' }}>JOUER</button>
                 </div>
               ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ------------------- ALLEMAND MÉDICAL TAB ------------------- */}
+      {activeTab === 'medical' && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div>
+              <h2 style={{ margin: 0 }}>🩺 Parcours Allemand Médical</h2>
+              <p className="text-muted" style={{ fontSize: '0.9rem', marginTop: '0.2rem' }}>
+                Modules spécialisés pour professionnels de santé, soignants et étudiants.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.2rem' }}>
+            {MEDICAL_MODULES.map((mod) => (
+              <div key={mod.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', borderColor: 'var(--primary)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                  <span style={{ fontSize: '2.4rem' }}>{mod.icon}</span>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.15rem' }}>{mod.title}</h3>
+                    <span style={{ fontSize: '0.75rem', background: 'var(--primary)', color: 'white', padding: '0.15rem 0.5rem', borderRadius: '10px', fontWeight: 'bold' }}>
+                      {mod.level}
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-muted" style={{ fontSize: '0.88rem', lineHeight: '1.4', flex: 1 }}>
+                  {mod.description}
+                </p>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '0.8rem' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>
+                    📖 {mod.words.length} mots essentiels
+                  </span>
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ padding: '0.5rem 1rem' }}
+                    onClick={() => handleStartDirectSession(mod.words)}
+                  >
+                    Défier en 1v1 ➔
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ------------------- LECTURE & ÉCOUTE INTERACTIVE TAB ------------------- */}
+      {activeTab === 'reader' && (
+        <>
+          <div style={{ marginBottom: '1rem' }}>
+            <h2 style={{ margin: 0 }}>📖 Compréhension Écrite & Vocale</h2>
+            <p className="text-muted" style={{ fontSize: '0.9rem', marginTop: '0.2rem' }}>
+              Écoute les textes natifs et clique sur chaque mot pour voir sa traduction et sa règle grammaticale.
+            </p>
+          </div>
+
+          <InteractiveReader 
+            onLaunchQuizWithWords={(words, title) => handleStartDirectSession(words)}
+            onSaveList={(title, words) => saveList(words, title)}
+          />
+        </>
+      )}
+
+      {/* ------------------- COFFRE DE RÉVISION / ERREURS TAB ------------------- */}
+      {activeTab === 'vault' && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.8rem' }}>
+            <div>
+              <h2 style={{ margin: 0 }}>🎯 Coffre de Révision</h2>
+              <p className="text-muted" style={{ fontSize: '0.9rem', marginTop: '0.2rem' }}>
+                Retrouve tous les mots où tu as hésité ou fait une faute lors de tes parties.
+              </p>
+            </div>
+            
+            {user && (
+              <button 
+                className="btn btn-primary"
+                onClick={() => {
+                  // Generate list of failed words
+                  const wordsToReview = (user?.failedWords || []).map((fw, idx) => ({
+                    id: idx + 1,
+                    question: `Mot à réviser (${fw.count} fautes)`,
+                    answer: fw.word
+                  }));
+                  if (wordsToReview.length === 0) {
+                    alert("Ton coffre est vide pour le moment ! Joue des parties pour enregistrer tes erreurs.");
+                    return;
+                  }
+                  handleStartDirectSession(wordsToReview);
+                }}
+              >
+                🚀 S'entraîner sur mes erreurs
+              </button>
+            )}
+          </div>
+
+          {!user ? (
+            <div className="card text-center text-muted" style={{ padding: '2.5rem 1rem' }}>
+              <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>🔒</span>
+              <h3 style={{ marginBottom: '0.5rem' }}>Connecte-toi pour débloquer ton Coffre d'Erreurs</h3>
+              <p style={{ maxWidth: '400px', margin: '0 auto 1rem auto' }}>
+                Le système enregistre automatiquement tes fautes en temps réel pour t'aider à progresser plus vite.
+              </p>
+              <button onClick={loginWithGoogle} className="btn btn-primary" style={{ padding: '0.7rem 1.5rem' }}>
+                Se connecter avec Google
+              </button>
+            </div>
+          ) : (!user.failedWords || user.failedWords.length === 0) ? (
+            <div className="card text-center text-muted" style={{ padding: '2.5rem 1rem' }}>
+              <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>✨</span>
+              <h3 style={{ marginBottom: '0.5rem' }}>Aucune erreur enregistrée !</h3>
+              <p>Tu as un score parfait ou tu n'as pas encore terminé de partie avec ce compte.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+              <input 
+                type="text" 
+                className="input-field" 
+                placeholder="Filtrer mes mots manqués..." 
+                value={failedWordsFilter}
+                onChange={(e) => setFailedWordsFilter(e.target.value)}
+                style={{ marginBottom: '0.5rem' }}
+              />
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.8rem' }}>
+                {user.failedWords
+                  .filter(fw => !failedWordsFilter || fw.word.toLowerCase().includes(failedWordsFilter.toLowerCase()))
+                  .sort((a, b) => b.count - a.count)
+                  .map((fw, idx) => (
+                    <div key={idx} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem' }}>
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: '1.05rem' }}>{fw.word}</h4>
+                        <span className="text-muted" style={{ fontSize: '0.8rem' }}>{fw.count} {fw.count > 1 ? 'erreurs' : 'erreur'}</span>
+                      </div>
+                      <button 
+                        className="btn-audio-mini" 
+                        title="Écouter la prononciation"
+                        onClick={() => {
+                          const utterance = new SpeechSynthesisUtterance(fw.word);
+                          utterance.lang = 'de-DE';
+                          window.speechSynthesis.speak(utterance);
+                        }}
+                      >
+                        🔊
+                      </button>
+                    </div>
+                  ))}
+              </div>
             </div>
           )}
         </>
