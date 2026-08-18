@@ -29,9 +29,12 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const [roundResult, setRoundResult] = useState(null); // { players: {}, correctAnswer: '' }
   const [players, setPlayers] = useState(session?.players || {});
   const [jokers, setJokers] = useState(3);
+  const [jokerHint, setJokerHint] = useState('');
   const [streak, setStreak] = useState(0);
+  const [isFrozen, setIsFrozen] = useState(false);
   const [frozenTime, setFrozenTime] = useState(0); // Power-up freeze state in seconds
   const [isPaused, setIsPaused] = useState(false);
+  const [pauseData, setPauseData] = useState(null);
   const [pausedBy, setPausedBy] = useState(null);
   const [pauseTimeRemaining, setPauseTimeRemaining] = useState(60);
   const [pauseCooldownRemaining, setPauseCooldownRemaining] = useState(0);
