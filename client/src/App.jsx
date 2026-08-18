@@ -317,10 +317,10 @@ function App() {
       });
 
       // Task 5: If user is outside lobby, game, and results (e.g. in Profile, Mes Listes, Communauté, etc.),
-      // and message is sent by an opponent/other player, trigger Discord-like toast!
-      const isVisibleInChatView = ['lobby', 'game', 'results'].includes(view);
+      // or if activeTab is not 'learn', and message is sent by an opponent/other player, trigger Discord-like toast!
+      const isChatVisibleDirectly = ['lobby', 'game', 'results'].includes(view) && activeTab === 'learn';
       const isFromOtherPlayer = msg.senderId && msg.senderId !== socket.id;
-      if (!isVisibleInChatView && isFromOtherPlayer && !msg.isSystem) {
+      if (!isChatVisibleDirectly && isFromOtherPlayer && !msg.isSystem) {
         setDiscordToast({
           id: msg.id || Date.now(),
           senderAvatar: msg.senderAvatar || '💬',
@@ -339,7 +339,7 @@ function App() {
       socket.off('game_chat_message', handleIncomingChatMessage);
       socket.off('receive_message', handleIncomingChatMessage);
     };
-  }, [view]);
+  }, [view, activeTab]);
 
   // Save active session to localStorage so closing/reopening browser directly rejoins lobby or game
   useEffect(() => {
@@ -763,13 +763,22 @@ function App() {
         activeTab={activeTab} 
         onNavigate={(tab) => {
           setActiveTab(tab);
-          // If on results/lobby/review, clean up and go back to home when navigating
-          if (['results', 'lobby', 'review'].includes(view)) {
+          if (tab === 'learn') {
             if (session?.id) {
-              socket.emit('leave_session', session.id);
-              setSession(null);
+              const sessStatus = session.status;
+              if (sessStatus === 'playing' || sessStatus === 'showing_results') {
+                setView('game');
+              } else if (sessStatus === 'finished') {
+                setView('results');
+              } else {
+                setView('lobby');
+              }
+            } else {
+              setView('home');
             }
-            setChatMessages([]);
+          } else {
+            // When navigating to 'profile', 'lists', 'community', 'stats':
+            // Switch view to 'home' to render the requested tab, but KEEP the session and socket room alive in background!
             setView('home');
           }
         }}
@@ -789,9 +798,11 @@ function App() {
           <div 
             className="discord-chat-toast"
             onClick={() => {
+              setActiveTab('learn');
               if (session?.id) {
-                if (session.status === 'playing') setView('game');
-                else if (session.status === 'finished') setView('results');
+                const sessStatus = session.status;
+                if (sessStatus === 'playing' || sessStatus === 'showing_results') setView('game');
+                else if (sessStatus === 'finished') setView('results');
                 else setView('lobby');
               }
               setDiscordToast(null);
@@ -812,6 +823,37 @@ function App() {
             >
               ×
             </button>
+          </div>
+        )}
+
+        {/* Active Session in Background Banner */}
+        {session?.id && activeTab !== 'learn' && (
+          <div 
+            style={{
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(236, 72, 153, 0.15))',
+              border: '1px solid var(--primary)',
+              borderRadius: '12px',
+              padding: '0.6rem 1rem',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.8rem',
+              cursor: 'pointer'
+            }}
+            onClick={() => {
+              setActiveTab('learn');
+              const sessStatus = session.status;
+              if (sessStatus === 'playing') setView('game');
+              else if (sessStatus === 'finished') setView('results');
+              else setView('lobby');
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem' }}>
+              <span>🎮</span>
+              <span><strong>Session active en attente (#{session.id})</strong> • Cliquez pour revenir au salon</span>
+            </div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 800 }}>Rejoindre →</span>
           </div>
         )}
 

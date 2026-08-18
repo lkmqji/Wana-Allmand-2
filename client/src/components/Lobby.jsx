@@ -12,6 +12,28 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
   const [inputMsg, setInputMsg] = useState('');
   const chatBottomRef = useRef(null);
 
+  // In-lobby chat notification toast & unread counter for other tabs
+  const [lobbyChatToast, setLobbyChatToast] = useState(null);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+  // Auto-dismiss Lobby chat toast after 4s
+  useEffect(() => {
+    if (lobbyChatToast) {
+      const timer = setTimeout(() => {
+        setLobbyChatToast(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [lobbyChatToast]);
+
+  // Reset unread count when switching to chat tab
+  useEffect(() => {
+    if (activeTab === 'chat') {
+      setUnreadChatCount(0);
+      setLobbyChatToast(null);
+    }
+  }, [activeTab]);
+
   // Editable session state
   const [words, setWords] = useState(session?.vocabList || []);
   const [settings, setSettings] = useState(session?.settings || { rounds: (session?.vocabList || []).length || 10, timePerWord: 15, powerupsEnabled: false });
@@ -167,10 +189,22 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
   // Listen to lobby chat messages & invite confirmations
   useEffect(() => {
     const handleLobbyMessage = (msg) => {
+      if (!msg) return;
       if (setChatMessages) {
         setChatMessages((prev) => {
           if (msg.id && prev.some(m => m.id === msg.id)) return prev;
           return [...prev, msg];
+        });
+      }
+
+      // If player is on 'words', 'online', or 'settings' and message is from another player, show toast & update badge
+      if (activeTab !== 'chat' && msg.senderId && msg.senderId !== socket.id && !msg.isSystem) {
+        setUnreadChatCount((prev) => prev + 1);
+        setLobbyChatToast({
+          id: msg.id || Date.now(),
+          senderAvatar: msg.senderAvatar || '💬',
+          senderName: formatPlayerName(msg.senderName || 'Joueur'),
+          text: msg.text
         });
       }
     };
@@ -195,7 +229,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
       socket.off('lobby_chat_message', handleLobbyMessage);
       socket.off('invite_sent_success', handleInviteSent);
     };
-  }, [socket, session?.id, setChatMessages]);
+  }, [socket, session?.id, setChatMessages, activeTab]);
 
   const handleLeave = () => {
     socket.emit('leave_session', session?.id);
@@ -768,6 +802,35 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
           )}
         </div>
 
+        {/* Floating Toast inside Lobby when looking at other tabs (Task 5) */}
+        {lobbyChatToast && activeTab !== 'chat' && (
+          <div 
+            className="discord-chat-toast"
+            style={{ position: 'fixed', top: '1.2rem', left: '50%', transform: 'translateX(-50%)', zIndex: 9999 }}
+            onClick={() => {
+              setActiveTab('chat');
+              setUnreadChatCount(0);
+              setLobbyChatToast(null);
+            }}
+          >
+            <span className="discord-toast-avatar">{lobbyChatToast.senderAvatar || '💬'}</span>
+            <div className="discord-toast-content">
+              <span className="discord-toast-sender">{lobbyChatToast.senderName}</span>
+              <span className="discord-toast-text"> : {lobbyChatToast.text}</span>
+            </div>
+            <button 
+              type="button"
+              className="discord-toast-close"
+              onClick={(e) => {
+                e.stopPropagation();
+                setLobbyChatToast(null);
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         {/* Navigation Tabs Header */}
         <div style={{
           display: 'flex',
@@ -778,7 +841,12 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
         }}>
           {/* Tab: Chat */}
           <button
-            onClick={() => setActiveTab('chat')}
+            type="button"
+            onClick={() => {
+              setActiveTab('chat');
+              setUnreadChatCount(0);
+              setLobbyChatToast(null);
+            }}
             style={{
               padding: '0.35rem 0.7rem',
               fontSize: '0.82rem',
@@ -791,10 +859,25 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
               display: 'flex',
               alignItems: 'center',
               gap: '0.35rem',
-              whiteSpace: 'nowrap'
+              whiteSpace: 'nowrap',
+              position: 'relative'
             }}
           >
             <span>💬</span> Chat ({messages.length})
+            {unreadChatCount > 0 && activeTab !== 'chat' && (
+              <span style={{
+                background: 'var(--danger)',
+                color: '#ffffff',
+                fontSize: '0.68rem',
+                fontWeight: 900,
+                borderRadius: '10px',
+                padding: '0.1rem 0.4rem',
+                lineHeight: 1,
+                marginLeft: '3px'
+              }}>
+                +{unreadChatCount}
+              </span>
+            )}
           </button>
 
           {/* Tab: Joueurs en ligne */}
