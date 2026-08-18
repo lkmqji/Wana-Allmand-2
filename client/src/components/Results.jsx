@@ -15,7 +15,7 @@ const PRESET_REACTIONS = ['🔥', '⚡', '🏆', '⚔️', '💪', '👏'];
 export default function Results({ players = {}, setView, socket, session, isHost, playerName, avatar, user }) {
   const [currentPlayers, setCurrentPlayers] = useState(players || {});
   
-  // Floating Twitch reactions state & 5s cooldown
+  // Telegram Burst reactions state & 5s cooldown
   const [reactionCooldown, setReactionCooldown] = useState(0);
   const [floatingReactions, setFloatingReactions] = useState([]);
 
@@ -41,21 +41,34 @@ export default function Results({ players = {}, setView, socket, session, isHost
     const handleSessionUpdate = (updatedSession) => {
       if (updatedSession?.players) setCurrentPlayers(updatedSession.players);
     };
+
+    const handleReactionBurst = ({ particles }) => {
+      if (Array.isArray(particles)) {
+        setFloatingReactions(prev => [...prev, ...particles]);
+        setTimeout(() => {
+          const idsToRemove = new Set(particles.map(p => p.id));
+          setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
+        }, 2200);
+      }
+    };
+
     const handleFloatingReaction = (reaction) => {
       if (!reaction || !reaction.emoji) return;
       setFloatingReactions(prev => [...prev, reaction]);
       setTimeout(() => {
         setFloatingReactions(prev => prev.filter(r => r.id !== reaction.id));
-      }, 2500);
+      }, 2200);
     };
 
     socket.on('player_joined', handlePlayerUpdate);
     socket.on('session_updated', handleSessionUpdate);
+    socket.on('floating_reaction_burst', handleReactionBurst);
     socket.on('floating_reaction', handleFloatingReaction);
 
     return () => {
       socket.off('player_joined', handlePlayerUpdate);
       socket.off('session_updated', handleSessionUpdate);
+      socket.off('floating_reaction_burst', handleReactionBurst);
       socket.off('floating_reaction', handleFloatingReaction);
     };
   }, [socket]);
@@ -172,14 +185,40 @@ export default function Results({ players = {}, setView, socket, session, isHost
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
+  // TASK 2: Telegram Burst Generator
   const handleSendReaction = (emoji) => {
     if (reactionCooldown > 0 || !session?.id) return;
     const currentName = formatPlayerName(playerName || user?.displayName || 'Moi');
-    socket.emit('send_reaction_emoji', {
+
+    // Generate burst of 6 to 8 particles
+    const burstCount = Math.floor(Math.random() * 3) + 6;
+    const particles = [];
+    for (let i = 0; i < burstCount; i++) {
+      const tx = `${Math.floor(Math.random() * 200) - 100}px`; // -100px to 100px
+      const ty = `-${Math.floor(Math.random() * 150) + 150}px`; // -150px to -300px
+      const scale = (Math.random() * 0.7 + 0.8).toFixed(2); // 0.8 to 1.5
+      const rot = `${Math.floor(Math.random() * 60) - 30}deg`;
+      const delay = `${(Math.random() * 0.15).toFixed(2)}s`;
+      const xPos = Math.floor(Math.random() * 40) + 30; // 30% to 70%
+
+      particles.push({
+        id: Math.random().toString(36).substring(2, 9) + Date.now() + i,
+        emoji,
+        tx,
+        ty,
+        scale,
+        rot,
+        delay,
+        xPos
+      });
+    }
+
+    socket.emit('send_reaction_burst', {
       sessionId: session.id,
-      emoji,
+      particles,
       senderName: currentName
     });
+
     setReactionCooldown(5);
   };
 
@@ -229,11 +268,9 @@ export default function Results({ players = {}, setView, socket, session, isHost
     }
 
     const activePlayersCount = Object.keys(currentPlayers).length;
-    // If only 1 player is currently present or it's a solo game, start IMMEDIATELY without waiting
     if (activePlayersCount <= 1 || isSolo) {
       createSoloFailedSession(failedWords);
     } else {
-      // Multiplayer: propose to opponent in room
       setWaitingForProposalResp(true);
       socket.emit('propose_retry_failed_words', {
         sessionId: session.id,
@@ -386,22 +423,22 @@ export default function Results({ players = {}, setView, socket, session, isHost
       )}
 
       {/* =========================================================
-          TASK 3 : REDESIGN DU PODIUM ESPORT (SIDE-BY-SIDE + GAGNANT/PERDANT GLOW)
+          TASK 3 : REDESIGN DU PODIUM ESPORT & MOBILE COMPACT ROW
          ========================================================= */}
       <div className="card" style={{
         background: 'linear-gradient(135deg, var(--bg-surface) 0%, rgba(99, 102, 241, 0.08) 50%, var(--bg-surface) 100%)',
         borderColor: 'var(--border-color)',
-        padding: '1.5rem 1rem',
+        padding: '1.2rem 1rem',
         marginBottom: '1.2rem',
         position: 'relative',
         overflow: 'hidden'
       }}>
         
         {/* Top Arena Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', padding: '0 0.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem', padding: '0 0.4rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '1.3rem' }}>🏆</span>
-            <span style={{ fontWeight: 900, fontSize: '1rem', letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+            <span style={{ fontWeight: 900, fontSize: '0.95rem', letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
               Résultats du Duel
             </span>
           </div>
@@ -412,9 +449,9 @@ export default function Results({ players = {}, setView, socket, session, isHost
             gap: '0.4rem',
             background: 'var(--bg-main)',
             border: '1px solid var(--border-color)',
-            padding: '0.25rem 0.75rem',
-            borderRadius: '10px',
-            fontSize: '0.8rem',
+            padding: '0.2rem 0.65rem',
+            borderRadius: '8px',
+            fontSize: '0.78rem',
             fontWeight: 800,
             color: isDraw ? '#f59e0b' : 'var(--primary)'
           }}>
@@ -422,51 +459,51 @@ export default function Results({ players = {}, setView, socket, session, isHost
           </div>
         </div>
 
-        {/* Central Esport Arena Grid (Side-by-Side on Desktop, Stacked on Mobile) */}
+        {/* Central Arena Layout (Side-by-Side Desktop / Compact Row Mobile) */}
         {isSolo ? (
           /* Solo Champion Podium */
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '1rem 0' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '0.5rem 0' }}>
             <div className="results-esport-podium results-esport-winner" style={{ maxWidth: '360px', width: '100%' }}>
-              <div style={{
-                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                color: '#ffffff',
-                fontSize: '0.72rem',
-                fontWeight: 900,
-                padding: '0.2rem 0.8rem',
-                borderRadius: '12px',
-                letterSpacing: '1px',
-                lineHeight: 1
-              }}>
-                👑 CHAMPION DUEL
+              <div className="results-podium-left">
+                <div style={{
+                  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  color: '#ffffff',
+                  fontSize: '0.68rem',
+                  fontWeight: 900,
+                  padding: '0.2rem 0.6rem',
+                  borderRadius: '8px',
+                  letterSpacing: '0.5px'
+                }}>
+                  👑 CHAMPION
+                </div>
+                <div className="esport-avatar-ring">
+                  {winner?.avatar || avatar || '🦊'}
+                </div>
               </div>
 
-              <div className="esport-avatar-ring">
-                {winner?.avatar || avatar || '🦊'}
+              <div className="results-podium-center">
+                <div style={{ fontWeight: 900, fontSize: '1.15rem', color: 'var(--text-main)' }}>
+                  {formatPlayerName(winner?.name || playerName || 'Joueur')}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>
+                  Partie Solo Terminée
+                </div>
               </div>
 
-              <div style={{ fontWeight: 900, fontSize: '1.25rem', color: 'var(--text-main)' }}>
-                {formatPlayerName(winner?.name || playerName || 'Joueur')}
-              </div>
-
-              <div style={{
-                fontSize: '2.6rem',
-                fontWeight: 900,
-                color: '#f59e0b',
-                letterSpacing: '1px',
-                lineHeight: 1,
-                margin: '0.3rem 0'
-              }}>
-                {winner?.score || 0} <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 600 }}>pts</span>
+              <div className="results-podium-right">
+                <div className="results-score-text" style={{ color: '#f59e0b' }}>
+                  {winner?.score || 0} <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>pts</span>
+                </div>
               </div>
             </div>
           </div>
         ) : (
           /* Multiplayer Versus Arena */
-          <div className="mobile-stack" style={{
+          <div className="results-mobile-arena-container" style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '1rem',
+            gap: '0.8rem',
             position: 'relative'
           }}>
             
@@ -480,78 +517,62 @@ export default function Results({ players = {}, setView, socket, session, isHost
 
               return (
                 <div className={`results-esport-podium ${isPWinner ? 'results-esport-winner' : isPLoser ? 'results-esport-loser' : 'results-esport-draw'}`}>
-                  <div style={{
-                    background: isPWinner ? 'linear-gradient(135deg, #f59e0b, #d97706)' : isDraw ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-                    color: isPWinner ? '#ffffff' : isDraw ? 'var(--primary)' : 'var(--text-muted)',
-                    fontSize: '0.68rem',
-                    fontWeight: 900,
-                    padding: '0.2rem 0.65rem',
-                    borderRadius: '8px',
-                    letterSpacing: '0.5px',
-                    lineHeight: 1
-                  }}>
-                    {isPWinner ? '👑 GAGNANT' : isDraw ? '🤝 ÉGALITÉ' : '🥈 2ND PLACE'}
+                  <div className="results-podium-left">
+                    <span style={{ fontSize: '1.2rem' }}>{isPWinner ? '🥇' : isDraw ? '🤝' : '🥈'}</span>
+                    <div className="esport-avatar-ring">
+                      {p.avatar || '🦊'}
+                    </div>
                   </div>
 
-                  <div className="esport-avatar-ring">
-                    {p.avatar || '🦊'}
+                  <div className="results-podium-center">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ fontWeight: 900, fontSize: '1rem', color: 'var(--text-main)' }}>
+                        {formatPlayerName(p.name)}
+                      </span>
+                      {isMe && <span style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 800 }}>(Vous)</span>}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: isPWinner ? '#f59e0b' : 'var(--text-muted)', fontWeight: 800 }}>
+                      {isPWinner ? '👑 GAGNANT' : isDraw ? 'ÉGALITÉ' : 'CHALLENGER'}
+                    </div>
                   </div>
 
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '4px',
-                    maxWidth: '100%',
-                    width: '100%',
-                    overflow: 'hidden'
-                  }}>
-                    <span style={{ fontWeight: 900, fontSize: '1.05rem', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {formatPlayerName(p.name)}
-                    </span>
-                    {isMe && <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 800, flexShrink: 0 }}>(Vous)</span>}
-                  </div>
-
-                  <div style={{
-                    fontSize: '2.4rem',
-                    fontWeight: 900,
-                    color: isPWinner ? '#f59e0b' : 'var(--text-main)',
-                    lineHeight: 1,
-                    marginTop: '0.2rem'
-                  }}>
-                    {p.score} <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>pts</span>
+                  <div className="results-podium-right">
+                    <div className="results-score-text" style={{ color: isPWinner ? '#f59e0b' : 'var(--primary)' }}>
+                      {p.score} <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>pts</span>
+                    </div>
                   </div>
                 </div>
               );
             })()}
 
             {/* CENTER MATCH SCORE / VS BADGE */}
-            <div style={{
+            <div className="results-center-badge" style={{
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              minWidth: '100px',
+              minWidth: '85px',
               zIndex: 10
             }}>
               <div style={{
-                fontSize: '1.8rem',
+                fontSize: '1.45rem',
                 fontWeight: 900,
                 color: isDraw ? '#f59e0b' : 'var(--primary)',
-                letterSpacing: '2px',
-                fontFamily: 'Outfit, sans-serif'
+                letterSpacing: '1px',
+                fontFamily: 'Outfit, sans-serif',
+                lineHeight: 1
               }}>
                 {playerArr[0]?.score || 0} - {playerArr[1]?.score || 0}
               </div>
               <span style={{
-                fontSize: '0.72rem',
+                fontSize: '0.65rem',
                 color: 'var(--text-muted)',
                 fontWeight: 800,
-                letterSpacing: '1px',
+                letterSpacing: '0.5px',
                 textTransform: 'uppercase',
-                marginTop: '2px'
+                marginTop: '3px'
               }}>
-                {session?.vocabList?.length || 10} Rounds
+                {session?.vocabList?.length || 10} Mots
               </span>
             </div>
 
@@ -565,46 +586,29 @@ export default function Results({ players = {}, setView, socket, session, isHost
 
               return (
                 <div className={`results-esport-podium ${isPWinner ? 'results-esport-winner' : isPLoser ? 'results-esport-loser' : 'results-esport-draw'}`}>
-                  <div style={{
-                    background: isPWinner ? 'linear-gradient(135deg, #f59e0b, #d97706)' : isDraw ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-                    color: isPWinner ? '#ffffff' : isDraw ? 'var(--primary)' : 'var(--text-muted)',
-                    fontSize: '0.68rem',
-                    fontWeight: 900,
-                    padding: '0.2rem 0.65rem',
-                    borderRadius: '8px',
-                    letterSpacing: '0.5px',
-                    lineHeight: 1
-                  }}>
-                    {isPWinner ? '👑 GAGNANT' : isDraw ? '🤝 ÉGALITÉ' : '🥈 2ND PLACE'}
+                  <div className="results-podium-left">
+                    <span style={{ fontSize: '1.2rem' }}>{isPWinner ? '🥇' : isDraw ? '🤝' : '🥈'}</span>
+                    <div className="esport-avatar-ring">
+                      {p.avatar || '🐼'}
+                    </div>
                   </div>
 
-                  <div className="esport-avatar-ring">
-                    {p.avatar || '🐼'}
+                  <div className="results-podium-center">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ fontWeight: 900, fontSize: '1rem', color: 'var(--text-main)' }}>
+                        {formatPlayerName(p.name)}
+                      </span>
+                      {isMe && <span style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 800 }}>(Vous)</span>}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: isPWinner ? '#f59e0b' : 'var(--text-muted)', fontWeight: 800 }}>
+                      {isPWinner ? '👑 GAGNANT' : isDraw ? 'ÉGALITÉ' : 'CHALLENGER'}
+                    </div>
                   </div>
 
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '4px',
-                    maxWidth: '100%',
-                    width: '100%',
-                    overflow: 'hidden'
-                  }}>
-                    <span style={{ fontWeight: 900, fontSize: '1.05rem', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {formatPlayerName(p.name)}
-                    </span>
-                    {isMe && <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 800, flexShrink: 0 }}>(Vous)</span>}
-                  </div>
-
-                  <div style={{
-                    fontSize: '2.4rem',
-                    fontWeight: 900,
-                    color: isPWinner ? '#f59e0b' : 'var(--text-main)',
-                    lineHeight: 1,
-                    marginTop: '0.2rem'
-                  }}>
-                    {p.score} <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>pts</span>
+                  <div className="results-podium-right">
+                    <div className="results-score-text" style={{ color: isPWinner ? '#f59e0b' : 'var(--text-main)' }}>
+                      {p.score} <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>pts</span>
+                    </div>
                   </div>
                 </div>
               );
@@ -614,61 +618,85 @@ export default function Results({ players = {}, setView, socket, session, isHost
         )}
 
         {/* =========================================================
-            TASK 2 : FLOATING REACTIONS BAR & COOLDOWN (RESULTS)
+            TASK 2 : TELEGRAM BURST REACTIONS & RELATIVE CONTAINER
            ========================================================= */}
-        <div style={{
-          marginTop: '1.2rem',
-          paddingTop: '1rem',
-          borderTop: '1px solid var(--border-color)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '0.5rem',
-          flexWrap: 'wrap'
-        }}>
-          <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)' }}>
-            Réagir en direct :
-          </span>
-          {PRESET_REACTIONS.map((emoji, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => handleSendReaction(emoji)}
-              disabled={reactionCooldown > 0}
-              className={`reaction-pill-btn ${reactionCooldown > 0 ? 'cooldown-active' : ''}`}
-            >
-              <span>{emoji}</span>
-              {reactionCooldown > 0 && (
-                <span style={{ fontSize: '0.7rem', color: 'var(--warning)', fontWeight: 800 }}>
-                  {reactionCooldown}s
-                </span>
-              )}
-            </button>
-          ))}
+        <div style={{ position: 'relative', width: '100%', marginTop: '0.9rem' }}>
+          
+          <div style={{
+            paddingTop: '0.8rem',
+            borderTop: '1px solid var(--border-color)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.45rem',
+            flexWrap: 'wrap'
+          }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>
+              Réagir en direct :
+            </span>
+            {PRESET_REACTIONS.map((emoji, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleSendReaction(emoji)}
+                disabled={reactionCooldown > 0}
+                className={`reaction-pill-btn ${reactionCooldown > 0 ? 'cooldown-active' : ''}`}
+                style={{ padding: '0.25rem 0.6rem', fontSize: '0.82rem' }}
+              >
+                <span>{emoji}</span>
+                {reactionCooldown > 0 && (
+                  <span style={{ fontSize: '0.68rem', color: 'var(--warning)', fontWeight: 800 }}>
+                    {reactionCooldown}s
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Telegram Burst Particle Container positioned right above the reaction bar */}
+          <div className="floating-reactions-container">
+            {floatingReactions.map((r) => (
+              <span
+                key={r.id}
+                className="floating-reaction-item"
+                style={{
+                  left: `${r.xPos || 50}%`,
+                  '--tx': r.tx || '0px',
+                  '--ty': r.ty || '-200px',
+                  '--scale': r.scale || '1',
+                  '--rot': r.rot || '0deg',
+                  animationDelay: r.delay || '0s'
+                }}
+              >
+                {r.emoji}
+              </span>
+            ))}
+          </div>
+
         </div>
 
       </div>
 
       {/* =========================================================
-          TASK 4 : MINI-CHAT DIRECTEMENT INTÉGRÉ (RÉSULTATS)
+          MINI-CHAT DIRECTEMENT INTÉGRÉ (RÉSULTATS)
          ========================================================= */}
       <div className="card" style={{
-        padding: '1rem',
-        marginBottom: '1.2rem',
+        padding: '0.9rem 1rem',
+        marginBottom: '1rem',
         textAlign: 'left'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-main)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 800, fontSize: '0.85rem', color: 'var(--text-main)' }}>
             <span>💬</span>
             <span>Discussion de Fin de Partie</span>
           </div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
             {chatMessages.length} message(s)
           </span>
         </div>
 
         {/* Preset Quick Reaction Phrases */}
-        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
+        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
           {PRESET_RESULTS_CHAT.map((phrase, idx) => (
             <button
               key={idx}
@@ -677,9 +705,9 @@ export default function Results({ players = {}, setView, socket, session, isHost
                 background: 'var(--bg-main)',
                 border: '1px solid var(--border-color)',
                 color: 'var(--text-main)',
-                borderRadius: '12px',
-                padding: '0.25rem 0.6rem',
-                fontSize: '0.78rem',
+                borderRadius: '10px',
+                padding: '0.2rem 0.55rem',
+                fontSize: '0.75rem',
                 fontWeight: 700,
                 cursor: 'pointer',
                 transition: 'all 0.15s ease'
@@ -694,20 +722,20 @@ export default function Results({ players = {}, setView, socket, session, isHost
 
         {/* Mini-Chat Messages List */}
         <div style={{
-          height: '110px',
+          height: '100px',
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.4rem',
+          gap: '0.35rem',
           paddingRight: '0.3rem',
-          marginBottom: '0.6rem',
+          marginBottom: '0.5rem',
           background: 'var(--bg-main)',
-          borderRadius: '12px',
-          padding: '0.6rem',
+          borderRadius: '10px',
+          padding: '0.5rem',
           border: '1px solid var(--border-color)'
         }}>
           {chatMessages.length === 0 ? (
-            <div style={{ margin: 'auto', fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+            <div style={{ margin: 'auto', fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center' }}>
               Échangez avec votre adversaire avant de relancer ! 👋
             </div>
           ) : (
@@ -724,15 +752,15 @@ export default function Results({ players = {}, setView, socket, session, isHost
                     maxWidth: '90%'
                   }}
                 >
-                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isMe ? 'var(--primary)' : 'var(--text-muted)' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 800, color: isMe ? 'var(--primary)' : 'var(--text-muted)' }}>
                     {isMe ? 'Moi' : formatPlayerName(m.senderName)}:
                   </span>
                   <span style={{
                     background: isMe ? 'rgba(99, 102, 241, 0.18)' : 'var(--bg-surface)',
                     border: '1px solid var(--border-color)',
-                    padding: '0.2rem 0.55rem',
+                    padding: '0.15rem 0.5rem',
                     borderRadius: '8px',
-                    fontSize: '0.82rem',
+                    fontSize: '0.8rem',
                     color: 'var(--text-main)',
                     wordBreak: 'break-word'
                   }}>
@@ -754,21 +782,21 @@ export default function Results({ players = {}, setView, socket, session, isHost
             value={chatInput}
             onChange={e => setChatInput(e.target.value)}
             maxLength={150}
-            style={{ padding: '0.45rem 0.8rem', fontSize: '0.85rem' }}
+            style={{ padding: '0.4rem 0.75rem', fontSize: '0.82rem' }}
           />
           <button
             type="submit"
             className="btn btn-primary"
             disabled={!chatInput.trim()}
-            style={{ width: 'auto', padding: '0.45rem 0.9rem', fontSize: '0.85rem' }}
+            style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.82rem' }}
           >
             Envoyer
           </button>
         </form>
       </div>
 
-      {/* Action Buttons Bar */}
-      <div className="mobile-stack" style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+      {/* Action Buttons Bar (Optimized for Mobile view without scroll) */}
+      <div className="mobile-stack" style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1.2rem' }}>
         
         {/* Button 1: Leave & Home */}
         <button 
@@ -777,22 +805,23 @@ export default function Results({ players = {}, setView, socket, session, isHost
             if (session?.id) socket.emit('leave_session', session.id);
             setView('home');
           }} 
-          style={{ flex: 1, minWidth: '130px', padding: '0.75rem 1rem' }}
+          style={{ flex: 1, minWidth: '120px', padding: '0.65rem 0.8rem', fontSize: '0.85rem' }}
         >
           ← Accueil
         </button>
         
-        {/* Button 2: Retry Failed Words (TASK 5: INSTANT SOLO IF OPPONENT LEFT) */}
+        {/* Button 2: Retry Failed Words */}
         <button 
           className="btn btn-secondary" 
           onClick={handleRetryFailedWordsClick} 
           disabled={waitingForProposalResp || waitingForRematchResp}
           style={{
-            flex: 1.3,
+            flex: 1.2,
             borderColor: 'var(--danger)',
             color: 'var(--danger)',
-            minWidth: '160px',
-            padding: '0.75rem 1rem',
+            minWidth: '140px',
+            padding: '0.65rem 0.8rem',
+            fontSize: '0.85rem',
             fontWeight: 800
           }}
         >
@@ -805,9 +834,10 @@ export default function Results({ players = {}, setView, socket, session, isHost
           onClick={handleRematchClick} 
           disabled={waitingForProposalResp || waitingForRematchResp}
           style={{
-            flex: 1.8,
-            minWidth: '180px',
-            padding: '0.75rem 1.2rem',
+            flex: 1.5,
+            minWidth: '160px',
+            padding: '0.65rem 1rem',
+            fontSize: '0.9rem',
             fontWeight: 900,
             letterSpacing: '0.5px'
           }}
@@ -818,21 +848,21 @@ export default function Results({ players = {}, setView, socket, session, isHost
 
       {/* Detailed Game Summary List */}
       {session && session.vocabList && (
-        <div className="card" style={{ textAlign: 'left', padding: '1.25rem' }}>
-          <h3 style={{ marginBottom: '1.2rem', textAlign: 'center', fontSize: '1.35rem' }}>📝 Résumé des questions & réponses</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+        <div className="card" style={{ textAlign: 'left', padding: '1.1rem' }}>
+          <h3 style={{ marginBottom: '1rem', textAlign: 'center', fontSize: '1.2rem' }}>📝 Résumé des questions & réponses</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
             {session.vocabList.slice(0, session.currentQuestionIndex || session.vocabList.length).map((word, index) => (
-              <div key={index} style={{ padding: '0.9rem 1rem', background: 'var(--bg-main)', borderRadius: '14px', border: '1px solid var(--border-color)' }}>
-                <div style={{ marginBottom: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)' }}>{word.question}</span>
-                  <span style={{ color: 'var(--primary)', fontWeight: '700', fontSize: '0.95rem' }}>👉 {word.answer}</span>
+              <div key={index} style={{ padding: '0.8rem 0.9rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                <div style={{ marginBottom: '0.6rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-main)' }}>{word.question}</span>
+                  <span style={{ color: 'var(--primary)', fontWeight: '700', fontSize: '0.9rem' }}>👉 {word.answer}</span>
                 </div>
                 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.6rem', paddingTop: '0.6rem', borderTop: '1px dashed var(--border-color)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed var(--border-color)' }}>
                   {Object.values(currentPlayers).map(p => {
                     const ans = p.answers && p.answers[index];
                     return (
-                      <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                      <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                         <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{formatPlayerName(p.name)} :</span>
                         <span style={{ fontWeight: 'bold' }}>
                           {ans ? renderDiff(ans.expected, ans.answer, ans.score >= 100, ans.isTypo) : <span style={{ color: 'var(--danger)' }}>(Non répondu)</span>}
@@ -954,19 +984,6 @@ export default function Results({ players = {}, setView, socket, session, isHost
           </div>
         </div>
       )}
-
-      {/* Twitch-Style Floating Reactions Container */}
-      <div className="floating-reactions-container">
-        {floatingReactions.map((r) => (
-          <span
-            key={r.id}
-            className="floating-reaction-item"
-            style={{ left: `${r.xPos}%` }}
-          >
-            {r.emoji}
-          </span>
-        ))}
-      </div>
 
     </div>
   );

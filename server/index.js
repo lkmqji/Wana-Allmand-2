@@ -621,7 +621,16 @@ io.on('connection', (socket) => {
         io.to(sessionId).emit('lobby_chat_message', msg);
     });
 
-    // Floating Reactions (Twitch / Live style particles)
+    // Floating Reactions (Telegram Burst explosion particles)
+    socket.on('send_reaction_burst', ({ sessionId, particles, senderName }) => {
+        if (!sessionId || !particles) return;
+        io.to(sessionId).emit('floating_reaction_burst', {
+            particles,
+            senderName: formatPlayerName(senderName) || 'Joueur',
+            senderId: socket.id
+        });
+    });
+
     socket.on('send_reaction_emoji', ({ sessionId, emoji, senderName }) => {
         if (!sessionId || !emoji) return;
         const reactionPayload = {
@@ -629,7 +638,7 @@ io.on('connection', (socket) => {
             emoji,
             senderName: formatPlayerName(senderName) || 'Joueur',
             senderId: socket.id,
-            xPos: Math.floor(Math.random() * 65) + 15 // Random horizontal position between 15% and 80%
+            xPos: Math.floor(Math.random() * 65) + 15
         };
         io.to(sessionId).emit('floating_reaction', reactionPayload);
     });

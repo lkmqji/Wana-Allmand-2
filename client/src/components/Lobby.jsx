@@ -108,26 +108,65 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
   }, [reactionCooldown]);
 
   useEffect(() => {
+    const handleReactionBurst = ({ particles }) => {
+      if (Array.isArray(particles)) {
+        setFloatingReactions(prev => [...prev, ...particles]);
+        setTimeout(() => {
+          const idsToRemove = new Set(particles.map(p => p.id));
+          setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
+        }, 2200);
+      }
+    };
+
     const handleFloatingReaction = (reaction) => {
       if (!reaction || !reaction.emoji) return;
       setFloatingReactions(prev => [...prev, reaction]);
       setTimeout(() => {
         setFloatingReactions(prev => prev.filter(r => r.id !== reaction.id));
-      }, 2500);
+      }, 2200);
     };
 
+    socket.on('floating_reaction_burst', handleReactionBurst);
     socket.on('floating_reaction', handleFloatingReaction);
-    return () => socket.off('floating_reaction', handleFloatingReaction);
+    return () => {
+      socket.off('floating_reaction_burst', handleReactionBurst);
+      socket.off('floating_reaction', handleFloatingReaction);
+    };
   }, [socket]);
 
   const handleSendReaction = (emoji) => {
     if (reactionCooldown > 0 || !session?.id) return;
     const currentName = formatPlayerName(playerName || user?.displayName || 'Moi');
-    socket.emit('send_reaction_emoji', {
+    
+    // Generate burst of 6 to 8 particles
+    const burstCount = Math.floor(Math.random() * 3) + 6;
+    const particles = [];
+    for (let i = 0; i < burstCount; i++) {
+      const tx = `${Math.floor(Math.random() * 200) - 100}px`; // -100px to 100px
+      const ty = `-${Math.floor(Math.random() * 150) + 150}px`; // -150px to -300px
+      const scale = (Math.random() * 0.7 + 0.8).toFixed(2); // 0.8 to 1.5
+      const rot = `${Math.floor(Math.random() * 60) - 30}deg`;
+      const delay = `${(Math.random() * 0.15).toFixed(2)}s`;
+      const xPos = Math.floor(Math.random() * 40) + 30; // 30% to 70%
+
+      particles.push({
+        id: Math.random().toString(36).substring(2, 9) + Date.now() + i,
+        emoji,
+        tx,
+        ty,
+        scale,
+        rot,
+        delay,
+        xPos
+      });
+    }
+
+    socket.emit('send_reaction_burst', {
       sessionId: session.id,
-      emoji,
+      particles,
       senderName: currentName
     });
+
     setReactionCooldown(5);
   };
 
@@ -920,26 +959,48 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
               <div ref={chatBottomRef} />
             </div>
 
-            {/* Twitch-Style Quick Reaction Bar with 5s Cooldown */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>Réactions :</span>
-              {['🔥', '⚡', '🏆', '⚔️', '💪', '👏'].map((emoji, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleSendReaction(emoji)}
-                  disabled={reactionCooldown > 0}
-                  className={`reaction-pill-btn ${reactionCooldown > 0 ? 'cooldown-active' : ''}`}
-                  style={{ padding: '0.2rem 0.55rem', fontSize: '0.85rem' }}
-                >
-                  <span>{emoji}</span>
-                  {reactionCooldown > 0 && (
-                    <span style={{ fontSize: '0.68rem', color: 'var(--warning)', fontWeight: 800 }}>
-                      {reactionCooldown}s
-                    </span>
-                  )}
-                </button>
-              ))}
+            {/* Telegram Burst Quick Reaction Bar with 5s Cooldown */}
+            <div style={{ position: 'relative', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>Réactions :</span>
+                {['🔥', '⚡', '🏆', '⚔️', '💪', '👏'].map((emoji, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSendReaction(emoji)}
+                    disabled={reactionCooldown > 0}
+                    className={`reaction-pill-btn ${reactionCooldown > 0 ? 'cooldown-active' : ''}`}
+                    style={{ padding: '0.2rem 0.55rem', fontSize: '0.85rem' }}
+                  >
+                    <span>{emoji}</span>
+                    {reactionCooldown > 0 && (
+                      <span style={{ fontSize: '0.68rem', color: 'var(--warning)', fontWeight: 800 }}>
+                        {reactionCooldown}s
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Telegram Burst Particle Container positioned right above the reaction bar */}
+              <div className="floating-reactions-container">
+                {floatingReactions.map((r) => (
+                  <span
+                    key={r.id}
+                    className="floating-reaction-item"
+                    style={{
+                      left: `${r.xPos || 50}%`,
+                      '--tx': r.tx || '0px',
+                      '--ty': r.ty || '-200px',
+                      '--scale': r.scale || '1',
+                      '--rot': r.rot || '0deg',
+                      animationDelay: r.delay || '0s'
+                    }}
+                  >
+                    {r.emoji}
+                  </span>
+                ))}
+              </div>
             </div>
 
             {/* Input Message */}
@@ -1729,19 +1790,6 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
           </div>
         </div>
       )}
-
-      {/* Twitch-Style Floating Reactions Container */}
-      <div className="floating-reactions-container">
-        {floatingReactions.map((r) => (
-          <span
-            key={r.id}
-            className="floating-reaction-item"
-            style={{ left: `${r.xPos}%` }}
-          >
-            {r.emoji}
-          </span>
-        ))}
-      </div>
 
     </div>
   );

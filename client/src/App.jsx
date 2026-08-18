@@ -778,6 +778,8 @@ function App() {
             deleteAccount={deleteAccount}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
+            onNavigate={setActiveTab}
+            setView={setView}
             leaderboard={leaderboard}
             isGuest={isGuest}
             setIsGuest={setIsGuest}
