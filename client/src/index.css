@@ -581,10 +581,12 @@ h1, h2, h3, h4 {
   background: var(--bg-surface);
   border: 2px solid var(--border-color);
   border-radius: 20px;
-  padding: 1.25rem 1rem;
+  padding: 1.25rem 0.8rem;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  gap: 8px;
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -613,10 +615,10 @@ h1, h2, h3, h4 {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2.6rem;
-  margin-bottom: 0.75rem;
+  font-size: 2.5rem;
   position: relative;
   transition: all 0.3s ease;
+  flex-shrink: 0;
 }
 
 .esport-podium.host-active .esport-avatar-ring {
@@ -627,6 +629,115 @@ h1, h2, h3, h4 {
 .esport-podium.opponent-active .esport-avatar-ring {
   border-color: var(--secondary);
   box-shadow: 0 0 15px var(--secondary);
+}
+
+/* ----------------------------------
+   TASK 2: MOBILE ARENA OPTIMIZATIONS
+---------------------------------- */
+@media (max-width: 768px) {
+  .esport-podium {
+    padding: 0.65rem 0.4rem;
+    gap: 4px;
+    border-radius: 14px;
+  }
+
+  .esport-avatar-ring {
+    width: 50px;
+    height: 50px;
+    font-size: 1.7rem;
+    border-width: 2px;
+  }
+
+  .vs-badge {
+    font-size: 1.8rem;
+    letter-spacing: 1px;
+  }
+
+  .arena-main-card {
+    padding: 0.75rem 0.6rem !important;
+    gap: 0.5rem !important;
+  }
+
+  .lobby-chat-box {
+    height: 160px !important;
+  }
+}
+
+/* ----------------------------------
+   TASK 3: PULSE-GLOW ANIMATION (PAUSE MODAL)
+---------------------------------- */
+@keyframes pulse-glow {
+  0% {
+    box-shadow: 0 0 10px var(--accent-primary), 0 4px 0 var(--primary-shadow);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 25px var(--accent-primary), 0 0 40px var(--accent-primary), 0 4px 0 var(--primary-shadow);
+    transform: scale(1.04);
+  }
+  100% {
+    box-shadow: 0 0 10px var(--accent-primary), 0 4px 0 var(--primary-shadow);
+    transform: scale(1);
+  }
+}
+
+.btn-resume-glow {
+  animation: pulse-glow 2s infinite ease-in-out !important;
+  background-color: var(--primary) !important;
+  border-color: var(--primary-shadow) !important;
+  color: #ffffff !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+/* ----------------------------------
+   TASK 4: RESULTS PODIUM & MINI-CHAT
+---------------------------------- */
+.winner-card-podium {
+  transform: scale(1.03);
+  border: 2px solid #f59e0b !important;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, var(--bg-surface) 100%) !important;
+  box-shadow: 0 0 25px rgba(245, 158, 11, 0.3) !important;
+  position: relative;
+  z-index: 2;
+  transition: transform 0.3s ease;
+}
+
+.loser-card-podium {
+  opacity: 0.85;
+  border: 2px solid var(--border-color) !important;
+  background: var(--bg-main) !important;
+}
+
+.results-minichat-floating {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  width: 320px;
+  max-width: calc(100vw - 2rem);
+  background: var(--bg-surface);
+  border: 2px solid var(--primary);
+  border-radius: 18px;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  z-index: 500;
+  overflow: hidden;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.results-minichat-inline {
+  width: 100%;
+  background: var(--bg-surface);
+  border: 2px solid var(--border-color);
+  border-radius: 16px;
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1.2rem 0;
+  text-align: left;
 }
 
 /* ----------------------------------

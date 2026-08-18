@@ -410,18 +410,18 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
       {/* =========================================================
           TASK 4 : ARÈNE ESPORT (STREET FIGHTER / SMASH BROS STYLE)
          ========================================================= */}
-      <div className="card" style={{
+      <div className="card arena-main-card" style={{
         background: 'linear-gradient(135deg, var(--bg-surface) 0%, rgba(99, 102, 241, 0.08) 50%, var(--bg-surface) 100%)',
         borderColor: 'var(--border-color)',
-        padding: '1.5rem 1rem',
+        padding: '1.25rem 1rem',
         position: 'relative',
         overflow: 'hidden'
       }}>
         {/* Top Arena Header: Title & Room Code */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', padding: '0 0.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1.2rem' }}>🥊</span>
-            <span style={{ fontWeight: 800, fontSize: '0.95rem', letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', padding: '0 0.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span style={{ fontSize: '1.1rem' }}>🥊</span>
+            <span style={{ fontWeight: 800, fontSize: '0.85rem', letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
               Arène de Duel
             </span>
           </div>
@@ -429,20 +429,20 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.5rem',
+            gap: '0.4rem',
             background: 'var(--bg-main)',
             border: '1px solid var(--border-color)',
-            padding: '0.3rem 0.75rem',
+            padding: '0.25rem 0.6rem',
             borderRadius: '10px'
           }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>SALLE :</span>
-            <span style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--primary)', letterSpacing: '1.5px' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>SALLE :</span>
+            <span style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--primary)', letterSpacing: '1.5px' }}>
               {session?.id}
             </span>
             <button
               onClick={handleCopyCode}
               className="btn btn-secondary"
-              style={{ width: 'auto', padding: '0.15rem 0.45rem', fontSize: '0.7rem', borderRadius: '6px' }}
+              style={{ width: 'auto', padding: '0.1rem 0.4rem', fontSize: '0.7rem', borderRadius: '6px' }}
               title="Copier le code de la salle"
             >
               {copiedCode ? '✓' : '📋'}
@@ -455,24 +455,22 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '0.8rem',
+          gap: '0.6rem',
           position: 'relative'
         }}>
           
-          {/* LEFT: HOST PLAYER */}
+          {/* LEFT: HOST PLAYER (TASK 1: PERFECT VERTICAL STACK & CENTERING) */}
           <div className="esport-podium host-active">
             <div style={{
-              position: 'absolute',
-              top: '8px',
-              left: '8px',
               background: 'rgba(99, 102, 241, 0.2)',
               border: '1px solid var(--primary)',
               color: 'var(--primary)',
               fontSize: '0.65rem',
               fontWeight: 900,
-              padding: '0.15rem 0.5rem',
+              padding: '0.12rem 0.5rem',
               borderRadius: '6px',
-              letterSpacing: '0.5px'
+              letterSpacing: '0.5px',
+              lineHeight: 1
             }}>
               👑 HÔTE
             </div>
@@ -481,23 +479,45 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
               {hostPlayerObj.avatar || avatar || '🦊'}
             </div>
 
-            <div style={{ fontWeight: 900, fontSize: '1.1rem', color: 'var(--text-main)', marginBottom: '0.2rem' }}>
-              {formatPlayerName(hostPlayerObj.name)}
-              {hostPlayerObj.id === socket.id && <span style={{ fontSize: '0.75rem', color: 'var(--primary)', marginLeft: '4px' }}>(Toi)</span>}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              maxWidth: '100%',
+              width: '100%',
+              textAlign: 'center',
+              overflow: 'hidden'
+            }}>
+              <span style={{
+                fontWeight: 900,
+                fontSize: '0.95rem',
+                color: 'var(--text-main)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}>
+                {formatPlayerName(hostPlayerObj.name)}
+              </span>
+              {hostPlayerObj.id === socket.id && (
+                <span style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 800, flexShrink: 0 }}>
+                  (Toi)
+                </span>
+              )}
             </div>
 
             <div style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.35rem',
-              fontSize: '0.75rem',
+              gap: '0.3rem',
+              fontSize: '0.7rem',
               color: 'var(--success)',
-              fontWeight: 700,
+              fontWeight: 800,
               background: 'rgba(34, 197, 94, 0.1)',
-              padding: '0.2rem 0.6rem',
-              borderRadius: '8px'
+              padding: '0.15rem 0.55rem',
+              borderRadius: '6px'
             }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+              <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
               PRÊT
             </div>
           </div>
@@ -508,48 +528,46 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            minWidth: '90px',
+            minWidth: '70px',
             zIndex: 10
           }}>
             <div className="vs-badge">
               VS
             </div>
             <span style={{
-              fontSize: '0.7rem',
+              fontSize: '0.65rem',
               color: 'var(--text-muted)',
               fontWeight: 800,
               letterSpacing: '1px',
               textTransform: 'uppercase',
-              marginTop: '-4px'
+              marginTop: '-2px'
             }}>
               {settings.rounds || words.length} Mots
             </span>
           </div>
 
-          {/* RIGHT: OPPONENT PLAYER OR WAITING SLOT */}
+          {/* RIGHT: OPPONENT PLAYER OR WAITING SLOT (TASK 1: PERFECT VERTICAL STACK & CENTERING) */}
           {opponentPlayerObj ? (
             <div className="esport-podium opponent-active">
               <div style={{
-                position: 'absolute',
-                top: '8px',
-                right: '8px',
                 background: 'rgba(236, 72, 153, 0.2)',
                 border: '1px solid var(--secondary)',
                 color: 'var(--secondary)',
                 fontSize: '0.65rem',
                 fontWeight: 900,
-                padding: '0.15rem 0.5rem',
+                padding: '0.12rem 0.5rem',
                 borderRadius: '6px',
                 letterSpacing: '0.5px',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.3rem'
+                gap: '0.3rem',
+                lineHeight: 1
               }}>
-                ⚔️ CHALLENGER
+                <span>⚔️ CHALLENGER</span>
                 {isHost && opponentPlayerObj.id !== socket.id && (
                   <button
                     onClick={() => socket.emit('kick_player', { sessionId: session.id, playerId: opponentPlayerObj.id })}
-                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 900, padding: 0 }}
+                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 900, padding: 0, marginLeft: '2px' }}
                     title="Expulser"
                   >
                     ✕
@@ -561,33 +579,68 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                 {opponentPlayerObj.avatar || '🐼'}
               </div>
 
-              <div style={{ fontWeight: 900, fontSize: '1.1rem', color: 'var(--text-main)', marginBottom: '0.2rem' }}>
-                {formatPlayerName(opponentPlayerObj.name)}
-                {opponentPlayerObj.id === socket.id && <span style={{ fontSize: '0.75rem', color: 'var(--secondary)', marginLeft: '4px' }}>(Toi)</span>}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                maxWidth: '100%',
+                width: '100%',
+                textAlign: 'center',
+                overflow: 'hidden'
+              }}>
+                <span style={{
+                  fontWeight: 900,
+                  fontSize: '0.95rem',
+                  color: 'var(--text-main)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {formatPlayerName(opponentPlayerObj.name)}
+                </span>
+                {opponentPlayerObj.id === socket.id && (
+                  <span style={{ fontSize: '0.7rem', color: 'var(--secondary)', fontWeight: 800, flexShrink: 0 }}>
+                    (Toi)
+                  </span>
+                )}
               </div>
 
               <div style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.35rem',
-                fontSize: '0.75rem',
+                gap: '0.3rem',
+                fontSize: '0.7rem',
                 color: 'var(--success)',
-                fontWeight: 700,
+                fontWeight: 800,
                 background: 'rgba(34, 197, 94, 0.1)',
-                padding: '0.2rem 0.6rem',
-                borderRadius: '8px'
+                padding: '0.15rem 0.55rem',
+                borderRadius: '6px'
               }}>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
                 PRÊT
               </div>
             </div>
           ) : (
-            <div className="esport-podium" style={{ borderStyle: 'dashed', opacity: 0.85 }}>
-              <div className="esport-avatar-ring" style={{ borderStyle: 'dashed', opacity: 0.6, fontSize: '2rem' }}>
+            <div className="esport-podium" style={{ borderStyle: 'dashed', opacity: 0.9 }}>
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-muted)',
+                fontSize: '0.65rem',
+                fontWeight: 800,
+                padding: '0.12rem 0.5rem',
+                borderRadius: '6px',
+                lineHeight: 1
+              }}>
+                SLOT 2
+              </div>
+
+              <div className="esport-avatar-ring" style={{ borderStyle: 'dashed', opacity: 0.6, fontSize: '1.6rem' }}>
                 ⏳
               </div>
 
-              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 En attente...
               </div>
 
@@ -599,8 +652,8 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                 className="btn btn-secondary"
                 style={{
                   width: 'auto',
-                  padding: '0.3rem 0.75rem',
-                  fontSize: '0.75rem',
+                  padding: '0.25rem 0.65rem',
+                  fontSize: '0.72rem',
                   borderRadius: '8px',
                   borderColor: 'var(--primary)',
                   color: 'var(--primary)'
@@ -617,14 +670,14 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
       {/* =========================================================
           CONSOLE DE BORD / DASHBOARD DE CONFIGURATION (EN DESSOUS)
          ========================================================= */}
-      <div className="card" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+      <div className="card" style={{ padding: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
         
         {/* Action Controls Bar */}
-        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <button
             onClick={handleLeave}
             className="btn btn-secondary"
-            style={{ width: 'auto', padding: '0.7rem 1.2rem', fontSize: '0.9rem' }}
+            style={{ width: 'auto', padding: '0.65rem 1rem', fontSize: '0.85rem' }}
           >
             ← Quitter
           </button>
@@ -633,20 +686,20 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
             <button
               className="btn btn-primary"
               onClick={handleStart}
-              style={{ flex: 1, padding: '0.75rem 1.5rem', fontSize: '1rem', fontWeight: 900, letterSpacing: '0.5px' }}
+              style={{ flex: 1, padding: '0.7rem 1.2rem', fontSize: '0.95rem', fontWeight: 900, letterSpacing: '0.5px' }}
             >
               {playerCount === 1 ? '🚀 Jouer en Solo' : '⚔️ DÉMARRER LE DUEL !'}
             </button>
           ) : (
             <div style={{
               flex: 1,
-              padding: '0.7rem 1rem',
+              padding: '0.65rem 0.8rem',
               background: 'rgba(245, 158, 11, 0.1)',
               border: '1px solid var(--warning)',
               borderRadius: '12px',
               color: 'var(--warning)',
               fontWeight: 'bold',
-              fontSize: '0.9rem',
+              fontSize: '0.85rem',
               textAlign: 'center'
             }}>
               ⏳ En attente de l'hôte pour lancer le duel...
@@ -659,15 +712,15 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
           display: 'flex',
           gap: '0.4rem',
           borderBottom: '2px solid var(--border-color)',
-          paddingBottom: '0.5rem',
+          paddingBottom: '0.4rem',
           overflowX: 'auto'
         }}>
           {/* Tab: Chat */}
           <button
             onClick={() => setActiveTab('chat')}
             style={{
-              padding: '0.4rem 0.75rem',
-              fontSize: '0.85rem',
+              padding: '0.35rem 0.7rem',
+              fontSize: '0.82rem',
               borderRadius: '10px',
               border: 'none',
               background: activeTab === 'chat' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
@@ -690,8 +743,8 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
               socket.emit('get_online_users');
             }}
             style={{
-              padding: '0.4rem 0.75rem',
-              fontSize: '0.85rem',
+              padding: '0.35rem 0.7rem',
+              fontSize: '0.82rem',
               borderRadius: '10px',
               border: 'none',
               background: activeTab === 'online' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
@@ -711,8 +764,8 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
           <button
             onClick={() => setActiveTab('words')}
             style={{
-              padding: '0.4rem 0.75rem',
-              fontSize: '0.85rem',
+              padding: '0.35rem 0.7rem',
+              fontSize: '0.82rem',
               borderRadius: '10px',
               border: 'none',
               background: activeTab === 'words' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
@@ -732,8 +785,8 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
           <button
             onClick={() => setActiveTab('settings')}
             style={{
-              padding: '0.4rem 0.75rem',
-              fontSize: '0.85rem',
+              padding: '0.35rem 0.7rem',
+              fontSize: '0.82rem',
               borderRadius: '10px',
               border: 'none',
               background: activeTab === 'settings' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
@@ -753,15 +806,18 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
         {/* ----------------- ONGLET 1 : CHAT DE LA SALLE ----------------- */}
         {activeTab === 'chat' && (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{
-              height: '240px',
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.45rem',
-              paddingRight: '0.4rem',
-              marginBottom: '0.6rem'
-            }}>
+            <div 
+              className="lobby-chat-box"
+              style={{
+                height: '210px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.45rem',
+                paddingRight: '0.4rem',
+                marginBottom: '0.5rem'
+              }}
+            >
               {messages.map((m) => {
                 if (m.isSystem) {
                   return (

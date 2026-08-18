@@ -729,17 +729,18 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
 
               <button
                 onClick={handleResumeGame}
-                className="btn btn-primary"
+                className="btn btn-primary btn-resume-glow"
                 style={{
                   width: 'auto',
-                  padding: '0.45rem 1rem',
-                  fontSize: '0.85rem',
+                  padding: '0.6rem 1.4rem',
+                  fontSize: '0.95rem',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.4rem'
+                  gap: '0.5rem',
+                  borderRadius: '12px'
                 }}
               >
-                <span>▶️</span> Reprendre
+                <span>▶️</span> REPRENDRE
               </button>
             </div>
 

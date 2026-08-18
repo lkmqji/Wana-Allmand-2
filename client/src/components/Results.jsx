@@ -1,17 +1,49 @@
 import { useEffect, useState, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { formatPlayerName } from '../utils/formatters';
+import { formatPlayerName, getClientPlayerKey } from '../utils/formatters';
 
-export default function Results({ players, setView, socket, session, isHost, playerName, avatar, user }) {
-  const playerArr = Object.values(players || {}).sort((a, b) => b.score - a.score);
+const PRESET_RESULTS_CHAT = [
+  "GG! 🏆",
+  "Revanche ? ⚔️",
+  "Bien joué ! 👏",
+  "Oups ! 🙈",
+  "Trop rapide ! ⚡"
+];
+
+export default function Results({ players = {}, setView, socket, session, isHost, playerName, avatar, user }) {
+  const [currentPlayers, setCurrentPlayers] = useState(players || {});
+  
+  // Update current players if opponent leaves or session changes
+  useEffect(() => {
+    setCurrentPlayers(players || {});
+  }, [players]);
+
+  useEffect(() => {
+    const handlePlayerUpdate = (updatedPlayers) => {
+      if (updatedPlayers) setCurrentPlayers(updatedPlayers);
+    };
+    const handleSessionUpdate = (updatedSession) => {
+      if (updatedSession?.players) setCurrentPlayers(updatedSession.players);
+    };
+
+    socket.on('player_joined', handlePlayerUpdate);
+    socket.on('session_updated', handleSessionUpdate);
+
+    return () => {
+      socket.off('player_joined', handlePlayerUpdate);
+      socket.off('session_updated', handleSessionUpdate);
+    };
+  }, [socket]);
+
+  const playerArr = Object.values(currentPlayers || {}).sort((a, b) => b.score - a.score);
   const winner = playerArr[0];
   const isDraw = playerArr.length > 1 && playerArr[0].score === playerArr[1].score;
   const isSolo = playerArr.length <= 1;
 
-  // Chat state
-  const [showChat, setShowChat] = useState(false);
+  // Mini-Chat states
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
+  const [isChatOpen, setIsChatOpen] = useState(true);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const chatBottomRef = useRef(null);
 
@@ -20,9 +52,10 @@ export default function Results({ players, setView, socket, session, isHost, pla
   const [waitingForProposalResp, setWaitingForProposalResp] = useState(false);
 
   // Proposal for standard rematch
-  const [incomingRematchProposal, setIncomingRematchProposal] = useState(null); // { requesterName, requesterAvatar, requesterSocketId }
+  const [incomingRematchProposal, setIncomingRematchProposal] = useState(null);
   const [waitingForRematchResp, setWaitingForRematchResp] = useState(false);
 
+  // Confetti on win
   useEffect(() => {
     if (!isDraw && winner) {
       const duration = 3 * 1000;
@@ -34,14 +67,14 @@ export default function Results({ players, setView, socket, session, isHost, pla
           angle: 60,
           spread: 55,
           origin: { x: 0 },
-          colors: ['#6366f1', '#ec4899', '#10b981']
+          colors: ['#6366f1', '#ec4899', '#f59e0b']
         });
         confetti({
           particleCount: 5,
           angle: 120,
           spread: 55,
           origin: { x: 1 },
-          colors: ['#6366f1', '#ec4899', '#10b981']
+          colors: ['#6366f1', '#ec4899', '#f59e0b']
         });
 
         if (Date.now() < end) {
@@ -56,7 +89,7 @@ export default function Results({ players, setView, socket, session, isHost, pla
   useEffect(() => {
     const handleChatMessage = (msg) => {
       setChatMessages(prev => [...prev, msg]);
-      if (!showChat) {
+      if (!isChatOpen) {
         setUnreadChatCount(prev => prev + 1);
       }
     };
@@ -112,37 +145,32 @@ export default function Results({ players, setView, socket, session, isHost, pla
       socket.off('rematch_declined', handleRematchDeclined);
       socket.off('rematch_cancelled', handleRematchCancelled);
     };
-  }, [socket, showChat, session]);
+  }, [socket, isChatOpen, session]);
 
   // Auto-scroll chat
   useEffect(() => {
-    if (showChat) {
-      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [chatMessages, showChat]);
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, isChatOpen]);
 
-  const handleOpenChat = () => {
-    setShowChat(true);
-    setUnreadChatCount(0);
-  };
-
-  const handleSendChatMessage = (e) => {
-    e?.preventDefault();
-    if (!chatInput.trim() || !session?.id) return;
-    const currentName = formatPlayerName(playerName || user?.displayName || (players[socket.id]?.name) || 'Moi');
+  const handleSendChatMessage = (textToSend) => {
+    const content = (typeof textToSend === 'string' ? textToSend : chatInput).trim();
+    if (!content || !session?.id) return;
+    const currentName = formatPlayerName(playerName || user?.displayName || (currentPlayers[socket.id]?.name) || 'Moi');
     socket.emit('send_lobby_chat', {
       sessionId: session.id,
-      text: chatInput.trim(),
+      text: content,
       senderName: currentName,
       senderAvatar: avatar || '🦊'
     });
-    setChatInput('');
+    if (typeof textToSend !== 'string') {
+      setChatInput('');
+    }
   };
 
   const getFailedWords = () => {
     if (!session || !session.vocabList) return [];
     return session.vocabList.filter((word, index) => {
-      return Object.values(players).some(p => {
+      return Object.values(currentPlayers).some(p => {
         const ans = p.answers && p.answers[index];
         return !ans || ans.score < 100;
       });
@@ -161,6 +189,7 @@ export default function Results({ players, setView, socket, session, isHost, pla
     });
   };
 
+  // TASK 5: Frictionless Rematch / Failed Words Replay
   const handleRetryFailedWordsClick = () => {
     const failedWords = getFailedWords();
     if (failedWords.length === 0) {
@@ -168,10 +197,12 @@ export default function Results({ players, setView, socket, session, isHost, pla
       return;
     }
 
-    if (isSolo) {
+    const activePlayersCount = Object.keys(currentPlayers).length;
+    // If only 1 player is currently present or it's a solo game, start IMMEDIATELY without waiting
+    if (activePlayersCount <= 1 || isSolo) {
       createSoloFailedSession(failedWords);
     } else {
-      // Multiplayer: propose to other players in the room
+      // Multiplayer: propose to opponent in room
       setWaitingForProposalResp(true);
       socket.emit('propose_retry_failed_words', {
         sessionId: session.id,
@@ -200,7 +231,8 @@ export default function Results({ players, setView, socket, session, isHost, pla
 
   const handleRematchClick = () => {
     if (!session?.id) return alert("Revanche indisponible.");
-    if (isSolo) {
+    const activePlayersCount = Object.keys(currentPlayers).length;
+    if (activePlayersCount <= 1 || isSolo) {
       socket.emit('rematch', session.id);
     } else {
       setWaitingForRematchResp(true);
@@ -256,7 +288,7 @@ export default function Results({ players, setView, socket, session, isHost, pla
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%', textAlign: 'center', position: 'relative' }}>
+    <div style={{ maxWidth: '820px', margin: '0 auto', width: '100%', textAlign: 'center', position: 'relative' }}>
       
       {/* Waiting Indicator for multiplayer failed words proposal */}
       {waitingForProposalResp && (
@@ -265,7 +297,7 @@ export default function Results({ players, setView, socket, session, isHost, pla
           border: '2px solid var(--danger)',
           borderRadius: '16px',
           padding: '1rem 1.5rem',
-          marginBottom: '1.5rem',
+          marginBottom: '1.2rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -297,7 +329,7 @@ export default function Results({ players, setView, socket, session, isHost, pla
           border: '2px solid var(--primary)',
           borderRadius: '16px',
           padding: '1rem 1.5rem',
-          marginBottom: '1.5rem',
+          marginBottom: '1.2rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -322,41 +354,230 @@ export default function Results({ players, setView, socket, session, isHost, pla
         </div>
       )}
 
-      {/* Main Results Card */}
-      <div className="card" style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '3rem', marginBottom: '1rem', color: 'var(--text-main)' }}>
-          {isDraw ? 'Égalité !' : 'Partie Terminée !'}
-        </h1>
+      {/* =========================================================
+          TASK 4 : REDESIGN DU PODIUM (GAGNANT LUMINEUX & PERDANT ATTÉNUÉ)
+         ========================================================= */}
+      <div className="card" style={{ marginBottom: '1.5rem', padding: '1.5rem 1.2rem' }}>
         
-        {!isDraw && winner && (
-          <h2 style={{ color: 'var(--success)', marginBottom: '3rem', fontSize: '2rem' }}>
-            {formatPlayerName(winner.name)} gagne avec {winner.score} pts 🏆
-          </h2>
-        )}
-
-        {/* Players podium list */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2.5rem' }}>
-          {playerArr.map((p, i) => (
-            <div key={p.id} style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
+        {/* Victory / Result Title */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <h1 style={{
+            fontSize: '2.5rem',
+            fontWeight: 900,
+            margin: '0 0 0.5rem 0',
+            background: isDraw 
+              ? 'linear-gradient(135deg, #f59e0b, #6366f1)' 
+              : 'linear-gradient(135deg, #ffffff 0%, var(--primary) 50%, var(--secondary) 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            letterSpacing: '1px'
+          }}>
+            {isDraw ? '🤝 Égalité Parfaite !' : isSolo ? '🏆 Session Terminée !' : '⚔️ Partie Terminée !'}
+          </h1>
+          
+          {!isDraw && winner && !isSolo && (
+            <div style={{
+              display: 'inline-flex',
               alignItems: 'center',
-              padding: '1.5rem',
-              background: i === 0 && !isDraw ? 'rgba(34, 197, 94, 0.1)' : 'var(--bg-main)',
-              borderRadius: '16px',
-              border: `2px solid ${i === 0 && !isDraw ? 'var(--success)' : 'var(--border-color)'}`
+              gap: '0.5rem',
+              background: 'rgba(245, 158, 11, 0.15)',
+              border: '1px solid #f59e0b',
+              padding: '0.35rem 1rem',
+              borderRadius: '20px',
+              color: '#f59e0b',
+              fontWeight: 800,
+              fontSize: '1rem'
             }}>
-              <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
-                {i === 0 ? '🥇' : '🥈'} {formatPlayerName(p.name)} {p.id === socket.id ? '(Vous)' : ''}
-              </span>
-              <span style={{ fontSize: '2.5rem', fontWeight: '800', color: i === 0 && !isDraw ? 'var(--success)' : 'var(--primary)' }}>
-                {p.score} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>pts</span>
-              </span>
+              <span>👑</span>
+              <span>Victoire de {formatPlayerName(winner.name)} avec {winner.score} pts !</span>
             </div>
-          ))}
+          )}
         </div>
 
-        {/* Action Buttons */}
+        {/* Players Podium Cards Grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: playerArr.length > 1 ? 'repeat(auto-fit, minmax(260px, 1fr))' : '1fr',
+          gap: '1rem',
+          marginBottom: '1.8rem'
+        }}>
+          {playerArr.map((p, i) => {
+            const isWinner = i === 0 && !isDraw;
+            const isMe = p.id === socket.id;
+
+            return (
+              <div
+                key={p.id}
+                className={isWinner ? 'winner-card-podium' : (playerArr.length > 1 && !isDraw ? 'loser-card-podium' : 'card')}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  padding: '1.4rem 1rem',
+                  borderRadius: '20px',
+                  gap: '0.6rem',
+                  position: 'relative'
+                }}
+              >
+                {/* Winner / Rank Badge */}
+                {isWinner && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '-12px',
+                    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                    color: '#ffffff',
+                    fontSize: '0.72rem',
+                    fontWeight: 900,
+                    padding: '0.2rem 0.8rem',
+                    borderRadius: '12px',
+                    letterSpacing: '1px',
+                    boxShadow: '0 4px 10px rgba(245, 158, 11, 0.5)'
+                  }}>
+                    👑 GAGNANT DUEL
+                  </div>
+                )}
+
+                <div style={{ fontSize: '2.4rem', marginTop: isWinner ? '0.3rem' : '0' }}>
+                  {p.avatar || (i === 0 ? '🥇' : '🥈')}
+                </div>
+
+                <div style={{ fontWeight: 900, fontSize: '1.2rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>{formatPlayerName(p.name)}</span>
+                  {isMe && <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 800 }}>(Vous)</span>}
+                </div>
+
+                <div style={{
+                  fontSize: '2.4rem',
+                  fontWeight: 900,
+                  color: isWinner ? '#f59e0b' : 'var(--primary)',
+                  letterSpacing: '1px',
+                  lineHeight: 1
+                }}>
+                  {p.score} <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 600 }}>pts</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* =========================================================
+            TASK 4 : MINI-CHAT DIRECTEMENT INTÉGRÉ (RÉSULTATS)
+           ========================================================= */}
+        <div style={{
+          background: 'var(--bg-main)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '16px',
+          padding: '0.9rem',
+          marginBottom: '1.5rem',
+          textAlign: 'left'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-main)' }}>
+              <span>💬</span>
+              <span>Mini-Chat de fin de partie</span>
+            </div>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              {chatMessages.length} message(s)
+            </span>
+          </div>
+
+          {/* Preset Quick Reaction Phrases */}
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
+            {PRESET_RESULTS_CHAT.map((phrase, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSendChatMessage(phrase)}
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-main)',
+                  borderRadius: '12px',
+                  padding: '0.25rem 0.6rem',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
+              >
+                {phrase}
+              </button>
+            ))}
+          </div>
+
+          {/* Mini-Chat Messages List */}
+          <div style={{
+            height: '110px',
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.4rem',
+            paddingRight: '0.3rem',
+            marginBottom: '0.6rem'
+          }}>
+            {chatMessages.length === 0 ? (
+              <div style={{ margin: 'auto', fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                Échangez avec votre adversaire avant de relancer ! 👋
+              </div>
+            ) : (
+              chatMessages.map(m => {
+                const isMe = m.senderId === socket.id;
+                return (
+                  <div
+                    key={m.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      alignSelf: isMe ? 'flex-end' : 'flex-start',
+                      maxWidth: '90%'
+                    }}
+                  >
+                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isMe ? 'var(--primary)' : 'var(--text-muted)' }}>
+                      {isMe ? 'Moi' : formatPlayerName(m.senderName)}:
+                    </span>
+                    <span style={{
+                      background: isMe ? 'rgba(99, 102, 241, 0.18)' : 'var(--bg-surface)',
+                      border: '1px solid var(--border-color)',
+                      padding: '0.2rem 0.55rem',
+                      borderRadius: '8px',
+                      fontSize: '0.82rem',
+                      color: 'var(--text-main)',
+                      wordBreak: 'break-word'
+                    }}>
+                      {m.text}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+            <div ref={chatBottomRef} />
+          </div>
+
+          {/* Mini-Chat Input */}
+          <form onSubmit={handleSendChatMessage} style={{ display: 'flex', gap: '0.4rem' }}>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="Écrire un message rapide..."
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              maxLength={150}
+              style={{ padding: '0.45rem 0.8rem', fontSize: '0.85rem' }}
+            />
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={!chatInput.trim()}
+              style={{ width: 'auto', padding: '0.45rem 0.9rem', fontSize: '0.85rem' }}
+            >
+              Envoyer
+            </button>
+          </form>
+        </div>
+
+        {/* Action Buttons Bar */}
         <div className="mobile-stack" style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
           
           {/* Button 1: Leave & Home */}
@@ -366,17 +587,24 @@ export default function Results({ players, setView, socket, session, isHost, pla
               if (session?.id) socket.emit('leave_session', session.id);
               setView('home');
             }} 
-            style={{ flex: 1, minWidth: '130px' }}
+            style={{ flex: 1, minWidth: '130px', padding: '0.75rem 1rem' }}
           >
             ← Accueil
           </button>
           
-          {/* Button 2: Retry Failed Words */}
+          {/* Button 2: Retry Failed Words (TASK 5: INSTANT SOLO IF OPPONENT LEFT) */}
           <button 
             className="btn btn-secondary" 
             onClick={handleRetryFailedWordsClick} 
             disabled={waitingForProposalResp || waitingForRematchResp}
-            style={{ flex: 1.2, borderColor: 'var(--danger)', color: 'var(--danger)', minWidth: '150px' }}
+            style={{
+              flex: 1.3,
+              borderColor: 'var(--danger)',
+              color: 'var(--danger)',
+              minWidth: '160px',
+              padding: '0.75rem 1rem',
+              fontWeight: 800
+            }}
           >
             🎯 {isSolo ? 'Mots manqués' : 'Rejouer les fautes'}
           </button>
@@ -386,61 +614,37 @@ export default function Results({ players, setView, socket, session, isHost, pla
             className="btn btn-primary" 
             onClick={handleRematchClick} 
             disabled={waitingForProposalResp || waitingForRematchResp}
-            style={{ flex: 1.8, minWidth: '180px' }}
+            style={{
+              flex: 1.8,
+              minWidth: '180px',
+              padding: '0.75rem 1.2rem',
+              fontWeight: 900,
+              letterSpacing: '0.5px'
+            }}
           >
             🔄 {isSolo ? 'Rejouer (Lobby)' : 'Demander Revanche'}
-          </button>
-
-          {/* Button 4: Chat Box Toggle */}
-          <button
-            className="btn btn-secondary"
-            onClick={handleOpenChat}
-            style={{
-              width: 'auto',
-              padding: '0.8rem 1.2rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              position: 'relative'
-            }}
-            title="Ouvrir le chat de session"
-          >
-            <span>💬</span> Chat
-            {unreadChatCount > 0 && (
-              <span style={{
-                background: 'var(--danger)',
-                color: '#fff',
-                fontSize: '0.7rem',
-                fontWeight: 900,
-                borderRadius: '10px',
-                padding: '0.1rem 0.45rem',
-                marginLeft: '0.2rem'
-              }}>
-                {unreadChatCount}
-              </span>
-            )}
           </button>
         </div>
       </div>
 
-      {/* Detailed Game Summary */}
+      {/* Detailed Game Summary List */}
       {session && session.vocabList && (
-        <div className="card" style={{ textAlign: 'left' }}>
-          <h3 style={{ marginBottom: '1.5rem', textAlign: 'center', fontSize: '1.5rem' }}>📝 Résumé de la partie</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="card" style={{ textAlign: 'left', padding: '1.25rem' }}>
+          <h3 style={{ marginBottom: '1.2rem', textAlign: 'center', fontSize: '1.35rem' }}>📝 Résumé des questions & réponses</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
             {session.vocabList.slice(0, session.currentQuestionIndex || session.vocabList.length).map((word, index) => (
-              <div key={index} style={{ padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '2px solid var(--border-color)' }}>
-                <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--text-main)' }}>{word.question}</span>
-                  <span style={{ color: 'var(--text-muted)', fontWeight: '600' }}>👉 {word.answer}</span>
+              <div key={index} style={{ padding: '0.9rem 1rem', background: 'var(--bg-main)', borderRadius: '14px', border: '1px solid var(--border-color)' }}>
+                <div style={{ marginBottom: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)' }}>{word.question}</span>
+                  <span style={{ color: 'var(--primary)', fontWeight: '700', fontSize: '0.95rem' }}>👉 {word.answer}</span>
                 </div>
                 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '2px dashed var(--border-color)' }}>
-                  {Object.values(players).map(p => {
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.6rem', paddingTop: '0.6rem', borderTop: '1px dashed var(--border-color)' }}>
+                  {Object.values(currentPlayers).map(p => {
                     const ans = p.answers && p.answers[index];
                     return (
-                      <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>{formatPlayerName(p.name)} :</span>
+                      <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                        <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{formatPlayerName(p.name)} :</span>
                         <span style={{ fontWeight: 'bold' }}>
                           {ans ? renderDiff(ans.expected, ans.answer, ans.score >= 100, ans.isTypo) : <span style={{ color: 'var(--danger)' }}>(Non répondu)</span>}
                         </span>
@@ -562,157 +766,6 @@ export default function Results({ players, setView, socket, session, isHost, pla
         </div>
       )}
 
-      {/* =========================================================
-          MODAL / DRAWER : CHAT BOX DU LOBBY
-         ========================================================= */}
-      {showChat && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          backgroundColor: 'rgba(0, 0, 0, 0.65)',
-          backdropFilter: 'blur(5px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 2500,
-          padding: '1rem'
-        }}>
-          <div className="card" style={{
-            width: '100%',
-            maxWidth: '520px',
-            maxHeight: '85vh',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.8rem',
-            padding: '1.2rem',
-            borderRadius: '20px',
-            background: 'var(--bg-surface)',
-            border: '2px solid var(--primary)',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
-          }}>
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.6rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>💬</span> Chat de session (#{session?.id || '—'})
-              </h3>
-              <button
-                onClick={() => setShowChat(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.3rem', cursor: 'pointer', padding: '0.2rem 0.5rem' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Messages Scroll Area */}
-            <div style={{
-              height: '320px',
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.5rem',
-              paddingRight: '0.4rem'
-            }}>
-              {chatMessages.length === 0 ? (
-                <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', margin: 'auto' }}>
-                  Aucun message pour le moment. Dites bonjour ! 👋
-                </div>
-              ) : (
-                chatMessages.map((m) => {
-                  if (m.isSystem) {
-                    return (
-                      <div
-                        key={m.id}
-                        style={{
-                          textAlign: 'center',
-                          fontSize: '0.75rem',
-                          color: 'var(--text-muted)',
-                          background: 'var(--bg-main)',
-                          padding: '0.3rem 0.6rem',
-                          borderRadius: '8px',
-                          margin: '0.1rem auto',
-                          maxWidth: '92%',
-                          border: '1px dashed var(--border-color)'
-                        }}
-                      >
-                        {m.text}
-                      </div>
-                    );
-                  }
-
-                  const isMe = m.senderId === socket.id;
-
-                  return (
-                    <div
-                      key={m.id}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: isMe ? 'flex-end' : 'flex-start',
-                        maxWidth: '85%',
-                        alignSelf: isMe ? 'flex-end' : 'flex-start'
-                      }}
-                    >
-                      <div style={{
-                        fontSize: '0.7rem',
-                        color: 'var(--text-muted)',
-                        marginBottom: '0.15rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.25rem'
-                      }}>
-                        <span>{m.senderAvatar || '👤'}</span>
-                        <span>{isMe ? 'Vous' : m.senderName}</span>
-                        <span style={{ opacity: 0.6 }}>• {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-
-                      <div style={{
-                        padding: '0.5rem 0.8rem',
-                        borderRadius: isMe ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
-                        background: isMe ? 'var(--primary)' : 'var(--bg-main)',
-                        color: isMe ? '#ffffff' : 'var(--text-main)',
-                        border: isMe ? 'none' : '1px solid var(--border-color)',
-                        fontSize: '0.85rem',
-                        wordBreak: 'break-word',
-                        textAlign: 'left'
-                      }}>
-                        {m.text}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-              <div ref={chatBottomRef} />
-            </div>
-
-            {/* Input & Send Form */}
-            <form onSubmit={handleSendChatMessage} style={{ display: 'flex', gap: '0.4rem', paddingTop: '0.4rem', borderTop: '1px solid var(--border-color)' }}>
-              <input
-                type="text"
-                className="input-field"
-                placeholder="Écrire un message..."
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                maxLength={250}
-                autoFocus
-                style={{ padding: '0.5rem 0.8rem', fontSize: '0.85rem' }}
-              />
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={!chatInput.trim()}
-                style={{ width: 'auto', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-              >
-                Envoyer
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }
-
