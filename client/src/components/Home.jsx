@@ -3,6 +3,11 @@ import { exampleLists } from '../data/exampleLists';
 import { formatPlayerName, getClientPlayerKey } from '../utils/formatters';
 import ListCard from './ListCard';
 
+const listsCache = {
+  public: null,
+  archived: {} // keyed by user.uid
+};
+
 export default function Home({ 
   socket, 
   playerName, 
@@ -30,8 +35,8 @@ export default function Home({
   const [rawText, setRawText] = useState('la table = der Tisch\nla chaise = der Stuhl\nla maison = das Haus');
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
-  const [archivedLists, setArchivedLists] = useState([]);
-  const [publicLists, setPublicLists] = useState([]);
+  const [archivedLists, setArchivedLists] = useState(() => user && listsCache.archived[user.uid] ? listsCache.archived[user.uid] : []);
+  const [publicLists, setPublicLists] = useState(() => listsCache.public || []);
   const [isConnected, setIsConnected] = useState(true);
   const [soloWordCount, setSoloWordCount] = useState(10);
   const [showWordEditor, setShowWordEditor] = useState(false);
@@ -89,17 +94,28 @@ export default function Home({
     fetch(`${API_URL}/api/lists/public`)
       .then(res => res.json())
       .then(data => {
-        if (Array.isArray(data)) setPublicLists(data);
+        if (Array.isArray(data)) {
+          listsCache.public = data;
+          setPublicLists(data);
+        }
       })
       .catch(console.error);
 
     if (user) {
+      if (listsCache.archived[user.uid]) {
+        setArchivedLists(listsCache.archived[user.uid]);
+      }
       fetch(`${API_URL}/api/lists/${user.uid}`)
         .then(res => res.json())
         .then(data => {
-          if (Array.isArray(data)) setArchivedLists(data);
+          if (Array.isArray(data)) {
+            listsCache.archived[user.uid] = data;
+            setArchivedLists(data);
+          }
         })
         .catch(console.error);
+    } else {
+      setArchivedLists([]);
     }
   }, [user]);
 

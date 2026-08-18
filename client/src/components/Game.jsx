@@ -192,7 +192,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
 
   // Socket Events
   useEffect(() => {
-    socket.on('new_question', (data) => {
+    const onNewQuestion = (data) => {
       setQuestion(data.question);
       setQuestionIndex(data.questionIndex);
       setTotalQuestions(data.totalQuestions);
@@ -208,9 +208,9 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       setLeaveRequestState('none');
       setDisconnectGrace({ disconnected: false, playerName: '', secondsRemaining: 30 });
       setTimeout(() => inputRef.current?.focus(), 100);
-    });
+    };
 
-    socket.on('round_results', (result) => {
+    const onRoundResults = (result) => {
       setHasAnswered(true);
       setRoundResult(result);
       setPlayers(result.players);
@@ -232,27 +232,24 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       if (result.correctAnswer) {
         setTimeout(() => playAudio(result.correctAnswer), 500);
       }
-    });
+    };
 
-    socket.on('joker_result', (hint) => {
-      setJokerHint(hint);
-    });
+    const onJokerResult = (hint) => setJokerHint(hint);
 
-    socket.on('powerup_frozen', (durationSeconds) => {
+    const onPowerupFrozen = (durationSeconds) => {
       setIsFrozen(true);
       setTimeout(() => setIsFrozen(false), durationSeconds * 1000);
-    });
+    };
 
-    // Pause / Resume sockets
-    socket.on('game_paused', (data) => {
+    const onGamePaused = (data) => {
       setIsPaused(true);
       setPauseData(data);
       if (typeof data.timeRemaining === 'number') {
         setTimeRemaining(data.timeRemaining);
       }
-    });
+    };
 
-    socket.on('game_resumed', (data) => {
+    const onGameResumed = (data) => {
       setIsPaused(false);
       setPauseData(null);
       setLeaveRequestState('none');
@@ -260,34 +257,28 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       if (typeof data?.timeRemaining === 'number') {
         setTimeRemaining(data.timeRemaining);
       }
-    });
+    };
 
-    socket.on('pause_disabled', () => {
-      showToast("L'hôte a désactivé la mise en pause pour cette partie.", 'error');
-    });
+    const onPauseDisabled = () => showToast("L'hôte a désactivé la mise en pause pour cette partie.", 'error');
 
-    // Leave request sockets
-    socket.on('terminate_requested', (data) => {
+    const onTerminateRequested = (data) => {
       setLeaveRequestState('received');
       setLeaveRequesterName(data?.requesterName || "L'adversaire");
-    });
+    };
 
-    socket.on('terminate_pending', () => {
-      setLeaveRequestState('pending');
-    });
+    const onTerminatePending = () => setLeaveRequestState('pending');
 
-    socket.on('terminate_cancelled', () => {
+    const onTerminateCancelled = () => {
       setLeaveRequestState('none');
       showToast("La demande d'arrêt a été annulée. La partie reprend !", 'info');
-    });
+    };
 
-    socket.on('terminate_refused', () => {
+    const onTerminateRefused = () => {
       setLeaveRequestState('none');
       showToast("L'adversaire a refusé l'arrêt de la partie. La partie continue !", 'warning');
-    });
+    };
 
-    // Disconnection & Reconnection handling
-    socket.on('player_disconnected_grace', (data) => {
+    const onPlayerDisconnectedGrace = (data) => {
       if (data.playerId !== socket.id) {
         setDisconnectGrace({
           disconnected: true,
@@ -295,35 +286,29 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           secondsRemaining: data.graceSeconds || 30
         });
       }
-    });
+    };
 
-    socket.on('player_reconnected', (data) => {
+    const onPlayerReconnected = (data) => {
       setDisconnectGrace({ disconnected: false, playerName: '', secondsRemaining: 30 });
       setIsPaused(false);
       showToast(`⚡ ${formatPlayerName(data.playerName) || 'Adversaire'} s'est reconnecté ! La partie reprend.`, 'success');
-    });
+    };
 
-    socket.on('ready_count', (data) => {
-      setReadyCount(data);
-    });
+    const onReadyCount = (data) => setReadyCount(data);
 
-    // In-game & Pause Chat Messages
-    socket.on('game_chat_message', (msg) => {
+    const onGameChatMessage = (msg) => {
       if (setChatMessages) {
         setChatMessages(prev => {
           if (msg.id && prev.some(m => m.id === msg.id)) return prev;
           return [...prev, msg];
         });
       }
-      
-      // Add to floating bubbles (visible for 3.5s in top-right)
       setFloatingBubbles(prev => [...prev.slice(-3), msg]);
       setTimeout(() => {
         setFloatingBubbles(prev => prev.filter(b => b.id !== msg.id));
       }, 3500);
-    });
+    };
 
-    // In-game Floating Reaction Burst Listener (Full-Screen Telegram Burst from Opponent)
     const handleReactionBurst = (data) => {
       if (data?.particles && Array.isArray(data.particles)) {
         setFloatingReactions(prev => [...prev, ...data.particles]);
@@ -341,25 +326,40 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       }
     };
 
+    socket.on('new_question', onNewQuestion);
+    socket.on('round_results', onRoundResults);
+    socket.on('joker_result', onJokerResult);
+    socket.on('powerup_frozen', onPowerupFrozen);
+    socket.on('game_paused', onGamePaused);
+    socket.on('game_resumed', onGameResumed);
+    socket.on('pause_disabled', onPauseDisabled);
+    socket.on('terminate_requested', onTerminateRequested);
+    socket.on('terminate_pending', onTerminatePending);
+    socket.on('terminate_cancelled', onTerminateCancelled);
+    socket.on('terminate_refused', onTerminateRefused);
+    socket.on('player_disconnected_grace', onPlayerDisconnectedGrace);
+    socket.on('player_reconnected', onPlayerReconnected);
+    socket.on('ready_count', onReadyCount);
+    socket.on('game_chat_message', onGameChatMessage);
     socket.on('floating_reaction_burst', handleReactionBurst);
     socket.on('floating_reaction', handleReactionBurst);
 
     return () => {
-      socket.off('new_question');
-      socket.off('round_results');
-      socket.off('ready_count');
-      socket.off('joker_result');
-      socket.off('powerup_frozen');
-      socket.off('game_paused');
-      socket.off('game_resumed');
-      socket.off('pause_disabled');
-      socket.off('terminate_requested');
-      socket.off('terminate_pending');
-      socket.off('terminate_cancelled');
-      socket.off('terminate_refused');
-      socket.off('player_disconnected_grace');
-      socket.off('player_reconnected');
-      socket.off('game_chat_message');
+      socket.off('new_question', onNewQuestion);
+      socket.off('round_results', onRoundResults);
+      socket.off('joker_result', onJokerResult);
+      socket.off('powerup_frozen', onPowerupFrozen);
+      socket.off('game_paused', onGamePaused);
+      socket.off('game_resumed', onGameResumed);
+      socket.off('pause_disabled', onPauseDisabled);
+      socket.off('terminate_requested', onTerminateRequested);
+      socket.off('terminate_pending', onTerminatePending);
+      socket.off('terminate_cancelled', onTerminateCancelled);
+      socket.off('terminate_refused', onTerminateRefused);
+      socket.off('player_disconnected_grace', onPlayerDisconnectedGrace);
+      socket.off('player_reconnected', onPlayerReconnected);
+      socket.off('ready_count', onReadyCount);
+      socket.off('game_chat_message', onGameChatMessage);
       socket.off('floating_reaction_burst', handleReactionBurst);
       socket.off('floating_reaction', handleReactionBurst);
     };
