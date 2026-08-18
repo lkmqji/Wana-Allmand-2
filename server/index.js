@@ -465,10 +465,14 @@ app.post('/api/users/sync', async (req, res) => {
     try {
         const { firebaseId, name } = req.body;
         let user = await User.findOne({ firebaseId });
+        const now = new Date();
         if (!user) {
-            user = await User.create({ firebaseId, name });
-        } else if (user.name !== name) {
-            user.name = name;
+            user = await User.create({ firebaseId, name, lastLogin: now, createdAt: now });
+        } else {
+            if (name && user.name !== name) {
+                user.name = name;
+            }
+            user.lastLogin = now;
             await user.save();
         }
         res.json(user);
@@ -507,6 +511,7 @@ io.on('connection', (socket) => {
     socket.on('register_user', (firebaseId) => {
         if (firebaseId) {
             socket.join(`user_${firebaseId}`);
+            User.updateOne({ firebaseId }, { $set: { lastLogin: new Date() } }).catch(() => {});
         }
     });
 
@@ -514,6 +519,7 @@ io.on('connection', (socket) => {
     socket.on('register_online_user', ({ firebaseId, name, avatar }) => {
         if (firebaseId) {
             socket.join(`user_${firebaseId}`);
+            User.updateOne({ firebaseId }, { $set: { lastLogin: new Date() } }).catch(() => {});
         }
         const existing = onlineUsers.get(socket.id);
         onlineUsers.set(socket.id, {

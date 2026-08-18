@@ -58,3 +58,48 @@ export function getClientPlayerKey() {
     return 'usr_' + Math.random().toString(36).substring(2, 10);
   }
 }
+
+/**
+ * Formats a date timestamp into a human-friendly French string with exact time
+ * e.g. "Aujourd'hui à 14:25", "Hier à 18:30", "12/05/2026 à 09:15"
+ */
+export function formatLastLogin(dateInput) {
+  if (!dateInput) return "Jamais";
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return "Inconnue";
+
+  const now = new Date();
+  const timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  
+  const isToday = now.toDateString() === date.toDateString();
+  if (isToday) {
+    return `Aujourd'hui à ${timeStr}`;
+  }
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday = yesterday.toDateString() === date.toDateString();
+  if (isYesterday) {
+    return `Hier à ${timeStr}`;
+  }
+
+  const dateStr = date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return `${dateStr} à ${timeStr}`;
+}
+
+/**
+ * Returns full date and time string with seconds
+ */
+export function formatFullDateTime(dateInput) {
+  if (!dateInput) return "-";
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return "-";
+  return date.toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+}

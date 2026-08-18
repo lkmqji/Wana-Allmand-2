@@ -38,6 +38,7 @@ function App() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [toastNotif, setToastNotif] = useState(null);
   const [serverGuestMode, setServerGuestMode] = useState(true); // from server config
+  const [comingSoonFeaturesEnabled, setComingSoonFeaturesEnabled] = useState(false);
   const [theme, setTheme] = useState('dark');
   const [leaderboard, setLeaderboard] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
@@ -64,6 +65,7 @@ function App() {
       .then(r => r.json())
       .then(data => {
         setServerGuestMode(data.guestMode ?? true);
+        if (data.comingSoonFeaturesEnabled !== undefined) setComingSoonFeaturesEnabled(data.comingSoonFeaturesEnabled);
         if (data.announcement) setAnnouncement(data.announcement);
       })
       .catch(() => {});
@@ -582,6 +584,7 @@ function App() {
             isGuest={isGuest}
             setIsGuest={setIsGuest}
             isAdmin={isAdmin}
+            comingSoonFeaturesEnabled={comingSoonFeaturesEnabled}
             onOpenAdmin={() => setShowAdmin(true)}
           />
         )}

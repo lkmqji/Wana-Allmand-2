@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { exampleLists } from '../data/exampleLists';
 import { formatPlayerName, getClientPlayerKey } from '../utils/formatters';
 
-export default function Home({ socket, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout, deleteAccount, activeTab, leaderboard, isGuest, setIsGuest, isAdmin, onOpenAdmin }) {
+export default function Home({ socket, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout, deleteAccount, activeTab, leaderboard, isGuest, setIsGuest, isAdmin, comingSoonFeaturesEnabled = false, onOpenAdmin }) {
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
   const [prepTab, setPrepTab] = useState('pdf'); // 'pdf', 'text', 'examples', 'settings'
   const [joinCode, setJoinCode] = useState('');
@@ -215,8 +215,18 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
       });
       const data = await res.json();
       if (data.vocabList && data.vocabList.length > 0) {
-        handleStartDirectSession(data.vocabList);
-        if (autoSaveEnabled) {
+        const words = data.vocabList.map((w, idx) => ({
+          id: Date.now() + idx,
+          question: w.question,
+          answer: w.answer
+        }));
+        setManualWords(words);
+        setListTitle(`Extraction Texte - ${new Date().toLocaleDateString()}`);
+        setEditingListId(null);
+        setShowWordEditor(true);
+        setImportNotice(`✨ ${words.length} mots extraits avec succès ! Vous pouvez les modifier ou lancer la session.`);
+
+        if (autoSaveEnabled && user) {
           await saveList(data.vocabList, `Extraction IA - ${new Date().toLocaleDateString()}`);
         }
       } else {
@@ -247,8 +257,18 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
       });
       const data = await res.json();
       if (data.vocabList && data.vocabList.length > 0) {
-        handleStartDirectSession(data.vocabList);
-        if (autoSaveEnabled) {
+        const words = data.vocabList.map((w, idx) => ({
+          id: Date.now() + idx,
+          question: w.question,
+          answer: w.answer
+        }));
+        setManualWords(words);
+        setListTitle(`Thème: ${themeInput}`);
+        setEditingListId(null);
+        setShowWordEditor(true);
+        setImportNotice(`🎉 ${words.length} mots générés sur le thème "${themeInput}" !`);
+
+        if (autoSaveEnabled && user) {
           await saveList(data.vocabList, `Thème: ${themeInput}`);
         }
       } else {
@@ -447,24 +467,73 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
                 </label>
               </div>
 
-              {/* BOX 2 : Génération IA (blurred) */}
-              <div className="card" style={{ position: 'relative', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
+              {/* BOX 2 : Génération IA (unlocked for admin or if enabled) */}
+              <div className="card" style={{ position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                {!isAdmin && !comingSoonFeaturesEnabled && (
+                  <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+                  <h4 style={{ margin: 0 }}>🎨 Génération IA</h4>
+                  {isAdmin && (
+                    <span style={{ fontSize: '0.75rem', background: 'rgba(99,102,241,0.2)', color: '#a78bfa', padding: '0.15rem 0.5rem', borderRadius: '8px', fontWeight: 'bold' }}>
+                      👑 Accès Admin
+                    </span>
+                  )}
                 </div>
-                <h4 style={{ marginBottom: '1rem' }}>🎨 Génération IA</h4>
-                <input type="text" className="input-field" placeholder="Thème" value={themeInput} onChange={(e) => setThemeInput(e.target.value)} style={{ marginBottom: '1rem', padding: '0.8rem 1rem' }} />
-                <button className="btn btn-secondary" disabled>Créer</button>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  placeholder="Thème (ex: Voyage, Restaurant, Cuisine...)" 
+                  value={themeInput} 
+                  onChange={(e) => setThemeInput(e.target.value)} 
+                  onKeyDown={(e) => { if (e.key === 'Enter' && (isAdmin || comingSoonFeaturesEnabled)) handleGenerateTheme(); }}
+                  disabled={!isAdmin && !comingSoonFeaturesEnabled}
+                  style={{ marginBottom: '0.8rem', padding: '0.7rem 0.9rem' }} 
+                />
+                <button 
+                  className="btn btn-primary" 
+                  onClick={handleGenerateTheme}
+                  disabled={(!isAdmin && !comingSoonFeaturesEnabled) || isGeneratingTheme || !themeInput.trim()}
+                  style={{ marginTop: 'auto' }}
+                >
+                  {isGeneratingTheme ? '⏳ Génération en cours...' : '🎨 Créer'}
+                </button>
               </div>
 
-              {/* BOX 3 : Coller du texte (blurred) */}
-              <div className="card" style={{ position: 'relative', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
+              {/* BOX 3 : Coller du texte (unlocked for admin or if enabled) */}
+              <div className="card" style={{ position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                {!isAdmin && !comingSoonFeaturesEnabled && (
+                  <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+                  <h4 style={{ margin: 0 }}>📝 Coller du Texte</h4>
+                  {isAdmin && (
+                    <span style={{ fontSize: '0.75rem', background: 'rgba(99,102,241,0.2)', color: '#a78bfa', padding: '0.15rem 0.5rem', borderRadius: '8px', fontWeight: 'bold' }}>
+                      👑 Accès Admin
+                    </span>
+                  )}
                 </div>
-                <h4 style={{ marginBottom: '1rem' }}>📝 Coller du Texte</h4>
-                <textarea className="input-field" rows={3} value={rawText} onChange={(e) => setRawText(e.target.value)} style={{ fontFamily: 'monospace', fontSize: '0.9rem', marginBottom: '1rem' }} />
-                <button className="btn btn-secondary" disabled>Extraire avec IA</button>
+                <textarea 
+                  className="input-field" 
+                  rows={3} 
+                  value={rawText} 
+                  onChange={(e) => setRawText(e.target.value)} 
+                  disabled={!isAdmin && !comingSoonFeaturesEnabled}
+                  placeholder="Collez ici votre texte ou liste (ex: chien = der Hund)..."
+                  style={{ fontFamily: 'monospace', fontSize: '0.85rem', marginBottom: '0.8rem' }} 
+                />
+                <button 
+                  className="btn btn-primary" 
+                  onClick={handleExtractAI}
+                  disabled={(!isAdmin && !comingSoonFeaturesEnabled) || isExtracting || !rawText.trim()}
+                  style={{ marginTop: 'auto' }}
+                >
+                  {isExtracting ? '⏳ Extraction en cours...' : '⚡ Extraire avec IA'}
+                </button>
               </div>
 
             </div>
