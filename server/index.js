@@ -622,25 +622,38 @@ io.on('connection', (socket) => {
     });
 
     // Floating Reactions (Telegram Burst explosion particles)
-    socket.on('send_reaction_burst', ({ sessionId, particles, senderName }) => {
-        if (!sessionId || !particles) return;
-        io.to(sessionId).emit('floating_reaction_burst', {
-            particles,
+    socket.on('send_reaction_burst', ({ sessionId, roomId, particles, emoji, senderName }) => {
+        const targetSessionId = sessionId || roomId;
+        if (!targetSessionId) return;
+
+        // Clean and extract emoji if string contains text
+        let cleanEmoji = emoji;
+        if (cleanEmoji && typeof cleanEmoji === 'string') {
+            const match = cleanEmoji.match(/(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)/u);
+            cleanEmoji = match ? match[0] : cleanEmoji.split(' ')[0];
+        }
+
+        io.to(targetSessionId).emit('floating_reaction_burst', {
+            emoji: cleanEmoji,
+            particles: Array.isArray(particles) ? particles : null,
             senderName: formatPlayerName(senderName) || 'Joueur',
             senderId: socket.id
         });
     });
 
-    socket.on('send_reaction_emoji', ({ sessionId, emoji, senderName }) => {
-        if (!sessionId || !emoji) return;
+    socket.on('send_reaction_emoji', ({ sessionId, roomId, emoji, senderName }) => {
+        const targetSessionId = sessionId || roomId;
+        if (!targetSessionId || !emoji) return;
+        const match = typeof emoji === 'string' ? emoji.match(/(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)/u) : null;
+        const cleanEmoji = match ? match[0] : (typeof emoji === 'string' ? emoji.split(' ')[0] : '✨');
         const reactionPayload = {
             id: Math.random().toString(36).substring(2, 9) + Date.now(),
-            emoji,
+            emoji: cleanEmoji,
             senderName: formatPlayerName(senderName) || 'Joueur',
             senderId: socket.id,
             xPos: Math.floor(Math.random() * 65) + 15
         };
-        io.to(sessionId).emit('floating_reaction', reactionPayload);
+        io.to(targetSessionId).emit('floating_reaction', reactionPayload);
     });
 
     // Game Invites

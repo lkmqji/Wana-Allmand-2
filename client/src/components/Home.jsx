@@ -216,12 +216,6 @@ export default function Home({
     setListTitle(list.name || 'Ma Liste');
     setImportNotice('');
     setShowWordEditor(true);
-    if (typeof setActiveTab === 'function') {
-      setActiveTab('learn');
-    }
-    if (typeof onNavigate === 'function') {
-      onNavigate('learn');
-    }
   };
 
   const handleExtractAI = async (e) => {

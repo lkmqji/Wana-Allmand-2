@@ -58,3 +58,44 @@ export function getClientPlayerKey() {
     return 'usr_' + Math.random().toString(36).substring(2, 10);
   }
 }
+
+/**
+ * Safely extracts ONLY the emoji from a string (e.g. "💥 Ouch!" -> "💥", "GG! 🏆" -> "🏆", "🔥" -> "🔥")
+ */
+export function extractEmoji(text) {
+  if (!text || typeof text !== 'string') return '✨';
+  const emojiRegex = /(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)/u;
+  const match = text.match(emojiRegex);
+  if (match && match[0]) return match[0];
+  const firstWord = text.trim().split(/\s+/)[0];
+  return firstWord || '✨';
+}
+
+/**
+ * Generates a full-screen Telegram Burst array of 8 particles for a given emoji
+ */
+export function generateBurstParticles(rawTextOrEmoji) {
+  const emoji = extractEmoji(rawTextOrEmoji);
+  const particles = [];
+  const burstCount = 8;
+  for (let i = 0; i < burstCount; i++) {
+    const tx = `${Math.floor(Math.random() * 240) - 120}px`; // -120px to 120px dispersion
+    const ty = `-${Math.floor(Math.random() * 25) + 85}vh`; // -85vh to -110vh (traverses full screen!)
+    const scale = (Math.random() * 0.9 + 1.2).toFixed(2); // 1.2 to 2.1 scale
+    const rot = `${Math.floor(Math.random() * 80) - 40}deg`; // -40deg to 40deg
+    const delay = `${(Math.random() * 0.18).toFixed(2)}s`;
+    const xPos = Math.floor(Math.random() * 70) + 15; // 15% to 85% horizontal launch
+    particles.push({
+      id: Math.random().toString(36).substring(2, 9) + '_' + Date.now() + '_' + i,
+      emoji,
+      tx,
+      ty,
+      scale,
+      rot,
+      delay,
+      xPos
+    });
+  }
+  return { emoji, particles };
+}
+

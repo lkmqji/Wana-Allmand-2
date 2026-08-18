@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { formatPlayerName } from '../utils/formatters';
+import { formatPlayerName, extractEmoji, generateBurstParticles } from '../utils/formatters';
 
 const PRESET_PHRASES = [
   "💥 Ouch!",
@@ -28,6 +28,20 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const [hasAnswered, setHasAnswered] = useState(false);
   const [roundResult, setRoundResult] = useState(null); // { players: {}, correctAnswer: '' }
   const [players, setPlayers] = useState(session?.players || {});
+  
+  // Telegram Burst Floating Reactions & Cooldown
+  const [floatingReactions, setFloatingReactions] = useState([]);
+  const [reactionCooldown, setReactionCooldown] = useState(0);
+
+  // Cooldown timer ticker
+  useEffect(() => {
+    if (reactionCooldown > 0) {
+      const timer = setInterval(() => {
+        setReactionCooldown(c => Math.max(0, c - 1));
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [reactionCooldown]);
   
   const [jokers, setJokers] = useState(2);
   const [jokerHint, setJokerHint] = useState('');
@@ -309,6 +323,27 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       }, 3500);
     });
 
+    // In-game Floating Reaction Burst Listener (Full-Screen Telegram Burst from Opponent)
+    const handleReactionBurst = (data) => {
+      if (data?.particles && Array.isArray(data.particles)) {
+        setFloatingReactions(prev => [...prev, ...data.particles]);
+        setTimeout(() => {
+          const idsToRemove = new Set(data.particles.map(p => p.id));
+          setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
+        }, 2500);
+      } else if (data?.emoji) {
+        const { particles } = generateBurstParticles(data.emoji);
+        setFloatingReactions(prev => [...prev, ...particles]);
+        setTimeout(() => {
+          const idsToRemove = new Set(particles.map(p => p.id));
+          setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
+        }, 2500);
+      }
+    };
+
+    socket.on('floating_reaction_burst', handleReactionBurst);
+    socket.on('floating_reaction', handleReactionBurst);
+
     return () => {
       socket.off('new_question');
       socket.off('round_results');
@@ -325,6 +360,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       socket.off('player_disconnected_grace');
       socket.off('player_reconnected');
       socket.off('game_chat_message');
+      socket.off('floating_reaction_burst', handleReactionBurst);
+      socket.off('floating_reaction', handleReactionBurst);
     };
   }, [socket]);
 
@@ -396,12 +433,34 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
 
   // Chat Actions
   const handleSendQuickMessage = (text) => {
-    if (!text || !text.trim()) return;
+    if (!text || !text.trim() || reactionCooldown > 0) return;
+    
+    // Extract pure emoji (e.g. "💥 Ouch!" -> "💥")
+    const cleanEmoji = extractEmoji(text);
+    const { particles } = generateBurstParticles(cleanEmoji);
+
+    // Instant local explosion feedback for Player A
+    setFloatingReactions(prev => [...prev, ...particles]);
+    setTimeout(() => {
+      const idsToRemove = new Set(particles.map(p => p.id));
+      setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
+    }, 2500);
+
+    // Broadcast burst to Opponent with ONLY the extracted emoji
+    socket.emit('send_reaction_burst', {
+      sessionId: session?.id,
+      emoji: cleanEmoji,
+      particles,
+      senderName: playerName
+    });
+
     socket.emit('game_chat_message', {
       sessionId: session?.id,
       text: text.trim(),
       preset: true
     });
+
+    setReactionCooldown(5);
   };
 
   const handleSendCustomQuickChat = (e) => {
@@ -1333,24 +1392,26 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
         </div>
       </div>
 
-      <style>{`
-        @keyframes fadeOut {
-          from { opacity: 1; }
-          to { opacity: 0; }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: scale(0.98); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        @keyframes slideInRight {
-          from { opacity: 0; transform: translateX(20px) scale(0.95); }
-          to { opacity: 1; transform: translateX(0) scale(1); }
-        }
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.08); }
-        }
-      `}</style>
+      {/* Full-Screen Telegram Burst Floating Reactions Layer */}
+      <div className="floating-reactions-container">
+        {floatingReactions.map((r) => (
+          <span
+            key={r.id}
+            className="floating-reaction-item"
+            style={{
+              left: `${r.xPos || 50}%`,
+              '--tx': r.tx || '0px',
+              '--ty': r.ty || '-95vh',
+              '--scale': r.scale || '1.4',
+              '--rot': r.rot || '0deg',
+              animationDelay: r.delay || '0s'
+            }}
+          >
+            {r.emoji}
+          </span>
+        ))}
+      </div>
+
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { formatPlayerName, getClientPlayerKey } from '../utils/formatters';
+import { formatPlayerName, getClientPlayerKey, extractEmoji, generateBurstParticles } from '../utils/formatters';
 
 const PRESET_RESULTS_CHAT = [
   "GG! 🏆",
@@ -42,34 +42,33 @@ export default function Results({ players = {}, setView, socket, session, isHost
       if (updatedSession?.players) setCurrentPlayers(updatedSession.players);
     };
 
-    const handleReactionBurst = ({ particles }) => {
-      if (Array.isArray(particles)) {
+    const handleReactionBurst = (data) => {
+      if (data?.particles && Array.isArray(data.particles)) {
+        setFloatingReactions(prev => [...prev, ...data.particles]);
+        setTimeout(() => {
+          const idsToRemove = new Set(data.particles.map(p => p.id));
+          setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
+        }, 2500);
+      } else if (data?.emoji) {
+        const { particles } = generateBurstParticles(data.emoji);
         setFloatingReactions(prev => [...prev, ...particles]);
         setTimeout(() => {
           const idsToRemove = new Set(particles.map(p => p.id));
           setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
-        }, 2200);
+        }, 2500);
       }
-    };
-
-    const handleFloatingReaction = (reaction) => {
-      if (!reaction || !reaction.emoji) return;
-      setFloatingReactions(prev => [...prev, reaction]);
-      setTimeout(() => {
-        setFloatingReactions(prev => prev.filter(r => r.id !== reaction.id));
-      }, 2200);
     };
 
     socket.on('player_joined', handlePlayerUpdate);
     socket.on('session_updated', handleSessionUpdate);
     socket.on('floating_reaction_burst', handleReactionBurst);
-    socket.on('floating_reaction', handleFloatingReaction);
+    socket.on('floating_reaction', handleReactionBurst);
 
     return () => {
       socket.off('player_joined', handlePlayerUpdate);
       socket.off('session_updated', handleSessionUpdate);
       socket.off('floating_reaction_burst', handleReactionBurst);
-      socket.off('floating_reaction', handleFloatingReaction);
+      socket.off('floating_reaction', handleReactionBurst);
     };
   }, [socket]);
 
@@ -186,35 +185,25 @@ export default function Results({ players = {}, setView, socket, session, isHost
   }, [chatMessages]);
 
   // TASK 2: Telegram Burst Generator
-  const handleSendReaction = (emoji) => {
+  const handleSendReaction = (rawTextOrEmoji) => {
     if (reactionCooldown > 0 || !session?.id) return;
     const currentName = formatPlayerName(playerName || user?.displayName || 'Moi');
 
-    // Generate burst of 6 to 8 particles
-    const burstCount = Math.floor(Math.random() * 3) + 6;
-    const particles = [];
-    for (let i = 0; i < burstCount; i++) {
-      const tx = `${Math.floor(Math.random() * 200) - 100}px`; // -100px to 100px
-      const ty = `-${Math.floor(Math.random() * 150) + 150}px`; // -150px to -300px
-      const scale = (Math.random() * 0.7 + 0.8).toFixed(2); // 0.8 to 1.5
-      const rot = `${Math.floor(Math.random() * 60) - 30}deg`;
-      const delay = `${(Math.random() * 0.15).toFixed(2)}s`;
-      const xPos = Math.floor(Math.random() * 40) + 30; // 30% to 70%
+    // Extract pure emoji & generate 8 full-screen particles
+    const cleanEmoji = extractEmoji(rawTextOrEmoji);
+    const { particles } = generateBurstParticles(cleanEmoji);
 
-      particles.push({
-        id: Math.random().toString(36).substring(2, 9) + Date.now() + i,
-        emoji,
-        tx,
-        ty,
-        scale,
-        rot,
-        delay,
-        xPos
-      });
-    }
+    // Immediate local feedback for sender
+    setFloatingReactions(prev => [...prev, ...particles]);
+    setTimeout(() => {
+      const idsToRemove = new Set(particles.map(p => p.id));
+      setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
+    }, 2500);
 
+    // Broadcast pure emoji and particles to Opponent
     socket.emit('send_reaction_burst', {
       sessionId: session.id,
+      emoji: cleanEmoji,
       particles,
       senderName: currentName
     });
@@ -226,6 +215,27 @@ export default function Results({ players = {}, setView, socket, session, isHost
     const content = (typeof textToSend === 'string' ? textToSend : chatInput).trim();
     if (!content || !session?.id) return;
     const currentName = formatPlayerName(playerName || user?.displayName || (currentPlayers[socket.id]?.name) || 'Moi');
+    
+    // If it's a quick reaction phrase with an emoji (e.g. "GG! 🏆"), also trigger burst
+    if (typeof textToSend === 'string') {
+      const cleanEmoji = extractEmoji(textToSend);
+      if (cleanEmoji && cleanEmoji !== '✨') {
+        const { particles } = generateBurstParticles(cleanEmoji);
+        setFloatingReactions(prev => [...prev, ...particles]);
+        setTimeout(() => {
+          const idsToRemove = new Set(particles.map(p => p.id));
+          setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
+        }, 2500);
+
+        socket.emit('send_reaction_burst', {
+          sessionId: session.id,
+          emoji: cleanEmoji,
+          particles,
+          senderName: currentName
+        });
+      }
+    }
+
     socket.emit('send_lobby_chat', {
       sessionId: session.id,
       text: content,
