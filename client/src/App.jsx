@@ -777,6 +777,7 @@ function App() {
             logout={() => { logout(); setIsGuest(false); }}
             deleteAccount={deleteAccount}
             activeTab={activeTab}
+            setActiveTab={setActiveTab}
             leaderboard={leaderboard}
             isGuest={isGuest}
             setIsGuest={setIsGuest}

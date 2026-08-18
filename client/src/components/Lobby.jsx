@@ -94,6 +94,43 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
   ]);
   const maxAvailableWordsCount = Math.max(words.length, totalAvailablePool.length);
 
+  // Floating reactions & 5s cooldown
+  const [reactionCooldown, setReactionCooldown] = useState(0);
+  const [floatingReactions, setFloatingReactions] = useState([]);
+
+  useEffect(() => {
+    if (reactionCooldown > 0) {
+      const timer = setInterval(() => {
+        setReactionCooldown(c => Math.max(0, c - 1));
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [reactionCooldown]);
+
+  useEffect(() => {
+    const handleFloatingReaction = (reaction) => {
+      if (!reaction || !reaction.emoji) return;
+      setFloatingReactions(prev => [...prev, reaction]);
+      setTimeout(() => {
+        setFloatingReactions(prev => prev.filter(r => r.id !== reaction.id));
+      }, 2500);
+    };
+
+    socket.on('floating_reaction', handleFloatingReaction);
+    return () => socket.off('floating_reaction', handleFloatingReaction);
+  }, [socket]);
+
+  const handleSendReaction = (emoji) => {
+    if (reactionCooldown > 0 || !session?.id) return;
+    const currentName = formatPlayerName(playerName || user?.displayName || 'Moi');
+    socket.emit('send_reaction_emoji', {
+      sessionId: session.id,
+      emoji,
+      senderName: currentName
+    });
+    setReactionCooldown(5);
+  };
+
   // Auto-scroll chat on new message
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -883,6 +920,28 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
               <div ref={chatBottomRef} />
             </div>
 
+            {/* Twitch-Style Quick Reaction Bar with 5s Cooldown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>Réactions :</span>
+              {['🔥', '⚡', '🏆', '⚔️', '💪', '👏'].map((emoji, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSendReaction(emoji)}
+                  disabled={reactionCooldown > 0}
+                  className={`reaction-pill-btn ${reactionCooldown > 0 ? 'cooldown-active' : ''}`}
+                  style={{ padding: '0.2rem 0.55rem', fontSize: '0.85rem' }}
+                >
+                  <span>{emoji}</span>
+                  {reactionCooldown > 0 && (
+                    <span style={{ fontSize: '0.68rem', color: 'var(--warning)', fontWeight: 800 }}>
+                      {reactionCooldown}s
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
             {/* Input Message */}
             <form onSubmit={handleSendMessage} style={{ display: 'flex', gap: '0.4rem' }}>
               <input
@@ -1670,6 +1729,19 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
           </div>
         </div>
       )}
+
+      {/* Twitch-Style Floating Reactions Container */}
+      <div className="floating-reactions-container">
+        {floatingReactions.map((r) => (
+          <span
+            key={r.id}
+            className="floating-reaction-item"
+            style={{ left: `${r.xPos}%` }}
+          >
+            {r.emoji}
+          </span>
+        ))}
+      </div>
 
     </div>
   );

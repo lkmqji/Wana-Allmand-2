@@ -185,6 +185,33 @@ body[data-theme="light"] {
   --glass-bg: rgba(255, 255, 255, 0.9);
 }
 
+/* Theme 8: Cyber Pink (Dark Rose / Neon Pink) */
+[data-theme="cyberpink"],
+[data-theme="darkrose"],
+body[data-theme="cyberpink"],
+body[data-theme="darkrose"] {
+  --bg-color: #120914;
+  --bg-main: #120914;
+  --card-bg: #1f1122;
+  --bg-surface: #1f1122;
+  --bg-surface-hover: #2d1832;
+  --accent-primary: #ff007f;
+  --primary: #ff007f;
+  --primary-shadow: #cc0066;
+  --accent-hover: #e60073;
+  --secondary: #a855f7;
+  --secondary-shadow: #9333ea;
+  --success: #22c55e;
+  --success-shadow: #16a34a;
+  --warning: #fbbf24;
+  --danger: #ef4444;
+  --text-main: #ffffff;
+  --text-muted: #d19bb8;
+  --border-color: #3d1c44;
+  --logo-glow: 0 0 25px rgba(255, 0, 127, 0.75);
+  --glass-bg: rgba(31, 17, 34, 0.85);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -709,36 +736,135 @@ h1, h2, h3, h4 {
   border: 2px solid var(--border-color) !important;
   background: var(--bg-main) !important;
 }
-
-.results-minichat-floating {
-  position: fixed;
-  bottom: 1.5rem;
-  right: 1.5rem;
-  width: 320px;
-  max-width: calc(100vw - 2rem);
-  background: var(--bg-surface);
-  border: 2px solid var(--primary);
-  border-radius: 18px;
-  box-shadow: 0 15px 35px rgba(0,0,0,0.5);
-  display: flex;
-  flex-direction: column;
-  z-index: 500;
-  overflow: hidden;
-  animation: fadeIn 0.3s ease-out;
+/* ----------------------------------
+   TASK 2 : FLOATING REACTIONS (TWITCH STYLE) & COOLDOWN
+---------------------------------- */
+@keyframes float-up-fade {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1.5) rotate(0deg);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-20vh) scale(1.65) rotate(-12deg);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translateY(-50vh) scale(1.4) rotate(14deg);
+  }
+  75% {
+    opacity: 0.8;
+    transform: translateY(-75vh) scale(1.15) rotate(-8deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-100vh) scale(0.7) rotate(0deg);
+  }
 }
 
-.results-minichat-inline {
-  width: 100%;
+.floating-reactions-container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 99999;
+  overflow: hidden;
+}
+
+.floating-reaction-item {
+  position: absolute;
+  bottom: 30px;
+  font-size: 2.8rem;
+  user-select: none;
+  animation: float-up-fade 2.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+}
+
+.reaction-pill-btn {
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-color);
+  color: var(--text-main);
+  border-radius: 12px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  user-select: none;
+}
+
+.reaction-pill-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  background: rgba(99, 102, 241, 0.1);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.reaction-pill-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(30%);
+}
+
+.reaction-pill-btn.cooldown-active {
+  border-color: var(--text-muted);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ----------------------------------
+   TASK 3 : ESPORT ARENA RESULTS
+---------------------------------- */
+.results-esport-podium {
+  flex: 1;
   background: var(--bg-surface);
   border: 2px solid var(--border-color);
-  border-radius: 16px;
-  padding: 0.8rem;
+  border-radius: 24px;
+  padding: 1.5rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin: 1.2rem 0;
-  text-align: left;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
 }
+
+.results-esport-winner {
+  border-color: #f59e0b !important;
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.15) 0%, var(--bg-surface) 100%) !important;
+  box-shadow: 0 0 35px rgba(245, 158, 11, 0.4), 0 0 15px var(--accent-primary) !important;
+  transform: scale(1.04);
+  z-index: 5;
+}
+
+.results-esport-winner .esport-avatar-ring {
+  transform: scale(1.12);
+  border-color: #f59e0b;
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.6);
+}
+
+.results-esport-loser {
+  opacity: 0.72;
+  filter: grayscale(40%);
+  border-color: var(--border-color) !important;
+  background: var(--bg-main) !important;
+}
+
+.results-esport-draw {
+  border-color: var(--primary) !important;
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.1) 0%, var(--bg-surface) 100%) !important;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.3) !important;
+}
+
 
 /* ----------------------------------
    TASK 3: LIST CARD (Mes Listes)

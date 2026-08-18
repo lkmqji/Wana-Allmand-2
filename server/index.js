@@ -621,6 +621,19 @@ io.on('connection', (socket) => {
         io.to(sessionId).emit('lobby_chat_message', msg);
     });
 
+    // Floating Reactions (Twitch / Live style particles)
+    socket.on('send_reaction_emoji', ({ sessionId, emoji, senderName }) => {
+        if (!sessionId || !emoji) return;
+        const reactionPayload = {
+            id: Math.random().toString(36).substring(2, 9) + Date.now(),
+            emoji,
+            senderName: formatPlayerName(senderName) || 'Joueur',
+            senderId: socket.id,
+            xPos: Math.floor(Math.random() * 65) + 15 // Random horizontal position between 15% and 80%
+        };
+        io.to(sessionId).emit('floating_reaction', reactionPayload);
+    });
+
     // Game Invites
     socket.on('send_game_invite', ({ targetSocketId, targetFirebaseId, sessionId }) => {
         const session = gameManager.getSession(sessionId);

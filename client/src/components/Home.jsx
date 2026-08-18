@@ -214,6 +214,9 @@ export default function Home({
     setListTitle(list.name || 'Ma Liste');
     setImportNotice('');
     setShowWordEditor(true);
+    if (typeof setActiveTab === 'function') {
+      setActiveTab('learn');
+    }
   };
 
   const handleExtractAI = async (e) => {
@@ -808,10 +811,10 @@ export default function Home({
             </div>
           </div>
 
-          {/* TASK 1: 7 THEMES SELECTOR */}
+          {/* TASK 1 & 4: 8 THEMES SELECTOR */}
           <div className="card" style={{ marginBottom: '1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-              <h3 style={{ margin: 0 }}>🎨 Thèmes Visuels (7 Styles)</h3>
+              <h3 style={{ margin: 0 }}>🎨 Thèmes Visuels (8 Styles)</h3>
               <span className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>
                 Actif : {theme?.toUpperCase() || 'MIDNIGHT'}
               </span>
@@ -823,6 +826,7 @@ export default function Home({
             <div className="theme-grid">
               {[
                 { id: 'midnight', name: 'Midnight', icon: '🌌', desc: 'Bleu sombre & Violet fluo', primary: '#6366f1', bg: '#0b0f19' },
+                { id: 'cyberpink', name: 'Cyber Pink', icon: '💖', desc: 'Violet sombre & Rose néon', primary: '#ff007f', bg: '#120914' },
                 { id: 'sakura', name: 'Sakura', icon: '🌸', desc: 'Blanc & Rose poudré doux', primary: '#ec4899', bg: '#fff5f8' },
                 { id: 'hacker', name: 'Hacker', icon: '💻', desc: 'Noir pur & Vert Matrix', primary: '#00ff66', bg: '#030704' },
                 { id: 'glacier', name: 'Glacier', icon: '❄️', desc: 'Bleu marine & Cyan glacial', primary: '#00f0ff', bg: '#071321' },
