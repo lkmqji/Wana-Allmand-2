@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { formatPlayerName, formatLastLogin, formatFullDateTime } from "../utils/formatters";
+import { formatPlayerName } from "../utils/formatters";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const ADMIN_UID = import.meta.env.VITE_ADMIN_UID;
@@ -536,7 +536,6 @@ export default function Admin({ user, onClose }) {
                       <thead>
                         <tr style={{ borderBottom: "2px solid var(--border-color)", color: "var(--text-muted)", fontSize: "0.85rem" }}>
                           <th style={{ padding: "0.75rem" }}>Utilisateur</th>
-                          <th style={{ padding: "0.75rem" }}>Dernière Connexion</th>
                           <th style={{ padding: "0.75rem" }}>Niveau</th>
                           <th style={{ padding: "0.75rem" }}>XP Total</th>
                           <th style={{ padding: "0.75rem" }}>Victoires / Parties</th>
@@ -546,7 +545,7 @@ export default function Admin({ user, onClose }) {
                       <tbody>
                         {filteredUsers.length === 0 ? (
                           <tr>
-                            <td colSpan="6" style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
+                            <td colSpan="5" style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
                               Aucun utilisateur trouvé.
                             </td>
                           </tr>
@@ -556,18 +555,6 @@ export default function Admin({ user, onClose }) {
                               <td style={{ padding: "0.75rem" }}>
                                 <div style={{ fontWeight: "bold" }}>{formatPlayerName(u.name)}</div>
                                 <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{u.firebaseId}</div>
-                              </td>
-                              <td style={{ padding: "0.75rem" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                                  <span style={{ fontSize: "0.85rem", fontWeight: "600", color: u.lastLogin ? "var(--text-main)" : "var(--text-muted)" }}>
-                                    🕒 {formatLastLogin(u.lastLogin)}
-                                  </span>
-                                </div>
-                                {u.lastLogin && (
-                                  <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "2px" }}>
-                                    {formatFullDateTime(u.lastLogin)}
-                                  </div>
-                                )}
                               </td>
                               <td style={{ padding: "0.75rem" }}>
                                 <span style={{ background: "rgba(99,102,241,0.2)", color: "#a78bfa", padding: "0.2rem 0.5rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: "bold" }}>
@@ -754,37 +741,6 @@ export default function Admin({ user, onClose }) {
                       <span style={{
                         position: "absolute", top: "3px",
                         left: config.maintenanceMode ? "30px" : "3px",
-                        width: "24px", height: "24px", borderRadius: "50%",
-                        background: "white", transition: "left 0.3s", display: "block"
-                      }} />
-                    </button>
-                  </div>
-
-                  {/* Coming Soon / AI Features Toggle for everyone */}
-                  <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1.2rem" }}>
-                    <div>
-                      <div style={{ fontWeight: "bold", fontSize: "1rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                        <span>✨ Onglets &amp; Outils IA (Coming Soon)</span>
-                        <span style={{ fontSize: "0.75rem", background: "rgba(99,102,241,0.2)", color: "#a78bfa", padding: "0.1rem 0.5rem", borderRadius: "10px" }}>
-                          Toujours actif pour l'Admin 👑
-                        </span>
-                      </div>
-                      <div style={{ color: "var(--text-muted)", fontSize: "0.85rem", marginTop: "0.2rem" }}>
-                        Active les boîtes "Génération IA" et "Coller du Texte" pour tous les utilisateurs publics.
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => toggleConfig("comingSoonFeaturesEnabled", config.comingSoonFeaturesEnabled)}
-                      disabled={saving === "comingSoonFeaturesEnabled"}
-                      style={{
-                        flexShrink: 0, width: "58px", height: "30px", borderRadius: "15px",
-                        background: config.comingSoonFeaturesEnabled ? "var(--success)" : "rgba(255,255,255,0.15)",
-                        border: "none", cursor: "pointer", position: "relative", transition: "background 0.3s"
-                      }}
-                    >
-                      <span style={{
-                        position: "absolute", top: "3px",
-                        left: config.comingSoonFeaturesEnabled ? "30px" : "3px",
                         width: "24px", height: "24px", borderRadius: "50%",
                         background: "white", transition: "left 0.3s", display: "block"
                       }} />
@@ -1158,28 +1114,6 @@ export default function Admin({ user, onClose }) {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <h3 style={{ margin: 0 }}>✏️ Modifier l'utilisateur</h3>
                 <button onClick={() => setEditingUser(null)} style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: "1.5rem", cursor: "pointer" }}>×</button>
-              </div>
-
-              {/* User Metadata Card */}
-              <div style={{ background: "var(--bg-main)", padding: "0.8rem", borderRadius: "10px", border: "1px solid var(--border-color)", fontSize: "0.82rem", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ color: "var(--text-muted)" }}>Firebase UID :</span>
-                  <span style={{ fontFamily: "monospace", fontSize: "0.75rem", background: "rgba(255,255,255,0.06)", padding: "0.15rem 0.4rem", borderRadius: "4px" }}>
-                    {editingUser.firebaseId}
-                  </span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ color: "var(--text-muted)" }}>🕒 Dernière connexion :</span>
-                  <span style={{ fontWeight: "bold", color: "var(--primary)" }}>
-                    {formatLastLogin(editingUser.lastLogin)} {editingUser.lastLogin ? `(${formatFullDateTime(editingUser.lastLogin)})` : ''}
-                  </span>
-                </div>
-                {editingUser.createdAt && (
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ color: "var(--text-muted)" }}>📅 Inscription :</span>
-                    <span>{formatFullDateTime(editingUser.createdAt)}</span>
-                  </div>
-                )}
               </div>
 
               <div>

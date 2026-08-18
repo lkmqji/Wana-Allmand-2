@@ -10,9 +10,7 @@ const userSchema = new mongoose.Schema({
   failedWords: [{
     word: String,
     count: Number
-  }],
-  lastLogin: { type: Date, default: Date.now },
-  createdAt: { type: Date, default: Date.now }
+  }]
 });
 
 module.exports = mongoose.model('User', userSchema);

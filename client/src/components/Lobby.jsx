@@ -1203,55 +1203,6 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                   </span>
                 </label>
               </div>
-
-              {/* Game Mode Selector */}
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
-                  🎮 Mode de Jeu :
-                </label>
-                <select
-                  className="input-field"
-                  disabled={!isHost}
-                  value={settings.gameMode || 'standard'}
-                  onChange={(e) => {
-                    const mode = e.target.value;
-                    const modeLabels = {
-                      standard: 'Vocabulaire Standard',
-                      luckentext: 'Texte à trous (Lückentext) 🧩',
-                      conjugation: 'Sprint Conjugaison (Verben) ⚡',
-                      visual: 'Devine l\'Image (Quiz Visuel) 🖼️'
-                    };
-                    handleUpdateSettings({ ...settings, gameMode: mode }, `Mode de jeu changé pour : ${modeLabels[mode] || mode}`);
-                  }}
-                  style={{ padding: '0.45rem 0.6rem', fontSize: '0.85rem' }}
-                >
-                  <option value="standard">📖 Vocabulaire Standard</option>
-                  <option value="luckentext">🧩 Texte à trous (Lückentext)</option>
-                  <option value="conjugation">⚡ Sprint Conjugaison (Verben)</option>
-                  <option value="visual">🖼️ Quiz Visuel (Devine l'image)</option>
-                </select>
-              </div>
-
-              {/* Max Players Selector (2 to 8) */}
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
-                  👥 Capacité Salle :
-                </label>
-                <select
-                  className="input-field"
-                  disabled={!isHost}
-                  value={settings.maxPlayers || 8}
-                  onChange={(e) => {
-                    const count = parseInt(e.target.value);
-                    handleUpdateSettings({ ...settings, maxPlayers: count }, `Capacité de la salle réglée à ${count} joueurs maximum`);
-                  }}
-                  style={{ padding: '0.45rem 0.6rem', fontSize: '0.85rem' }}
-                >
-                  <option value={2}>2 Joueurs (Duel 1v1)</option>
-                  <option value={4}>4 Joueurs (Mini Groupe)</option>
-                  <option value={8}>8 Joueurs (Battle Royale)</option>
-                </select>
-              </div>
             </div>
           </div>
         )}

@@ -13,17 +13,10 @@ export default function Layout({
   isAdmin,
   onOpenAdmin,
   unreadCount = 0,
-  onOpenNotifications,
-  onOpenShop,
-  onOpenAITutor,
-  onOpenScheduler,
-  onOpenTour
+  onOpenNotifications
 }) {
   const navItems = [
-    { id: 'learn', label: 'Accueil', icon: '🏠' },
-    { id: 'medical', label: 'Allemand Médical', icon: '🩺' },
-    { id: 'reader', label: 'Lecture IA', icon: '📖' },
-    { id: 'vault', label: 'Coffre Fautes', icon: '🎯' },
+    { id: 'learn', label: 'Apprendre', icon: '🏠' },
     { id: 'lists', label: 'Mes Listes', icon: '📂' },
     { id: 'community', label: 'Communauté', icon: '🌍' },
     { id: 'stats', label: 'Classement', icon: '🏆' },
@@ -34,37 +27,10 @@ export default function Layout({
     <div className="app-container">
       {/* MOBILE HEADER */}
       <div className="mobile-header">
-        <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 800, color: 'var(--primary)' }}>
+        <h2 style={{ fontSize: '1.2rem', margin: 0, fontWeight: 800, color: 'var(--primary)' }}>
           WANA ALLMAND
         </h2>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          {/* AI Tutor Button */}
-          <button 
-            onClick={onOpenAITutor} 
-            title="Assistant IA Wana Tutor"
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}
-          >
-            🤖
-          </button>
-
-          {/* Shop Button */}
-          <button 
-            onClick={onOpenShop} 
-            title="Boutique & Personnalisation"
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}
-          >
-            🎨
-          </button>
-
-          {/* Match Scheduler Button */}
-          <button 
-            onClick={onOpenScheduler} 
-            title="Planifier un match"
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}
-          >
-            📅
-          </button>
-
+        <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
           {/* Notifications Button Mobile */}
           <button
             onClick={onOpenNotifications}
@@ -90,16 +56,24 @@ export default function Layout({
           >
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
-          
+          {isAdmin && onOpenAdmin && (
+            <button
+              onClick={onOpenAdmin}
+              title="Panneau Admin"
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1.2rem' }}
+            >
+              🛡️
+            </button>
+          )}
           {user ? (
             <img 
               src={user.photoURL} 
               alt="Profil" 
               onClick={() => onNavigate('profile')} 
-              style={{ width: '30px', height: '30px', borderRadius: '50%', cursor: 'pointer', border: '2px solid var(--border-color)' }} 
+              style={{ width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', border: '2px solid var(--border-color)' }} 
             />
           ) : (
-            <button onClick={loginWithGoogle} className="btn btn-primary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', borderRadius: '8px' }}>Connexion</button>
+            <button onClick={loginWithGoogle} className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '8px' }}>Connexion</button>
           )}
         </div>
       </div>
@@ -124,46 +98,6 @@ export default function Layout({
         </div>
 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-          {/* AI Tutor Desktop */}
-          <button
-            onClick={onOpenAITutor}
-            className="nav-item"
-            style={{ width: '100%', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', justifyContent: 'flex-start', color: '#818cf8' }}
-          >
-            <span style={{ fontSize: '1.2rem' }}>🤖</span>
-            Wana Tutor IA
-          </button>
-
-          {/* Shop Desktop */}
-          <button
-            onClick={onOpenShop}
-            className="nav-item"
-            style={{ width: '100%', background: 'transparent', border: 'none', justifyContent: 'flex-start' }}
-          >
-            <span style={{ fontSize: '1.2rem' }}>🎨</span>
-            Boutique & Skins
-          </button>
-
-          {/* Match Scheduler Desktop */}
-          <button
-            onClick={onOpenScheduler}
-            className="nav-item"
-            style={{ width: '100%', background: 'transparent', border: 'none', justifyContent: 'flex-start' }}
-          >
-            <span style={{ fontSize: '1.2rem' }}>📅</span>
-            Planning Duels
-          </button>
-
-          {/* Tour Guide Desktop */}
-          <button
-            onClick={onOpenTour}
-            className="nav-item"
-            style={{ width: '100%', background: 'transparent', border: 'none', justifyContent: 'flex-start' }}
-          >
-            <span style={{ fontSize: '1.2rem' }}>❓</span>
-            Guide & Tutoriel
-          </button>
-
           {/* Notifications Button Desktop */}
           <button
             onClick={onOpenNotifications}
