@@ -392,29 +392,274 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
     return true;
   });
 
+  const sessionPlayerList = Object.values(players || {});
+  const hostPlayerObj = sessionPlayerList.find(p => p.id === session?.hostId) || sessionPlayerList[0] || { name: playerName || 'Hôte', avatar: avatar || '🦊', id: socket.id };
+  const opponentPlayerObj = sessionPlayerList.find(p => p.id !== hostPlayerObj?.id) || null;
+
   return (
     <div style={{
       width: '100%',
-      maxWidth: '780px',
+      maxWidth: '820px',
       margin: '0 auto',
       display: 'flex',
       flexDirection: 'column',
-      gap: '0.8rem',
-      paddingBottom: '1rem'
+      gap: '1rem',
+      paddingBottom: '1.5rem'
     }}>
 
       {/* =========================================================
-          SECTION DU HAUT : ONGLETS (Chat, Inviter, Mots, Paramètres)
+          TASK 4 : ARÈNE ESPORT (STREET FIGHTER / SMASH BROS STYLE)
          ========================================================= */}
-      <div className="card" style={{ padding: '0.9rem 1.1rem', display: 'flex', flexDirection: 'column' }}>
+      <div className="card" style={{
+        background: 'linear-gradient(135deg, var(--bg-surface) 0%, rgba(99, 102, 241, 0.08) 50%, var(--bg-surface) 100%)',
+        borderColor: 'var(--border-color)',
+        padding: '1.5rem 1rem',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        {/* Top Arena Header: Title & Room Code */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', padding: '0 0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.2rem' }}>🥊</span>
+            <span style={{ fontWeight: 800, fontSize: '0.95rem', letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+              Arène de Duel
+            </span>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            background: 'var(--bg-main)',
+            border: '1px solid var(--border-color)',
+            padding: '0.3rem 0.75rem',
+            borderRadius: '10px'
+          }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>SALLE :</span>
+            <span style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--primary)', letterSpacing: '1.5px' }}>
+              {session?.id}
+            </span>
+            <button
+              onClick={handleCopyCode}
+              className="btn btn-secondary"
+              style={{ width: 'auto', padding: '0.15rem 0.45rem', fontSize: '0.7rem', borderRadius: '6px' }}
+              title="Copier le code de la salle"
+            >
+              {copiedCode ? '✓' : '📋'}
+            </button>
+          </div>
+        </div>
+
+        {/* Central Versus Arena Grid */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '0.8rem',
+          position: 'relative'
+        }}>
+          
+          {/* LEFT: HOST PLAYER */}
+          <div className="esport-podium host-active">
+            <div style={{
+              position: 'absolute',
+              top: '8px',
+              left: '8px',
+              background: 'rgba(99, 102, 241, 0.2)',
+              border: '1px solid var(--primary)',
+              color: 'var(--primary)',
+              fontSize: '0.65rem',
+              fontWeight: 900,
+              padding: '0.15rem 0.5rem',
+              borderRadius: '6px',
+              letterSpacing: '0.5px'
+            }}>
+              👑 HÔTE
+            </div>
+
+            <div className="esport-avatar-ring">
+              {hostPlayerObj.avatar || avatar || '🦊'}
+            </div>
+
+            <div style={{ fontWeight: 900, fontSize: '1.1rem', color: 'var(--text-main)', marginBottom: '0.2rem' }}>
+              {formatPlayerName(hostPlayerObj.name)}
+              {hostPlayerObj.id === socket.id && <span style={{ fontSize: '0.75rem', color: 'var(--primary)', marginLeft: '4px' }}>(Toi)</span>}
+            </div>
+
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              fontSize: '0.75rem',
+              color: 'var(--success)',
+              fontWeight: 700,
+              background: 'rgba(34, 197, 94, 0.1)',
+              padding: '0.2rem 0.6rem',
+              borderRadius: '8px'
+            }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+              PRÊT
+            </div>
+          </div>
+
+          {/* CENTER: VS BADGE WITH KEYFRAMES PULSE-VS */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minWidth: '90px',
+            zIndex: 10
+          }}>
+            <div className="vs-badge">
+              VS
+            </div>
+            <span style={{
+              fontSize: '0.7rem',
+              color: 'var(--text-muted)',
+              fontWeight: 800,
+              letterSpacing: '1px',
+              textTransform: 'uppercase',
+              marginTop: '-4px'
+            }}>
+              {settings.rounds || words.length} Mots
+            </span>
+          </div>
+
+          {/* RIGHT: OPPONENT PLAYER OR WAITING SLOT */}
+          {opponentPlayerObj ? (
+            <div className="esport-podium opponent-active">
+              <div style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                background: 'rgba(236, 72, 153, 0.2)',
+                border: '1px solid var(--secondary)',
+                color: 'var(--secondary)',
+                fontSize: '0.65rem',
+                fontWeight: 900,
+                padding: '0.15rem 0.5rem',
+                borderRadius: '6px',
+                letterSpacing: '0.5px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem'
+              }}>
+                ⚔️ CHALLENGER
+                {isHost && opponentPlayerObj.id !== socket.id && (
+                  <button
+                    onClick={() => socket.emit('kick_player', { sessionId: session.id, playerId: opponentPlayerObj.id })}
+                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 900, padding: 0 }}
+                    title="Expulser"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              <div className="esport-avatar-ring">
+                {opponentPlayerObj.avatar || '🐼'}
+              </div>
+
+              <div style={{ fontWeight: 900, fontSize: '1.1rem', color: 'var(--text-main)', marginBottom: '0.2rem' }}>
+                {formatPlayerName(opponentPlayerObj.name)}
+                {opponentPlayerObj.id === socket.id && <span style={{ fontSize: '0.75rem', color: 'var(--secondary)', marginLeft: '4px' }}>(Toi)</span>}
+              </div>
+
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                fontSize: '0.75rem',
+                color: 'var(--success)',
+                fontWeight: 700,
+                background: 'rgba(34, 197, 94, 0.1)',
+                padding: '0.2rem 0.6rem',
+                borderRadius: '8px'
+              }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+                PRÊT
+              </div>
+            </div>
+          ) : (
+            <div className="esport-podium" style={{ borderStyle: 'dashed', opacity: 0.85 }}>
+              <div className="esport-avatar-ring" style={{ borderStyle: 'dashed', opacity: 0.6, fontSize: '2rem' }}>
+                ⏳
+              </div>
+
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                En attente...
+              </div>
+
+              <button
+                onClick={() => {
+                  setActiveTab('online');
+                  socket.emit('get_online_users');
+                }}
+                className="btn btn-secondary"
+                style={{
+                  width: 'auto',
+                  padding: '0.3rem 0.75rem',
+                  fontSize: '0.75rem',
+                  borderRadius: '8px',
+                  borderColor: 'var(--primary)',
+                  color: 'var(--primary)'
+                }}
+              >
+                ✉️ Inviter
+              </button>
+            </div>
+          )}
+
+        </div>
+      </div>
+
+      {/* =========================================================
+          CONSOLE DE BORD / DASHBOARD DE CONFIGURATION (EN DESSOUS)
+         ========================================================= */}
+      <div className="card" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
         
+        {/* Action Controls Bar */}
+        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+          <button
+            onClick={handleLeave}
+            className="btn btn-secondary"
+            style={{ width: 'auto', padding: '0.7rem 1.2rem', fontSize: '0.9rem' }}
+          >
+            ← Quitter
+          </button>
+
+          {isHost ? (
+            <button
+              className="btn btn-primary"
+              onClick={handleStart}
+              style={{ flex: 1, padding: '0.75rem 1.5rem', fontSize: '1rem', fontWeight: 900, letterSpacing: '0.5px' }}
+            >
+              {playerCount === 1 ? '🚀 Jouer en Solo' : '⚔️ DÉMARRER LE DUEL !'}
+            </button>
+          ) : (
+            <div style={{
+              flex: 1,
+              padding: '0.7rem 1rem',
+              background: 'rgba(245, 158, 11, 0.1)',
+              border: '1px solid var(--warning)',
+              borderRadius: '12px',
+              color: 'var(--warning)',
+              fontWeight: 'bold',
+              fontSize: '0.9rem',
+              textAlign: 'center'
+            }}>
+              ⏳ En attente de l'hôte pour lancer le duel...
+            </div>
+          )}
+        </div>
+
         {/* Navigation Tabs Header */}
         <div style={{
           display: 'flex',
           gap: '0.4rem',
           borderBottom: '2px solid var(--border-color)',
           paddingBottom: '0.5rem',
-          marginBottom: '0.8rem',
           overflowX: 'auto'
         }}>
           {/* Tab: Chat */}
@@ -1206,116 +1451,6 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
             </div>
           </div>
         )}
-
-      </div>
-
-      {/* =========================================================
-          SECTION DU BAS : CODE DE SESSION, JOUEURS DE LA SALLE & BOUTONS
-         ========================================================= */}
-      <div className="card" style={{ padding: '0.9rem 1.1rem', display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
-        
-        {/* Code & Players Row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.8rem', flexWrap: 'wrap' }}>
-          
-          {/* Compact Session Code */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            background: 'var(--bg-main)',
-            border: '1px solid var(--border-color)',
-            padding: '0.35rem 0.75rem',
-            borderRadius: '12px'
-          }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>CODE :</span>
-            <span style={{ fontSize: '1.3rem', fontWeight: 900, color: 'var(--primary)', letterSpacing: '2px' }}>
-              {session?.id}
-            </span>
-            <button
-              onClick={handleCopyCode}
-              className="btn btn-secondary"
-              style={{ width: 'auto', padding: '0.2rem 0.5rem', fontSize: '0.75rem', borderRadius: '6px' }}
-            >
-              {copiedCode ? '✓ Copié' : '📋'}
-            </button>
-          </div>
-
-          {/* Connected players in this room */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {Object.values(players || {}).map((p, i) => (
-              <div
-                key={p.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  padding: '0.3rem 0.6rem',
-                  background: 'var(--bg-main)',
-                  border: `1.5px solid ${i === 0 ? 'var(--primary)' : 'var(--border-color)'}`,
-                  borderRadius: '10px',
-                  fontSize: '0.8rem',
-                  fontWeight: 'bold'
-                }}
-              >
-                <span>{i === 0 ? '👑' : '⚔️'}</span>
-                <span>{formatPlayerName(p.name)} {p.id === socket.id ? '(Vous)' : ''}</span>
-
-                {isHost && p.id !== socket.id && (
-                  <button
-                    onClick={() => socket.emit('kick_player', { sessionId: session.id, playerId: p.id })}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--danger)',
-                      cursor: 'pointer',
-                      fontSize: '0.75rem',
-                      fontWeight: 'bold',
-                      marginLeft: '0.2rem'
-                    }}
-                    title="Expulser"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Action Controls Row */}
-        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-          <button
-            onClick={handleLeave}
-            className="btn btn-secondary"
-            style={{ width: 'auto', padding: '0.6rem 1rem', fontSize: '0.85rem' }}
-          >
-            ← Quitter
-          </button>
-
-          {isHost ? (
-            <button
-              className="btn btn-primary"
-              onClick={handleStart}
-              style={{ flex: 1, padding: '0.6rem 1.2rem', fontSize: '0.95rem' }}
-            >
-              {playerCount === 1 ? '🚀 Jouer en Solo' : '⚔️ Démarrer le Duel !'}
-            </button>
-          ) : (
-            <div style={{
-              flex: 1,
-              padding: '0.6rem 1rem',
-              background: 'rgba(245, 158, 11, 0.1)',
-              border: '1px solid var(--warning)',
-              borderRadius: '12px',
-              color: 'var(--warning)',
-              fontWeight: 'bold',
-              fontSize: '0.85rem',
-              textAlign: 'center'
-            }}>
-              ⏳ En attente de l'hôte pour démarrer...
-            </div>
-          )}
-        </div>
 
       </div>
 

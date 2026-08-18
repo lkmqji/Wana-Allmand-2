@@ -25,22 +25,26 @@ export default function Layout({
 
   return (
     <div className="app-container">
-      {/* MOBILE HEADER */}
+      {/* MOBILE HEADER - Clean: Logo on left, [Bell + Avatar] on right */}
       <div className="mobile-header">
-        <h2 style={{ fontSize: '1.2rem', margin: 0, fontWeight: 800, color: 'var(--primary)' }}>
+        <h2 
+          className="brand-logo-shine" 
+          onClick={() => onNavigate('learn')}
+          style={{ fontSize: '1.25rem', margin: 0, cursor: 'pointer' }}
+        >
           WANA ALLMAND
         </h2>
-        <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.9rem', alignItems: 'center' }}>
           {/* Notifications Button Mobile */}
           <button
             onClick={onOpenNotifications}
-            style={{ position: 'relative', background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1.2rem', padding: '0.2rem' }}
+            style={{ position: 'relative', background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1.25rem', padding: '0.2rem', display: 'flex', alignItems: 'center' }}
             title="Notifications"
           >
             🔔
             {unreadCount > 0 && (
               <span style={{
-                position: 'absolute', top: '-2px', right: '-4px',
+                position: 'absolute', top: '-3px', right: '-5px',
                 background: 'var(--danger)', color: 'white', fontSize: '0.65rem',
                 fontWeight: 'bold', borderRadius: '10px', padding: '0.1rem 0.35rem',
                 minWidth: '16px', textAlign: 'center', lineHeight: '1'
@@ -50,38 +54,26 @@ export default function Layout({
             )}
           </button>
 
-          <button 
-            onClick={toggleTheme} 
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1.2rem' }}
-          >
-            {theme === 'dark' ? '☀️' : '🌙'}
-          </button>
-          {isAdmin && onOpenAdmin && (
-            <button
-              onClick={onOpenAdmin}
-              title="Panneau Admin"
-              style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1.2rem' }}
-            >
-              🛡️
-            </button>
-          )}
+          {/* Profile Avatar Mobile */}
           {user ? (
             <img 
-              src={user.photoURL} 
+              src={user.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.uid}`} 
               alt="Profil" 
               onClick={() => onNavigate('profile')} 
-              style={{ width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', border: '2px solid var(--border-color)' }} 
+              style={{ width: '34px', height: '34px', borderRadius: '50%', cursor: 'pointer', border: '2px solid var(--primary)', objectFit: 'cover' }} 
             />
           ) : (
-            <button onClick={loginWithGoogle} className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '8px' }}>Connexion</button>
+            <button onClick={loginWithGoogle} className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '10px' }}>Connexion</button>
           )}
         </div>
       </div>
 
       {/* DESKTOP SIDEBAR */}
       <div className="sidebar">
-        <div style={{ padding: '1rem', marginBottom: '1rem' }}>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', margin: 0, letterSpacing: '-0.5px' }}>WANA ALLMAND</h1>
+        <div style={{ padding: '1rem 0.5rem', marginBottom: '1rem', cursor: 'pointer' }} onClick={() => onNavigate('learn')}>
+          <h1 className="brand-logo-shine" style={{ fontSize: '1.45rem', margin: 0 }}>
+            WANA ALLMAND
+          </h1>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
@@ -97,7 +89,7 @@ export default function Layout({
           ))}
         </div>
 
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
           {/* Notifications Button Desktop */}
           <button
             onClick={onOpenNotifications}
@@ -115,44 +107,28 @@ export default function Layout({
               </span>
             )}
           </button>
-
-          {isAdmin && onOpenAdmin && (
-            <button
-              onClick={onOpenAdmin}
-              className="nav-item"
-              style={{ width: '100%', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', justifyContent: 'flex-start', color: '#a78bfa' }}
-            >
-              <span style={{ fontSize: '1.2rem' }}>🛡️</span>
-              Admin
-            </button>
-          )}
-
-          <button 
-            onClick={toggleTheme} 
-            className="nav-item" 
-            style={{ width: '100%', background: 'transparent', border: 'none', justifyContent: 'flex-start' }}
-          >
-            <span style={{ fontSize: '1.2rem' }}>{theme === 'dark' ? '☀️' : '🌙'}</span>
-            Thème
-          </button>
           
+          {/* User Profile Desktop */}
           {user ? (
             <div 
-              className="nav-item" 
+              className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
               onClick={() => onNavigate('profile')} 
-              style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', padding: '0.6rem 0.8rem' }}
             >
               <img 
-                src={user.photoURL} 
+                src={user.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.uid}`} 
                 alt="Profil" 
-                style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid var(--border-color)' }} 
+                style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover' }} 
               />
-              <span style={{ fontWeight: 'bold', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {formatPlayerName(user.displayName)}
-              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <span style={{ fontWeight: 'bold', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {formatPlayerName(user.displayName)}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Mon Profil</span>
+              </div>
             </div>
           ) : (
-            <button onClick={loginWithGoogle} className="btn btn-primary" style={{ padding: '0.8rem' }}>Connexion</button>
+            <button onClick={loginWithGoogle} className="btn btn-primary" style={{ padding: '0.8rem', borderRadius: '12px' }}>Connexion</button>
           )}
         </div>
       </div>

@@ -1,21 +1,29 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap');
 
-:root {
-  /* Colors */
-  --bg-main: #111827;
-  --bg-surface: #1f2937;
-  --bg-surface-hover: #374151;
+:root,
+[data-theme="midnight"],
+body[data-theme="midnight"] {
+  /* Theme 1: Midnight (Default) */
+  --bg-color: #0b0f19;
+  --bg-main: #0b0f19;
+  --card-bg: #151e2e;
+  --bg-surface: #151e2e;
+  --bg-surface-hover: #1e293b;
+  --accent-primary: #6366f1;
   --primary: #6366f1;
-  --primary-shadow: #4f46e5;
+  --primary-shadow: #4338ca;
+  --accent-hover: #4f46e5;
   --secondary: #ec4899;
   --secondary-shadow: #be185d;
   --success: #22c55e;
   --success-shadow: #16a34a;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --text-main: #f9fafb;
-  --text-muted: #9ca3af;
-  --border-color: #374151;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-color: #243044;
+  --logo-glow: 0 0 20px rgba(99, 102, 241, 0.6);
+  --glass-bg: rgba(21, 30, 46, 0.75);
   
   /* Layout */
   --sidebar-width: 250px;
@@ -25,13 +33,156 @@
   --max-content-width: 700px;
 }
 
-[data-theme="light"] {
-  --bg-main: #f9fafb;
+/* Theme 2: Sakura (Rose/Kawaii) */
+[data-theme="sakura"],
+body[data-theme="sakura"] {
+  --bg-color: #fff5f8;
+  --bg-main: #fff5f8;
+  --card-bg: #ffffff;
   --bg-surface: #ffffff;
-  --bg-surface-hover: #f3f4f6;
-  --text-main: #111827;
+  --bg-surface-hover: #fdf2f4;
+  --accent-primary: #ec4899;
+  --primary: #ec4899;
+  --primary-shadow: #db2777;
+  --accent-hover: #f472b6;
+  --secondary: #a855f7;
+  --secondary-shadow: #9333ea;
+  --success: #10b981;
+  --success-shadow: #059669;
+  --warning: #f59e0b;
+  --danger: #f43f5e;
+  --text-main: #1f2937;
   --text-muted: #6b7280;
-  --border-color: #e5e7eb;
+  --border-color: #fbcfe8;
+  --logo-glow: 0 0 20px rgba(236, 72, 153, 0.5);
+  --glass-bg: rgba(255, 255, 255, 0.85);
+}
+
+/* Theme 3: Hacker (Matrix Cyber Green) */
+[data-theme="hacker"],
+body[data-theme="hacker"] {
+  --bg-color: #030704;
+  --bg-main: #030704;
+  --card-bg: #0b140d;
+  --bg-surface: #0b140d;
+  --bg-surface-hover: #132418;
+  --accent-primary: #00ff66;
+  --primary: #00ff66;
+  --primary-shadow: #00cc52;
+  --accent-hover: #33ff85;
+  --secondary: #10b981;
+  --secondary-shadow: #059669;
+  --success: #00ff66;
+  --success-shadow: #00cc52;
+  --warning: #eab308;
+  --danger: #ff3344;
+  --text-main: #e6fced;
+  --text-muted: #6ee7b7;
+  --border-color: #1a3a22;
+  --logo-glow: 0 0 25px rgba(0, 255, 102, 0.7);
+  --glass-bg: rgba(11, 20, 13, 0.85);
+}
+
+/* Theme 4: Glacier (Ice & Deep Ocean) */
+[data-theme="glacier"],
+body[data-theme="glacier"] {
+  --bg-color: #071321;
+  --bg-main: #071321;
+  --card-bg: #0f233d;
+  --bg-surface: #0f233d;
+  --bg-surface-hover: #163255;
+  --accent-primary: #00f0ff;
+  --primary: #00f0ff;
+  --primary-shadow: #00b4d8;
+  --accent-hover: #38bdf8;
+  --secondary: #3b82f6;
+  --secondary-shadow: #2563eb;
+  --success: #10b981;
+  --success-shadow: #059669;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --text-main: #f0f9ff;
+  --text-muted: #7dd3fc;
+  --border-color: #1d3d63;
+  --logo-glow: 0 0 22px rgba(0, 240, 255, 0.65);
+  --glass-bg: rgba(15, 35, 61, 0.8);
+}
+
+/* Theme 5: BloodDuel (Crimson / Competitive) */
+[data-theme="bloodduel"],
+body[data-theme="bloodduel"] {
+  --bg-color: #121113;
+  --bg-main: #121113;
+  --card-bg: #1e1b1d;
+  --bg-surface: #1e1b1d;
+  --bg-surface-hover: #2c272a;
+  --accent-primary: #ef4444;
+  --primary: #ef4444;
+  --primary-shadow: #b91c1c;
+  --accent-hover: #f87171;
+  --secondary: #dc2626;
+  --secondary-shadow: #991b1b;
+  --success: #22c55e;
+  --success-shadow: #16a34a;
+  --warning: #f59e0b;
+  --danger: #dc2626;
+  --text-main: #fef2f2;
+  --text-muted: #fca5a5;
+  --border-color: #3b282c;
+  --logo-glow: 0 0 25px rgba(239, 68, 68, 0.7);
+  --glass-bg: rgba(30, 27, 29, 0.85);
+}
+
+/* Theme 6: Sunset (Warm Ember / Orange) */
+[data-theme="sunset"],
+body[data-theme="sunset"] {
+  --bg-color: #18110e;
+  --bg-main: #18110e;
+  --card-bg: #271b15;
+  --bg-surface: #271b15;
+  --bg-surface-hover: #38271e;
+  --accent-primary: #f97316;
+  --primary: #f97316;
+  --primary-shadow: #c2410c;
+  --accent-hover: #fb923c;
+  --secondary: #eab308;
+  --secondary-shadow: #ca8a04;
+  --success: #22c55e;
+  --success-shadow: #16a34a;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --text-main: #fff7ed;
+  --text-muted: #fdba74;
+  --border-color: #452d22;
+  --logo-glow: 0 0 22px rgba(249, 115, 22, 0.65);
+  --glass-bg: rgba(39, 27, 21, 0.85);
+}
+
+/* Theme 7: Classic Light (Clean UI) */
+[data-theme="classic"],
+[data-theme="light"],
+body[data-theme="classic"],
+body[data-theme="light"] {
+  --bg-color: #f8fafc;
+  --bg-main: #f8fafc;
+  --card-bg: #ffffff;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f1f5f9;
+  --accent-primary: #2563eb;
+  --primary: #2563eb;
+  --primary-shadow: #1d4ed8;
+  --accent-hover: #3b82f6;
+  --secondary: #6366f1;
+  --secondary-shadow: #4f46e5;
+  --success: #16a34a;
+  --success-shadow: #15803d;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  --logo-glow: 0 0 15px rgba(37, 99, 235, 0.35);
+  --glass-bg: rgba(255, 255, 255, 0.9);
 }
 
 * {
@@ -361,3 +512,210 @@ h1, h2, h3, h4 {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.75; transform: scale(0.97); }
 }
+
+/* ----------------------------------
+   TASK 2: LOGO SHINE & GLOW EFFECT
+---------------------------------- */
+.brand-logo-shine {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--text-main) 0%, var(--primary) 50%, var(--accent-hover) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: var(--logo-glow);
+  filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.4));
+  transition: all 0.3s ease;
+  display: inline-block;
+}
+
+.brand-logo-shine:hover {
+  filter: drop-shadow(0 0 18px var(--primary));
+  transform: scale(1.02);
+}
+
+/* ----------------------------------
+   TASK 4: ESPORT LOBBY & PULSE-VS
+---------------------------------- */
+@keyframes pulse-vs {
+  0% {
+    transform: scale(1) rotate(-4deg);
+    filter: drop-shadow(0 0 8px var(--accent-primary)) drop-shadow(0 0 16px var(--secondary));
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.15) rotate(4deg);
+    filter: drop-shadow(0 0 25px var(--accent-primary)) drop-shadow(0 0 40px var(--secondary));
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(-4deg);
+    filter: drop-shadow(0 0 8px var(--accent-primary)) drop-shadow(0 0 16px var(--secondary));
+    opacity: 0.95;
+  }
+}
+
+.vs-badge {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 3.5rem;
+  letter-spacing: 2px;
+  background: linear-gradient(135deg, #ffffff 0%, var(--accent-primary) 50%, var(--secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: pulse-vs 2s infinite ease-in-out;
+  display: inline-block;
+  user-select: none;
+}
+
+@media (max-width: 600px) {
+  .vs-badge {
+    font-size: 2.4rem;
+  }
+}
+
+.esport-podium {
+  flex: 1;
+  background: var(--bg-surface);
+  border: 2px solid var(--border-color);
+  border-radius: 20px;
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+.esport-podium.host-active {
+  border-color: var(--primary);
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.08) 0%, var(--bg-surface) 100%);
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+}
+
+.esport-podium.opponent-active {
+  border-color: var(--secondary);
+  background: linear-gradient(180deg, rgba(236, 72, 153, 0.08) 0%, var(--bg-surface) 100%);
+  box-shadow: 0 0 20px rgba(236, 72, 153, 0.2);
+}
+
+.esport-avatar-ring {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: var(--bg-main);
+  border: 3px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.6rem;
+  margin-bottom: 0.75rem;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.esport-podium.host-active .esport-avatar-ring {
+  border-color: var(--primary);
+  box-shadow: 0 0 15px var(--primary);
+}
+
+.esport-podium.opponent-active .esport-avatar-ring {
+  border-color: var(--secondary);
+  box-shadow: 0 0 15px var(--secondary);
+}
+
+/* ----------------------------------
+   TASK 3: LIST CARD (Mes Listes)
+---------------------------------- */
+.list-card {
+  background: var(--bg-surface);
+  border: 2px solid var(--border-color);
+  border-left: 4px solid var(--primary) !important;
+  border-radius: 20px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.list-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+  border-color: var(--border-color);
+}
+
+.list-card.selected {
+  border-color: var(--primary);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), var(--bg-surface));
+}
+
+.list-card-emoji {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border-radius: 12px;
+  background: rgba(99, 102, 241, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+/* ----------------------------------
+   TASK 1: THEME SELECTOR PILLS
+---------------------------------- */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.theme-card-btn {
+  background: var(--bg-main);
+  border: 2px solid var(--border-color);
+  border-radius: 14px;
+  padding: 0.75rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-main);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.theme-card-btn:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+}
+
+.theme-card-btn.active {
+  border-color: var(--primary);
+  background: rgba(99, 102, 241, 0.1);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.3);
+}
+
+.theme-swatch {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.theme-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+

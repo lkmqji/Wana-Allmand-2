@@ -1,8 +1,27 @@
 import { useState, useEffect } from 'react';
 import { exampleLists } from '../data/exampleLists';
 import { formatPlayerName, getClientPlayerKey } from '../utils/formatters';
+import ListCard from './ListCard';
 
-export default function Home({ socket, playerName, setPlayerName, avatar, setAvatar, user, loginWithGoogle, logout, deleteAccount, activeTab, leaderboard, isGuest, setIsGuest, isAdmin, onOpenAdmin }) {
+export default function Home({ 
+  socket, 
+  playerName, 
+  setPlayerName, 
+  avatar, 
+  setAvatar, 
+  user, 
+  loginWithGoogle, 
+  logout, 
+  deleteAccount, 
+  activeTab, 
+  leaderboard, 
+  isGuest, 
+  setIsGuest, 
+  isAdmin, 
+  onOpenAdmin,
+  theme,
+  setTheme
+}) {
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
   const [prepTab, setPrepTab] = useState('pdf'); // 'pdf', 'text', 'examples', 'settings'
   const [joinCode, setJoinCode] = useState('');
@@ -365,8 +384,12 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
       {activeTab === 'learn' && (
         <>
           <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', background: 'linear-gradient(to bottom right, var(--bg-surface), rgba(99, 102, 241, 0.1))' }}>
-            <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', color: 'var(--text-main)' }}>WortDuel</h2>
-            <p className="text-muted" style={{ marginBottom: '2rem' }}>Compétition de vocabulaire en direct</p>
+            <h2 className="brand-logo-shine" style={{ fontSize: '2.4rem', marginBottom: '0.4rem', letterSpacing: '-0.5px' }}>
+              WANA ALLMAND
+            </h2>
+            <p className="text-muted" style={{ marginBottom: '1.8rem', fontSize: '1.05rem', fontWeight: 600 }}>
+              Compétition &amp; Apprentissage de vocabulaire en direct 🎮
+            </p>
             
             <form onSubmit={handleJoin} style={{ width: '100%', maxWidth: '300px' }}>
               <input 
@@ -613,11 +636,16 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
         </>
       )}
 
-      {/* ------------------- MY LISTS TAB ------------------- */}
+      {/* ------------------- MY LISTS TAB (TASK 3 REDESIGN) ------------------- */}
       {activeTab === 'lists' && (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h2>Mes Listes</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>Mes Listes 🗂️</h2>
+              <p className="text-muted" style={{ fontSize: '0.85rem', marginTop: '0.2rem' }}>
+                Gérez, révisez et lancez vos listes personnalisées
+              </p>
+            </div>
             {selectedListIds.size >= 2 && (
               <button onClick={handleMergeLists} className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', width: 'auto' }}>
                 Fusionner ({selectedListIds.size})
@@ -626,38 +654,31 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
           </div>
 
           {!user ? (
-            <div className="card text-muted text-center">Connectez-vous pour sauvegarder vos listes.</div>
+            <div className="card text-muted text-center" style={{ padding: '2rem' }}>
+              Connectez-vous avec votre compte Google pour créer et sauvegarder vos listes.
+            </div>
           ) : archivedLists.length === 0 ? (
-            <div className="card text-muted text-center">Aucune liste sauvegardée.</div>
+            <div className="card text-muted text-center" style={{ padding: '2.5rem 1rem' }}>
+              <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>📂</span>
+              <p style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--text-main)' }}>Aucune liste sauvegardée pour le moment.</p>
+              <p style={{ fontSize: '0.9rem', marginTop: '0.3rem' }}>
+                Importez un fichier PDF ou écrivez vos mots depuis l'onglet Apprendre pour commencer !
+              </p>
+            </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-              {archivedLists.map(list => {
-                const isSelected = selectedListIds.has(list._id);
-                return (
-                  <div key={list._id} className="card" style={{ borderColor: isSelected ? 'var(--primary)' : 'var(--border-color)', position: 'relative' }}>
-                    <div style={{ position: 'absolute', top: '1rem', right: '1rem' }}>
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleListSelection(list._id)}
-                        style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-                      />
-                    </div>
-                    <h4 style={{ paddingRight: '2rem' }}>{list.name}</h4>
-                    <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>
-                      {list.words.length} mots • {new Date(list.createdAt).toLocaleDateString()}
-                    </p>
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      <button onClick={() => handleStartDirectSession(list.words)} className="btn btn-success" style={{ padding: '0.5rem', flex: 1, fontSize: '0.85rem' }}>Jouer</button>
-                      <button onClick={() => handleEditList(list)} className="btn btn-secondary" style={{ padding: '0.5rem', flex: 1, fontSize: '0.85rem' }}>Éditer</button>
-                      <button onClick={() => togglePublicList(list._id, list.isPublic)} className="btn btn-secondary" style={{ padding: '0.5rem', flex: 1, fontSize: '0.85rem', borderColor: list.isPublic ? 'var(--warning)' : 'var(--border-color)', color: list.isPublic ? 'var(--warning)' : 'inherit' }}>
-                        {list.isPublic ? 'Publique' : 'Privée'}
-                      </button>
-                      <button onClick={() => deleteList(list._id)} className="btn btn-secondary" style={{ padding: '0.5rem', width: 'auto', borderColor: 'var(--danger)', color: 'var(--danger)' }}>🗑️</button>
-                    </div>
-                  </div>
-                );
-              })}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.2rem' }}>
+              {archivedLists.map(list => (
+                <ListCard
+                  key={list._id}
+                  list={list}
+                  isSelected={selectedListIds.has(list._id)}
+                  onToggleSelect={() => toggleListSelection(list._id)}
+                  onPlay={() => handleStartDirectSession(list.words)}
+                  onEdit={() => handleEditList(list)}
+                  onTogglePublic={() => togglePublicList(list._id, list.isPublic)}
+                  onDelete={() => deleteList(list._id)}
+                />
+              ))}
             </div>
           )}
         </>
@@ -731,10 +752,10 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
         </>
       )}
 
-      {/* ------------------- PROFILE TAB ------------------- */}
+      {/* ------------------- PROFILE TAB (TASK 1 & 2) ------------------- */}
       {activeTab === 'profile' && (
         <>
-          <h2>Profil &amp; Paramètres</h2>
+          <h2>Profil &amp; Paramètres 👤</h2>
           
           {/* Guest login banner */}
           {isGuest && !user && (
@@ -756,8 +777,9 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
             </div>
           )}
           
+          {/* Identity Card */}
           <div className="card" style={{ marginBottom: '1rem' }}>
-            <h3 style={{ marginBottom: '1rem' }}>Votre Profil</h3>
+            <h3 style={{ marginBottom: '1rem' }}>Votre Identité</h3>
             <div className="mobile-stack" style={{ alignItems: 'center' }}>
               <select 
                 className="input-field" 
@@ -786,6 +808,66 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
             </div>
           </div>
 
+          {/* TASK 1: 7 THEMES SELECTOR */}
+          <div className="card" style={{ marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+              <h3 style={{ margin: 0 }}>🎨 Thèmes Visuels (7 Styles)</h3>
+              <span className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>
+                Actif : {theme?.toUpperCase() || 'MIDNIGHT'}
+              </span>
+            </div>
+            <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '0.8rem' }}>
+              Personnalisez l'ambiance et la palette graphique de toute l'application :
+            </p>
+
+            <div className="theme-grid">
+              {[
+                { id: 'midnight', name: 'Midnight', icon: '🌌', desc: 'Bleu sombre & Violet fluo', primary: '#6366f1', bg: '#0b0f19' },
+                { id: 'sakura', name: 'Sakura', icon: '🌸', desc: 'Blanc & Rose poudré doux', primary: '#ec4899', bg: '#fff5f8' },
+                { id: 'hacker', name: 'Hacker', icon: '💻', desc: 'Noir pur & Vert Matrix', primary: '#00ff66', bg: '#030704' },
+                { id: 'glacier', name: 'Glacier', icon: '❄️', desc: 'Bleu marine & Cyan glacial', primary: '#00f0ff', bg: '#071321' },
+                { id: 'bloodduel', name: 'BloodDuel', icon: '⚔️', desc: 'Anthracite & Rouge sang', primary: '#ef4444', bg: '#121113' },
+                { id: 'sunset', name: 'Sunset', icon: '🌅', desc: 'Terre brûlée & Orange feu', primary: '#f97316', bg: '#18110e' },
+                { id: 'classic', name: 'Classic Light', icon: '☀️', desc: 'Blanc cassé & Bleu pur', primary: '#2563eb', bg: '#f8fafc' },
+              ].map((th) => {
+                const isActive = (theme === th.id) || (th.id === 'classic' && theme === 'light');
+                return (
+                  <button
+                    key={th.id}
+                    type="button"
+                    className={`theme-card-btn ${isActive ? 'active' : ''}`}
+                    onClick={() => {
+                      if (setTheme) {
+                        setTheme(th.id);
+                        localStorage.setItem('wana_theme', th.id);
+                      }
+                    }}
+                    style={{
+                      borderLeft: `4px solid ${th.primary}`
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                      <span style={{ fontSize: '1.3rem' }}>{th.icon}</span>
+                      <div className="theme-swatch">
+                        <div className="theme-dot" style={{ backgroundColor: th.bg }} />
+                        <div className="theme-dot" style={{ backgroundColor: th.primary }} />
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'left', width: '100%' }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: isActive ? 'var(--primary)' : 'var(--text-main)' }}>
+                        {th.name}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: '1.2', marginTop: '2px' }}>
+                        {th.desc}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Preferences */}
           {user && (
             <div className="card" style={{ marginBottom: '1rem' }}>
               <h3 style={{ marginBottom: '1rem' }}>Préférences</h3>
@@ -801,11 +883,15 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
             </div>
           )}
 
+          {/* TASK 2: Admin moved to Profile */}
           {user && isAdmin && onOpenAdmin && (
             <div className="card" style={{ marginBottom: '1rem', background: 'rgba(99,102,241,0.08)', borderColor: 'rgba(99,102,241,0.3)' }}>
-              <h3 style={{ marginBottom: '0.5rem', color: '#a78bfa' }}>🛡️ Administration</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                <span style={{ fontSize: '1.4rem' }}>🛡️</span>
+                <h3 style={{ margin: 0, color: 'var(--primary)' }}>Administration</h3>
+              </div>
               <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>
-                Accédez aux contrôles et réglages de l'application.
+                Accédez aux contrôles serveur, gestion des utilisateurs et diffusions d'annonces.
               </p>
               <button 
                 onClick={onOpenAdmin} 
@@ -817,6 +903,7 @@ export default function Home({ socket, playerName, setPlayerName, avatar, setAva
             </div>
           )}
 
+          {/* Danger Zone */}
           {user && (
             <div className="card" style={{ borderColor: 'var(--danger)' }}>
               <h3 style={{ color: 'var(--danger)', marginBottom: '1rem' }}>Zone de Danger</h3>
