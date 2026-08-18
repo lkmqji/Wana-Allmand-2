@@ -12,7 +12,7 @@ const PRESET_RESULTS_CHAT = [
 
 const PRESET_REACTIONS = ['🔥', '⚡', '🏆', '⚔️', '💪', '👏'];
 
-export default function Results({ players = {}, setView, socket, session, isHost, playerName, avatar, user }) {
+export default function Results({ players = {}, setView, socket, session, isHost, playerName, avatar, user, chatMessages = [], setChatMessages }) {
   const [currentPlayers, setCurrentPlayers] = useState(players || {});
   
   // Telegram Burst reactions state & 5s cooldown
@@ -77,8 +77,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
   const isDraw = playerArr.length > 1 && playerArr[0].score === playerArr[1].score;
   const isSolo = playerArr.length <= 1;
 
-  // Mini-Chat states
-  const [chatMessages, setChatMessages] = useState([]);
+  // Mini-Chat input & bottom ref
   const [chatInput, setChatInput] = useState('');
   const chatBottomRef = useRef(null);
 
@@ -123,7 +122,12 @@ export default function Results({ players = {}, setView, socket, session, isHost
   // Chat message listener & proposal listeners
   useEffect(() => {
     const handleChatMessage = (msg) => {
-      setChatMessages(prev => [...prev, msg]);
+      if (setChatMessages) {
+        setChatMessages(prev => {
+          if (msg.id && prev.some(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      }
     };
 
     const handleRetryProposal = (proposal) => {
@@ -177,7 +181,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
       socket.off('rematch_declined', handleRematchDeclined);
       socket.off('rematch_cancelled', handleRematchCancelled);
     };
-  }, [socket, session]);
+  }, [socket, session, setChatMessages]);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -391,6 +395,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
             </div>
           </div>
           <button
+            type="button"
             onClick={handleCancelProposal}
             className="btn btn-secondary"
             style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
@@ -423,6 +428,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
             </div>
           </div>
           <button
+            type="button"
             onClick={handleCancelRematch}
             className="btn btn-secondary"
             style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
@@ -710,6 +716,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
           {PRESET_RESULTS_CHAT.map((phrase, idx) => (
             <button
               key={idx}
+              type="button"
               onClick={() => handleSendChatMessage(phrase)}
               style={{
                 background: 'var(--bg-main)',
@@ -784,13 +791,25 @@ export default function Results({ players = {}, setView, socket, session, isHost
         </div>
 
         {/* Mini-Chat Input */}
-        <form onSubmit={handleSendChatMessage} style={{ display: 'flex', gap: '0.4rem' }}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSendChatMessage();
+          }}
+          style={{ display: 'flex', gap: '0.4rem' }}
+        >
           <input
             type="text"
             className="input-field"
             placeholder="Écrire un message rapide..."
             value={chatInput}
             onChange={e => setChatInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSendChatMessage();
+              }
+            }}
             maxLength={150}
             style={{ padding: '0.4rem 0.75rem', fontSize: '0.82rem' }}
           />
@@ -810,9 +829,11 @@ export default function Results({ players = {}, setView, socket, session, isHost
         
         {/* Button 1: Leave & Home */}
         <button 
+          type="button"
           className="btn btn-secondary" 
           onClick={() => {
             if (session?.id) socket.emit('leave_session', session.id);
+            if (setChatMessages) setChatMessages([]);
             setView('home');
           }} 
           style={{ flex: 1, minWidth: '120px', padding: '0.65rem 0.8rem', fontSize: '0.85rem' }}
@@ -822,6 +843,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
         
         {/* Button 2: Retry Failed Words */}
         <button 
+          type="button"
           className="btn btn-secondary" 
           onClick={handleRetryFailedWordsClick} 
           disabled={waitingForProposalResp || waitingForRematchResp}
@@ -840,6 +862,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
 
         {/* Button 3: Rematch (Back to Lobby) */}
         <button 
+          type="button"
           className="btn btn-primary" 
           onClick={handleRematchClick} 
           disabled={waitingForProposalResp || waitingForRematchResp}
@@ -923,6 +946,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
             </p>
             <div style={{ display: 'flex', gap: '0.8rem' }}>
               <button
+                type="button"
                 onClick={handleDeclineProposal}
                 className="btn btn-secondary"
                 style={{ flex: 1, padding: '0.75rem' }}
@@ -930,6 +954,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
                 Refuser ✕
               </button>
               <button
+                type="button"
                 onClick={handleAcceptProposal}
                 className="btn btn-primary"
                 style={{ flex: 1.2, padding: '0.75rem', background: 'var(--danger)', borderColor: 'var(--danger)' }}
@@ -977,6 +1002,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
             </p>
             <div style={{ display: 'flex', gap: '0.8rem' }}>
               <button
+                type="button"
                 onClick={handleDeclineRematch}
                 className="btn btn-secondary"
                 style={{ flex: 1, padding: '0.75rem' }}
@@ -984,6 +1010,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
                 Refuser ✕
               </button>
               <button
+                type="button"
                 onClick={handleAcceptRematch}
                 className="btn btn-primary"
                 style={{ flex: 1.2, padding: '0.75rem' }}

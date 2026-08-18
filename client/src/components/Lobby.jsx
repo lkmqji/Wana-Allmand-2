@@ -2,13 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { exampleLists, getAllDefaultWords } from '../data/exampleLists';
 import { formatPlayerName, extractEmoji, generateBurstParticles } from '../utils/formatters';
 
-export default function Lobby({ socket, session, players, isHost, setView, onlineUsers = [], playerName, avatar, user }) {
+export default function Lobby({ socket, session, players, isHost, setView, onlineUsers = [], playerName, avatar, user, chatMessages = [], setChatMessages }) {
   // Tabs: 'chat', 'online', 'words', 'settings'
   const [activeTab, setActiveTab] = useState('chat');
   const [searchQuery, setSearchQuery] = useState('');
   const [invitedSockets, setInvitedSockets] = useState({});
   const [copiedCode, setCopiedCode] = useState(false);
-  const [messages, setMessages] = useState([]);
+  const messages = chatMessages;
   const [inputMsg, setInputMsg] = useState('');
   const chatBottomRef = useRef(null);
 
@@ -167,7 +167,12 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
   // Listen to lobby chat messages & invite confirmations
   useEffect(() => {
     const handleLobbyMessage = (msg) => {
-      setMessages((prev) => [...prev, msg]);
+      if (setChatMessages) {
+        setChatMessages((prev) => {
+          if (msg.id && prev.some(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      }
     };
 
     const handleInviteSent = ({ targetSocketId }) => {
@@ -186,24 +191,15 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
     socket.on('lobby_chat_message', handleLobbyMessage);
     socket.on('invite_sent_success', handleInviteSent);
 
-    // Initial welcome message
-    setMessages([
-      {
-        id: 'welcome',
-        isSystem: true,
-        text: `🎮 Salle #${session?.id} ouverte. Chattez, personnalisez vos mots & invitez vos amis !`,
-        timestamp: Date.now()
-      }
-    ]);
-
     return () => {
       socket.off('lobby_chat_message', handleLobbyMessage);
       socket.off('invite_sent_success', handleInviteSent);
     };
-  }, [socket, session?.id]);
+  }, [socket, session?.id, setChatMessages]);
 
   const handleLeave = () => {
     socket.emit('leave_session', session?.id);
+    if (setChatMessages) setChatMessages([]);
     setView('home');
   };
 

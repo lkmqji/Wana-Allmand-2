@@ -19,7 +19,7 @@ const PAUSE_PRESET_PHRASES = [
   "J'arrive !"
 ];
 
-export default function Game({ socket, session, playerName = '', avatar = '🦊' }) {
+export default function Game({ socket, session, playerName = '', avatar = '🦊', chatMessages = [], setChatMessages }) {
   const [question, setQuestion] = useState('');
   const [questionIndex, setQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(session?.settings?.rounds || 0);
@@ -28,30 +28,23 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const [hasAnswered, setHasAnswered] = useState(false);
   const [roundResult, setRoundResult] = useState(null); // { players: {}, correctAnswer: '' }
   const [players, setPlayers] = useState(session?.players || {});
-  
-  // Telegram Burst Floating Reactions & Cooldown
+  const [jokers, setJokers] = useState(3);
+  const [streak, setStreak] = useState(0);
+  const [frozenTime, setFrozenTime] = useState(0); // Power-up freeze state in seconds
+  const [isPaused, setIsPaused] = useState(false);
+  const [pausedBy, setPausedBy] = useState(null);
+  const [pauseTimeRemaining, setPauseTimeRemaining] = useState(60);
+  const [pauseCooldownRemaining, setPauseCooldownRemaining] = useState(0);
+  const [isPausingEnabled, setIsPausingEnabled] = useState(true);
+
+  // Leave / Terminate Request States
+  // 'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'refused'
+  const [leaveRequestState, setLeaveRequestState] = useState('none');
+  const [leaveRequesterName, setLeaveRequesterName] = useState('');
+  const [leaveRequestCountdown, setLeaveRequestCountdown] = useState(30);
+
   const [floatingReactions, setFloatingReactions] = useState([]);
   const [reactionCooldown, setReactionCooldown] = useState(0);
-
-  // Cooldown timer ticker
-  useEffect(() => {
-    if (reactionCooldown > 0) {
-      const timer = setInterval(() => {
-        setReactionCooldown(c => Math.max(0, c - 1));
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [reactionCooldown]);
-  
-  const [jokers, setJokers] = useState(2);
-  const [jokerHint, setJokerHint] = useState('');
-  const [isFrozen, setIsFrozen] = useState(false);
-  
-  // Pause & Leave states
-  const [isPaused, setIsPaused] = useState(false);
-  const [pauseData, setPauseData] = useState(null); // { reason, pausedBy, pausedByName }
-  const [leaveRequestState, setLeaveRequestState] = useState('none'); // 'none' | 'pending' (requester) | 'received' (opponent)
-  const [leaveRequesterName, setLeaveRequesterName] = useState('');
   const [toastMessage, setToastMessage] = useState(null);
 
   // Disconnection Grace Period state (30s)
@@ -61,7 +54,6 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const [isQuickChatOpen, setIsQuickChatOpen] = useState(false);
   const [quickChatInput, setQuickChatInput] = useState('');
   const [pauseChatInput, setPauseChatInput] = useState('');
-  const [chatMessages, setChatMessages] = useState([]);
   const [floatingBubbles, setFloatingBubbles] = useState([]);
   const pauseChatEndRef = useRef(null);
 
@@ -314,7 +306,12 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
 
     // In-game & Pause Chat Messages
     socket.on('game_chat_message', (msg) => {
-      setChatMessages(prev => [...prev, msg]);
+      if (setChatMessages) {
+        setChatMessages(prev => {
+          if (msg.id && prev.some(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      }
       
       // Add to floating bubbles (visible for 3.5s in top-right)
       setFloatingBubbles(prev => [...prev.slice(-3), msg]);

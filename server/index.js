@@ -619,6 +619,7 @@ io.on('connection', (socket) => {
             timestamp: Date.now()
         };
         io.to(sessionId).emit('lobby_chat_message', msg);
+        io.to(sessionId).emit('receive_message', msg);
     });
 
     // Floating Reactions (Telegram Burst explosion particles)
@@ -989,15 +990,19 @@ io.on('connection', (socket) => {
         const cleanText = (text || '').trim();
         if (!cleanText) return;
 
-        io.to(sessionId).emit('game_chat_message', {
+        const chatPayload = {
             id: Math.random().toString(36).substring(2, 9),
             senderId: socket.id,
-            senderName: sender.name,
+            senderName: formatPlayerName(sender.name) || 'Joueur',
             senderAvatar: sender.avatar || '🦊',
             text: cleanText,
             preset: Boolean(preset),
             timestamp: Date.now()
-        });
+        };
+
+        io.to(sessionId).emit('game_chat_message', chatPayload);
+        io.to(sessionId).emit('lobby_chat_message', chatPayload);
+        io.to(sessionId).emit('receive_message', chatPayload);
     });
 
     socket.on('request_terminate', (sessionId) => {

@@ -45,8 +45,20 @@ function App() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [incomingInvite, setIncomingInvite] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [discordToast, setDiscordToast] = useState(null);
 
   const isAdmin = Boolean(user && ADMIN_UID && user.uid === ADMIN_UID);
+
+  // Auto-dismiss Discord-like Toast after 4 seconds (Task 5)
+  useEffect(() => {
+    if (discordToast) {
+      const timer = setTimeout(() => {
+        setDiscordToast(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [discordToast]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -144,6 +156,14 @@ function App() {
       setSession(fullSession);
       setPlayers(fullSession.players || {});
       setIsHost(true);
+      setChatMessages([
+        {
+          id: 'welcome',
+          isSystem: true,
+          text: `🎮 Salle #${fullSession.id} ouverte. Chattez, personnalisez vos mots & invitez vos amis !`,
+          timestamp: Date.now()
+        }
+      ]);
       setView('lobby');
     });
 
@@ -159,6 +179,7 @@ function App() {
       setSession(null);
       setPlayers({});
       setIsHost(false);
+      setChatMessages([]);
       setView('home');
     });
 
@@ -285,6 +306,40 @@ function App() {
       socket.off('kicked');
     };
   }, []);
+
+  // Global Chat Listener & Discord-like Floating Toast (Task 2 & Task 5)
+  useEffect(() => {
+    const handleIncomingChatMessage = (msg) => {
+      if (!msg) return;
+      setChatMessages(prev => {
+        if (msg.id && prev.some(m => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+
+      // Task 5: If user is outside lobby, game, and results (e.g. in Profile, Mes Listes, Communauté, etc.),
+      // and message is sent by an opponent/other player, trigger Discord-like toast!
+      const isVisibleInChatView = ['lobby', 'game', 'results'].includes(view);
+      const isFromOtherPlayer = msg.senderId && msg.senderId !== socket.id;
+      if (!isVisibleInChatView && isFromOtherPlayer && !msg.isSystem) {
+        setDiscordToast({
+          id: msg.id || Date.now(),
+          senderAvatar: msg.senderAvatar || '💬',
+          senderName: formatPlayerName(msg.senderName || 'Joueur'),
+          text: msg.text
+        });
+      }
+    };
+
+    socket.on('lobby_chat_message', handleIncomingChatMessage);
+    socket.on('game_chat_message', handleIncomingChatMessage);
+    socket.on('receive_message', handleIncomingChatMessage);
+
+    return () => {
+      socket.off('lobby_chat_message', handleIncomingChatMessage);
+      socket.off('game_chat_message', handleIncomingChatMessage);
+      socket.off('receive_message', handleIncomingChatMessage);
+    };
+  }, [view]);
 
   // Save active session to localStorage so closing/reopening browser directly rejoins lobby or game
   useEffect(() => {
@@ -612,7 +667,14 @@ function App() {
             {error} <button onClick={() => setError('')} style={{background:'none',border:'none',color:'white',cursor:'pointer'}}>X</button>
           </div>
         )}
-        <Game socket={socket} session={session} playerName={playerName} avatar={avatar} />
+        <Game 
+          socket={socket} 
+          session={session} 
+          playerName={playerName} 
+          avatar={avatar} 
+          chatMessages={chatMessages} 
+          setChatMessages={setChatMessages} 
+        />
       </div>
     );
   }
@@ -707,6 +769,7 @@ function App() {
               socket.emit('leave_session', session.id);
               setSession(null);
             }
+            setChatMessages([]);
             setView('home');
           }
         }}
@@ -721,6 +784,37 @@ function App() {
         unreadCount={unreadCount}
         onOpenNotifications={() => setShowNotifications(true)}
       >
+        {/* Global Discord-like Chat Floating Toast (Task 5) */}
+        {discordToast && (
+          <div 
+            className="discord-chat-toast"
+            onClick={() => {
+              if (session?.id) {
+                if (session.status === 'playing') setView('game');
+                else if (session.status === 'finished') setView('results');
+                else setView('lobby');
+              }
+              setDiscordToast(null);
+            }}
+          >
+            <span className="discord-toast-avatar">{discordToast.senderAvatar || '💬'}</span>
+            <div className="discord-toast-content">
+              <span className="discord-toast-sender">{discordToast.senderName}</span>
+              <span className="discord-toast-text"> : {discordToast.text}</span>
+            </div>
+            <button 
+              type="button"
+              className="discord-toast-close"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDiscordToast(null);
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         {/* Live Notification Pop-up Toast */}
         {toastNotif && (
           <div style={{
@@ -800,6 +894,8 @@ function App() {
             playerName={playerName}
             avatar={avatar}
             user={user}
+            chatMessages={chatMessages}
+            setChatMessages={setChatMessages}
           />
         )}
         {view === 'results' && (
@@ -812,6 +908,8 @@ function App() {
             playerName={playerName}
             avatar={avatar}
             user={user}
+            chatMessages={chatMessages}
+            setChatMessages={setChatMessages}
           />
         )}
       </Layout>

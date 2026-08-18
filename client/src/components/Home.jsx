@@ -413,34 +413,28 @@ export default function Home({
             </form>
 
             <div style={{ width: '100%', maxWidth: '300px', marginTop: '1rem', borderTop: '2px dashed rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                {/* Arrow spinner with editable input */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
-                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '2px' }}>nb de mots</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', padding: '4px 8px' }}>
-                    <button onClick={() => setSoloWordCount(v => Math.max(1, (parseInt(v) || 1) - 1))} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 2px' }}>&#9664;</button>
-                    <input
-                      type="number"
-                      min="1"
-                      value={soloWordCount}
-                      onChange={(e) => setSoloWordCount(e.target.value)}
-                      onBlur={(e) => {
-                        const val = parseInt(e.target.value);
-                        const allWords = [];
-                        exampleLists.forEach(l => allWords.push(...l.words));
-                        publicLists.forEach(l => allWords.push(...l.words));
-                        const max = allWords.length || 100;
-                        setSoloWordCount(!val || val < 1 ? max : val);
-                      }}
-                      style={{ width: '40px', background: 'none', border: 'none', color: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: '1rem', outline: 'none', MozAppearance: 'textfield' }}
-                    />
-                    <button onClick={() => setSoloWordCount(v => (parseInt(v) || 0) + 1)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 2px' }}>&#9654;</button>
-                  </div>
-                </div>
-                <button className="btn btn-success" onClick={handlePlaySolo} style={{ flex: 1, padding: '0.8rem' }}>
-                  JOUER SOLO
-                </button>
-              </div>
+              <button 
+                type="button"
+                className="btn btn-secondary" 
+                onClick={handlePlaySolo} 
+                style={{ 
+                  width: '100%', 
+                  padding: '0.85rem', 
+                  fontSize: '1rem', 
+                  fontWeight: 900,
+                  background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
+                  color: '#ffffff',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  boxShadow: '0 4px 15px rgba(99, 102, 241, 0.35)',
+                  cursor: 'pointer'
+                }}
+              >
+                ➕ CRÉER LOBBY
+              </button>
             </div>
           </div>
 
@@ -664,7 +658,7 @@ export default function Home({
                 placeholder="Pseudo (ex: Wail...)" 
                 maxLength={32}
                 value={playerName}
-                onChange={(e) => setPlayerName(formatPlayerName(e.target.value, 8))}
+                onChange={(e) => setPlayerName(e.target.value)}
                 style={{ flex: 1 }}
               />
             </div>
