@@ -35,7 +35,9 @@ export default function Home({
   theme,
   setTheme,
   failedWords = [],
-  onStartVengeance
+  onStartVengeance,
+  onDeleteFailedWord,
+  onClearAllFailedWords
 }) {
   const [listSubTab, setListSubTab] = useState('my_lists'); // 'my_lists' | 'failed_words'
   const [showMistakesModal, setShowMistakesModal] = useState(false);
@@ -857,8 +859,32 @@ export default function Home({
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
-                    Aperçu des fautes enregistrées :
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-muted)' }}>
+                      Aperçu des fautes enregistrées :
+                    </span>
+                    {onClearAllFailedWords && failedWords.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm("Voulez-vous vraiment effacer TOUTES les fautes de votre dossier ?")) {
+                            onClearAllFailedWords();
+                          }
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#f87171',
+                          fontSize: '0.82rem',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          fontWeight: 600,
+                          opacity: 0.85
+                        }}
+                      >
+                        🗑️ Tout effacer
+                      </button>
+                    )}
                   </div>
                   {failedWords.map((item, idx) => {
                     const resolved = resolveWordItem(item);
@@ -873,27 +899,65 @@ export default function Home({
                           gap: '1rem',
                           background: 'linear-gradient(135deg, rgba(25, 12, 16, 0.75) 0%, var(--bg-surface) 100%)',
                           border: '1px solid rgba(239, 68, 68, 0.25)',
-                          padding: '1rem 1.2rem'
+                          padding: '0.9rem 1.2rem'
                         }}
                       >
-                        <div>
-                          <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#fca5a5' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fca5a5', wordBreak: 'break-word' }}>
                             🇩🇪 {resolved.germanWord}
                           </div>
-                          <div style={{ fontSize: '0.9rem', color: '#cbd5e1', marginTop: '0.2rem' }}>
+                          <div style={{ fontSize: '0.88rem', color: '#cbd5e1', marginTop: '0.2rem', wordBreak: 'break-word' }}>
                             🇫🇷 {resolved.frenchPrompt}
                           </div>
                         </div>
-                        <span style={{
-                          fontSize: '0.8rem',
-                          fontWeight: 800,
-                          background: 'rgba(239, 68, 68, 0.2)',
-                          color: '#f87171',
-                          padding: '0.25rem 0.65rem',
-                          borderRadius: '8px'
-                        }}>
-                          {resolved.count}x raté
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }}>
+                          <span style={{
+                            fontSize: '0.78rem',
+                            fontWeight: 800,
+                            background: 'rgba(239, 68, 68, 0.2)',
+                            color: '#f87171',
+                            padding: '0.25rem 0.6rem',
+                            borderRadius: '8px',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {resolved.count}x raté
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Supprimer « ${resolved.germanWord} » de votre dossier de fautes ?`)) {
+                                if (onDeleteFailedWord) onDeleteFailedWord(resolved.germanWord);
+                              }
+                            }}
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.12)',
+                              border: '1px solid rgba(239, 68, 68, 0.35)',
+                              color: '#f87171',
+                              borderRadius: '8px',
+                              padding: '0.35rem 0.6rem',
+                              cursor: 'pointer',
+                              fontSize: '0.85rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s',
+                              lineHeight: 1
+                            }}
+                            title="Supprimer ce mot de la liste des fautes"
+                            onMouseOver={e => {
+                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.35)';
+                              e.currentTarget.style.borderColor = '#ef4444';
+                              e.currentTarget.style.transform = 'scale(1.08)';
+                            }}
+                            onMouseOut={e => {
+                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
+                              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+                              e.currentTarget.style.transform = 'scale(1)';
+                            }}
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -1210,25 +1274,62 @@ export default function Home({
                         gap: '1rem'
                       }}
                     >
-                      <div>
-                        <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fca5a5' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fca5a5', wordBreak: 'break-word' }}>
                           🇩🇪 {resolved.germanWord}
                         </div>
-                        <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '0.2rem' }}>
+                        <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '0.2rem', wordBreak: 'break-word' }}>
                           🇫🇷 {resolved.frenchPrompt}
                         </div>
                       </div>
-                      <span style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 700,
-                        background: 'rgba(239, 68, 68, 0.2)',
-                        color: '#f87171',
-                        padding: '0.2rem 0.55rem',
-                        borderRadius: '6px',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {resolved.count}x raté
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }}>
+                        <span style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          background: 'rgba(239, 68, 68, 0.2)',
+                          color: '#f87171',
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: '6px',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {resolved.count}x raté
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`Supprimer « ${resolved.germanWord} » de votre dossier de fautes ?`)) {
+                              if (onDeleteFailedWord) onDeleteFailedWord(resolved.germanWord);
+                            }
+                          }}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            border: '1px solid rgba(239, 68, 68, 0.35)',
+                            color: '#f87171',
+                            borderRadius: '8px',
+                            padding: '0.3rem 0.55rem',
+                            cursor: 'pointer',
+                            fontSize: '0.85rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s',
+                            lineHeight: 1
+                          }}
+                          title="Supprimer ce mot"
+                          onMouseOver={e => {
+                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.35)';
+                            e.currentTarget.style.borderColor = '#ef4444';
+                            e.currentTarget.style.transform = 'scale(1.08)';
+                          }}
+                          onMouseOut={e => {
+                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
+                            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+                            e.currentTarget.style.transform = 'scale(1)';
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </div>
                   );
                 })

@@ -559,6 +559,56 @@ app.put('/api/users/:firebaseId/purify', async (req, res) => {
     }
 });
 
+// Endpoint to delete a specific word from user's failedWords (manual deletion)
+app.delete('/api/users/:firebaseId/failed-words', async (req, res) => {
+    try {
+        const { firebaseId } = req.params;
+        const { word } = req.body;
+        if (!word) {
+            return res.status(400).json({ error: 'Word is required' });
+        }
+
+        let user = await User.findOne({ firebaseId });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const normalizedTarget = word.trim().toLowerCase();
+        user.failedWords = (user.failedWords || []).filter(w => {
+            const wName = typeof w === 'string' ? w : (w.word || '');
+            return wName.trim().toLowerCase() !== normalizedTarget;
+        });
+
+        await user.save();
+        res.json({
+            success: true,
+            failedWords: user.failedWords,
+            user
+        });
+    } catch (err) {
+        console.error('Error deleting failed word:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Endpoint to clear all failed words for a user
+app.delete('/api/users/:firebaseId/failed-words/clear', async (req, res) => {
+    try {
+        const { firebaseId } = req.params;
+        let user = await User.findOne({ firebaseId });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        user.failedWords = [];
+        await user.save();
+        res.json({ success: true, failedWords: [] });
+    } catch (err) {
+        console.error('Error clearing failed words:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/leaderboard', async (req, res) => {
     try {
         const topUsers = await User.find().sort({ xp: -1 }).limit(10);

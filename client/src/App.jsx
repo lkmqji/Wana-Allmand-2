@@ -66,7 +66,11 @@ function App() {
   const handlePurifySuccess = (word, apiData) => {
     setFailedWords(prev => {
       const next = prev.filter(w => (typeof w === 'string' ? w : w.word) !== word);
-      localStorage.setItem('wana_failed_words', JSON.stringify(next));
+      try {
+        localStorage.setItem('wana_failed_words', JSON.stringify(next));
+      } catch (e) {
+        console.warn(e);
+      }
       return next;
     });
     // Refresh leaderboard silently
@@ -76,6 +80,56 @@ function App() {
         if (Array.isArray(data)) setLeaderboard(data);
       })
       .catch(() => {});
+  };
+
+  const handleDeleteFailedWord = async (wordToDelete) => {
+    if (!wordToDelete) return;
+    const normalizedTarget = wordToDelete.trim().toLowerCase();
+    
+    setFailedWords(prev => {
+      const next = prev.filter(w => {
+        const wStr = typeof w === 'string' ? w : (w?.word || '');
+        return wStr.trim().toLowerCase() !== normalizedTarget;
+      });
+      try {
+        localStorage.setItem('wana_failed_words', JSON.stringify(next));
+      } catch (e) {
+        console.warn(e);
+      }
+      return next;
+    });
+
+    if (user?.uid) {
+      try {
+        await fetch(`${API_URL}/api/users/${user.uid}/failed-words`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ word: wordToDelete })
+        });
+      } catch (err) {
+        console.error('Error deleting failed word on server:', err);
+      }
+    }
+  };
+
+  const handleClearAllFailedWords = async () => {
+    setFailedWords([]);
+    try {
+      localStorage.setItem('wana_failed_words', JSON.stringify([]));
+    } catch (e) {
+      console.warn(e);
+    }
+
+    if (user?.uid) {
+      try {
+        await fetch(`${API_URL}/api/users/${user.uid}/failed-words/clear`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        console.error('Error clearing failed words on server:', err);
+      }
+    }
   };
 
   const isAdmin = Boolean(user && ADMIN_UID && user.uid === ADMIN_UID);
@@ -853,6 +907,8 @@ function App() {
             theme={theme}
             setTheme={setTheme}
             failedWords={failedWords}
+            onDeleteFailedWord={handleDeleteFailedWord}
+            onClearAllFailedWords={handleClearAllFailedWords}
             onStartVengeance={() => setView('vengeance')}
           />
         )}
