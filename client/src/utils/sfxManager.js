@@ -15,10 +15,10 @@ class SFXManager {
     this.lastTimeWarningTime = 0;
     this.audioUnlocked = false;
 
-    // Master and SFX volume controls (0 to 1) with +50% base gain boost on SFX
+    // Master and SFX volume controls (0 to 1) with strong base gain boost on SFX
     this.masterVolume = 0.5;
     this.sfxVolume = 0.5;
-    this.sfxBaseMultiplier = 1.5; // +50% base volume boost for all procedural SFX
+    this.sfxBaseMultiplier = 1.85; // Boosted base volume for distinct, punchy procedural SFX
     this.masterGainNode = null;
     this.sfxGainNode = null;
     this.compressorNode = null;

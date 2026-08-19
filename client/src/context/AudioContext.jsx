@@ -70,7 +70,7 @@ export function AudioProvider({ children }) {
     sfx.setSfxVolume(isSoundEnabled ? sfxVolume : 0);
   }, [sfxVolume, isSoundEnabled]);
 
-  // Synchronize BGM volume: volumeFinal = bgmVolume * masterVolume * 0.15 (soundscape max)
+  // Synchronize BGM volume: volumeFinal = bgmVolume * masterVolume * 0.08 (soundscape mix)
   useEffect(() => {
     try {
       localStorage.setItem('wana_bgm_volume', String(bgmVolume));
@@ -78,7 +78,7 @@ export function AudioProvider({ children }) {
     const bgm = bgmRef.current;
     if (bgm) {
       if (isSoundEnabled) {
-        const finalBgmVol = Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.15));
+        const finalBgmVol = Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.08));
         bgm.volume = finalBgmVol;
       } else {
         bgm.volume = 0;
@@ -94,7 +94,7 @@ export function AudioProvider({ children }) {
     try {
       bgmAudio = new Audio('/sounds/bgm-main.mp3');
       bgmAudio.loop = true;
-      const initialVol = isSoundEnabledRef.current ? Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.15)) : 0;
+      const initialVol = isSoundEnabledRef.current ? Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.08)) : 0;
       bgmAudio.volume = initialVol;
       bgmAudio.preload = 'auto';
       bgmRef.current = bgmAudio;

@@ -495,42 +495,87 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     socket.emit('resume_game', session?.id);
   };
 
-  const handleSendReaction = (text) => {
+  const handleSendQuickMessage = (text) => {
     if (reactionCooldown > 0 || !session?.id) return;
     
+    playMessageSent();
     playReactionBurst();
-    // Extract pure emoji & generate 8 full-screen particles
-    const cleanEmoji = extractEmoji(text);
-    const { particles } = generateBurstParticles(cleanEmoji);
 
-    // Instant local feedback for sender
+    // Extract pure emoji & generate 8 full-screen particles if emoji exists
+    const cleanEmoji = extractEmoji(text);
+    const { particles } = generateBurstParticles(cleanEmoji || '💬');
+
+    // Instant local feedback for sender: particles
     setFloatingReactions(prev => [...prev, ...particles]);
     setTimeout(() => {
       const idsToRemove = new Set(particles.map(p => p.id));
       setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
     }, 2500);
 
+    // Instant local feedback for sender: floating message bubble
+    const localMsg = {
+      id: Math.random().toString(36).substring(2, 9) + Date.now(),
+      senderId: socket?.id,
+      senderName: playerName || 'Vous',
+      senderAvatar: avatar || '🦊',
+      text: text.trim(),
+      preset: true,
+      timestamp: Date.now()
+    };
+
+    setFloatingBubbles(prev => [...prev.slice(-3), localMsg]);
+    setTimeout(() => {
+      setFloatingBubbles(prev => prev.filter(b => b.id !== localMsg.id));
+    }, 3500);
+
+    if (setChatMessages) {
+      setChatMessages(prev => [...prev, localMsg]);
+    }
+
     // Broadcast burst to Opponent with ONLY the extracted emoji
     socket.emit('send_reaction_burst', {
       sessionId: session?.id,
-      emoji: cleanEmoji,
+      emoji: cleanEmoji || '💬',
       particles,
       senderName: playerName
     });
 
+    // Broadcast game chat message
     socket.emit('game_chat_message', {
       sessionId: session?.id,
       text: text.trim(),
       preset: true
     });
 
-    setReactionCooldown(5);
+    setReactionCooldown(2.5);
   };
+
+  const handleSendReaction = handleSendQuickMessage;
 
   const handleSendCustomQuickChat = (e) => {
     e.preventDefault();
-    if (!quickChatInput.trim()) return;
+    if (!quickChatInput.trim() || !session?.id) return;
     playMessageSent();
+
+    const localMsg = {
+      id: Math.random().toString(36).substring(2, 9) + Date.now(),
+      senderId: socket?.id,
+      senderName: playerName || 'Vous',
+      senderAvatar: avatar || '🦊',
+      text: quickChatInput.trim(),
+      preset: false,
+      timestamp: Date.now()
+    };
+
+    setFloatingBubbles(prev => [...prev.slice(-3), localMsg]);
+    setTimeout(() => {
+      setFloatingBubbles(prev => prev.filter(b => b.id !== localMsg.id));
+    }, 3500);
+
+    if (setChatMessages) {
+      setChatMessages(prev => [...prev, localMsg]);
+    }
+
     socket.emit('game_chat_message', {
       sessionId: session?.id,
       text: quickChatInput.trim(),
@@ -541,8 +586,28 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
 
   const handleSendPauseChat = (e) => {
     e.preventDefault();
-    if (!pauseChatInput.trim()) return;
+    if (!pauseChatInput.trim() || !session?.id) return;
     playMessageSent();
+
+    const localMsg = {
+      id: Math.random().toString(36).substring(2, 9) + Date.now(),
+      senderId: socket?.id,
+      senderName: playerName || 'Vous',
+      senderAvatar: avatar || '🦊',
+      text: pauseChatInput.trim(),
+      preset: false,
+      timestamp: Date.now()
+    };
+
+    setFloatingBubbles(prev => [...prev.slice(-3), localMsg]);
+    setTimeout(() => {
+      setFloatingBubbles(prev => prev.filter(b => b.id !== localMsg.id));
+    }, 3500);
+
+    if (setChatMessages) {
+      setChatMessages(prev => [...prev, localMsg]);
+    }
+
     socket.emit('game_chat_message', {
       sessionId: session?.id,
       text: pauseChatInput.trim(),
