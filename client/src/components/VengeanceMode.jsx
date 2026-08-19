@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { exampleLists } from '../data/exampleLists';
 import { resolveWordPair } from '../utils/dictionary';
+import { useSoundEffects } from '../context/AudioContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const ROUND_DURATION = 10.5; // 30% faster than 15s duel
@@ -111,6 +112,8 @@ export default function VengeanceMode({
   const [isCompleted, setIsCompleted] = useState(false);
   const [initialTotalCount] = useState(() => (failedWords || []).length || 1);
 
+  const { playSuccess, playError, playExplosion } = useSoundEffects();
+
   const inputRef = useRef(null);
   const timerRef = useRef(null);
 
@@ -187,6 +190,9 @@ export default function VengeanceMode({
     setIsAnswering(true);
     setIsShaking(true);
 
+    // SFX: Play heavy error buzzer on timeout & reset
+    playError();
+
     // Punishment: Reset hearts to 0
     const updatedQueue = [...queue];
     updatedQueue[currentIndex] = {
@@ -224,8 +230,10 @@ export default function VengeanceMode({
       const newHearts = (currentWord.hearts || 0) + 1;
       
       if (newHearts >= 3) {
-        // 3 HEARTS REACHED: PURIFICATION!
+        // 3 HEARTS REACHED: PURIFICATION! Heavy impact explosion sound
         setIsExploding(true);
+        playExplosion();
+
         const wordToPurify = currentWord.word;
         const newPurifiedCount = purifiedCount + 1;
         setPurifiedCount(newPurifiedCount);
@@ -272,7 +280,9 @@ export default function VengeanceMode({
         }, 1500);
 
       } else {
-        // Progress toward 3 hearts (1 or 2 hearts)
+        // Progress toward 3 hearts (1 or 2 hearts): Gain heart positive Ding
+        playSuccess();
+
         const updatedQueue = [...queue];
         updatedQueue[currentIndex] = {
           ...updatedQueue[currentIndex],
@@ -295,8 +305,10 @@ export default function VengeanceMode({
         }, 1100);
       }
     } else {
-      // WRONG ANSWER: PUNISHMENT (hearts = 0, screen shake)
+      // WRONG ANSWER: PUNISHMENT (hearts = 0, screen shake, buzzer)
       setIsShaking(true);
+      playError();
+
       const updatedQueue = [...queue];
       updatedQueue[currentIndex] = {
         ...updatedQueue[currentIndex],

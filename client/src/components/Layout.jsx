@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatPlayerName } from '../utils/formatters';
+import { useAudio } from '../context/AudioContext';
 
 export default function Layout({ 
   children, 
@@ -15,6 +16,8 @@ export default function Layout({
   unreadCount = 0,
   onOpenNotifications
 }) {
+  const { isSoundEnabled, toggleSound } = useAudio();
+
   const navItems = [
     { id: 'learn', label: 'Apprendre', icon: '🏠' },
     { id: 'lists', label: 'Mes Listes', icon: '📂' },
@@ -25,7 +28,7 @@ export default function Layout({
 
   return (
     <div className="app-container">
-      {/* MOBILE HEADER - Clean: Logo on left, [Bell + Avatar] on right */}
+      {/* MOBILE HEADER - Clean: Logo on left, [Sound + Bell + Avatar] on right */}
       <div className="mobile-header">
         <h2 
           className="brand-logo-shine" 
@@ -34,7 +37,27 @@ export default function Layout({
         >
           WANA ALLMAND
         </h2>
-        <div style={{ display: 'flex', gap: '0.9rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+          {/* Sound Toggle Button Mobile */}
+          <button
+            onClick={toggleSound}
+            style={{ 
+              background: 'transparent', 
+              border: 'none', 
+              color: 'var(--text-main)', 
+              cursor: 'pointer', 
+              fontSize: '1.2rem', 
+              padding: '0.2rem', 
+              display: 'flex', 
+              alignItems: 'center',
+              opacity: isSoundEnabled ? 1 : 0.6
+            }}
+            title={isSoundEnabled ? "Couper le son (SFX)" : "Activer le son (SFX)"}
+            aria-label="Basculer le son"
+          >
+            {isSoundEnabled ? '🔊' : '🔇'}
+          </button>
+
           {/* Notifications Button Mobile */}
           <button
             onClick={onOpenNotifications}
@@ -90,6 +113,35 @@ export default function Layout({
         </div>
 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+          {/* Sound Toggle Button Desktop */}
+          <button
+            onClick={toggleSound}
+            className="nav-item"
+            style={{ 
+              width: '100%', 
+              background: !isSoundEnabled ? 'rgba(239, 68, 68, 0.1)' : 'transparent', 
+              border: 'none', 
+              justifyContent: 'flex-start',
+              cursor: 'pointer'
+            }}
+            title={isSoundEnabled ? "Couper le son (SFX)" : "Activer le son (SFX)"}
+          >
+            <span style={{ fontSize: '1.2rem' }}>{isSoundEnabled ? '🔊' : '🔇'}</span>
+            <span style={{ flex: 1, textAlign: 'left' }}>
+              {isSoundEnabled ? 'Effets sonores' : 'Son coupé'}
+            </span>
+            <span style={{
+              fontSize: '0.72rem',
+              fontWeight: 'bold',
+              padding: '0.15rem 0.45rem',
+              borderRadius: '8px',
+              background: isSoundEnabled ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+              color: isSoundEnabled ? '#10b981' : '#ef4444'
+            }}>
+              {isSoundEnabled ? 'ON' : 'OFF'}
+            </span>
+          </button>
+
           {/* Notifications Button Desktop */}
           <button
             onClick={onOpenNotifications}

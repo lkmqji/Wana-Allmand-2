@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { exampleLists, getAllDefaultWords } from '../data/exampleLists';
 import { formatPlayerName, extractEmoji, generateBurstParticles } from '../utils/formatters';
+import { useSoundEffects } from '../context/AudioContext';
 
 export default function Lobby({ socket, session, players, isHost, setView, onlineUsers = [], playerName, avatar, user, chatMessages = [], setChatMessages }) {
+  const { playAlert } = useSoundEffects();
   // Tabs: 'chat', 'online', 'words', 'settings'
   const [activeTab, setActiveTab] = useState('chat');
   const [searchQuery, setSearchQuery] = useState('');
@@ -16,6 +18,26 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
   // In-lobby chat notification toast & unread counter for other tabs
   const [lobbyChatToast, setLobbyChatToast] = useState(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+  // Sound alert when an opponent joins the lobby
+  const prevPlayerCountRef = useRef(Object.keys(players || {}).length);
+  useEffect(() => {
+    const currentCount = Object.keys(players || {}).length;
+    if (currentCount > prevPlayerCountRef.current && currentCount >= 2) {
+      playAlert();
+    }
+    prevPlayerCountRef.current = currentCount;
+  }, [players, playAlert]);
+
+  useEffect(() => {
+    const handlePlayerJoined = () => {
+      playAlert();
+    };
+    socket.on('player_joined', handlePlayerJoined);
+    return () => {
+      socket.off('player_joined', handlePlayerJoined);
+    };
+  }, [socket, playAlert]);
 
   // Auto-dismiss Lobby chat toast after 4s
   useEffect(() => {
