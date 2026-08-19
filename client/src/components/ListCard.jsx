@@ -1,6 +1,6 @@
 import React from 'react';
 
-// Helper to determine or auto-suggest a 40px Emoji based on list title
+// Helper to determine or auto-suggest an Emoji based on list title
 export function getListEmoji(title = '', explicitEmoji = null) {
   if (explicitEmoji) return explicitEmoji;
   const t = title.toLowerCase();
@@ -34,10 +34,9 @@ export default function ListCard({
 
   return (
     <div className={`list-card ${isSelected ? 'selected' : ''}`}>
-      {/* Header: 40px Emoji + Title + Selection Checkbox */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.8rem' }}>
+      {/* Header: Emoji + Title + Selection Checkbox */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
-          {/* 40px Theme Emoji */}
           <div className="list-card-emoji">
             {emoji}
           </div>
@@ -45,8 +44,8 @@ export default function ListCard({
           <div style={{ flex: 1, minWidth: 0 }}>
             <h4 style={{ 
               margin: 0, 
-              fontSize: '1.05rem', 
-              fontWeight: 800,
+              fontSize: '0.98rem', 
+              fontWeight: 600,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -54,12 +53,12 @@ export default function ListCard({
             }}>
               {list.name}
             </h4>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
-              <span className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginTop: '0.2rem' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--text-secondary)' }}>
                 {wordCount} {wordCount > 1 ? 'mots' : 'mot'}
               </span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>•</span>
-              <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>•</span>
+              <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--text-secondary)' }}>
                 {dateFormatted}
               </span>
             </div>
@@ -74,10 +73,10 @@ export default function ListCard({
             onChange={onToggleSelect}
             aria-label="Sélectionner la liste"
             style={{ 
-              width: '20px', 
-              height: '20px', 
+              width: '18px', 
+              height: '18px', 
               cursor: 'pointer',
-              accentColor: 'var(--primary)',
+              accentColor: 'var(--accent-primary)',
               marginTop: '4px'
             }}
           />
@@ -85,17 +84,18 @@ export default function ListCard({
       </div>
 
       {/* Secondary Controls Bar (Edit, Privacy Status, Delete) */}
-      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
         {onEdit && (
           <button
             onClick={onEdit}
             className="btn btn-secondary"
             style={{ 
               flex: 1, 
-              padding: '0.45rem 0.6rem', 
-              fontSize: '0.8rem', 
-              fontWeight: 600,
-              borderRadius: '10px'
+              minHeight: '34px',
+              padding: '0.35rem 0.5rem', 
+              fontSize: '0.78rem', 
+              fontWeight: 500,
+              borderRadius: '6px'
             }}
             title="Modifier le contenu de la liste"
           >
@@ -109,12 +109,13 @@ export default function ListCard({
             className="btn btn-secondary"
             style={{ 
               flex: 1, 
-              padding: '0.45rem 0.6rem', 
-              fontSize: '0.8rem', 
-              fontWeight: 600,
-              borderRadius: '10px',
-              borderColor: list.isPublic ? 'var(--warning)' : 'var(--border-color)',
-              color: list.isPublic ? 'var(--warning)' : 'var(--text-muted)'
+              minHeight: '34px',
+              padding: '0.35rem 0.5rem', 
+              fontSize: '0.78rem', 
+              fontWeight: 500,
+              borderRadius: '6px',
+              borderColor: list.isPublic ? 'var(--warning)' : 'var(--border-subtle)',
+              color: list.isPublic ? 'var(--warning)' : 'var(--text-secondary)'
             }}
             title={list.isPublic ? 'Rendre privée' : 'Partager avec la communauté'}
           >
@@ -128,10 +129,11 @@ export default function ListCard({
             className="btn btn-secondary"
             style={{ 
               width: 'auto', 
-              padding: '0.45rem 0.75rem', 
-              fontSize: '0.85rem', 
-              borderRadius: '10px',
-              borderColor: 'rgba(239, 68, 68, 0.4)',
+              minHeight: '34px',
+              padding: '0.35rem 0.65rem', 
+              fontSize: '0.8rem', 
+              borderRadius: '6px',
+              borderColor: 'rgba(239, 68, 68, 0.3)',
               color: 'var(--danger)'
             }}
             title="Supprimer cette liste"
@@ -141,21 +143,21 @@ export default function ListCard({
         )}
       </div>
 
-      {/* Primary Action Button (100% Width on Bottom) */}
+      {/* Primary Action Button */}
       <button
         onClick={onPlay}
         className="btn btn-success"
         style={{
           width: '100%',
-          padding: '0.75rem 1rem',
-          fontSize: '0.95rem',
-          fontWeight: 800,
-          borderRadius: '12px',
+          minHeight: '40px',
+          padding: '0.55rem 1rem',
+          fontSize: '0.9rem',
+          fontWeight: 600,
+          borderRadius: '8px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '0.5rem',
-          letterSpacing: '0.5px'
+          gap: '0.4rem'
         }}
       >
         <span>⚔️</span> JOUER
