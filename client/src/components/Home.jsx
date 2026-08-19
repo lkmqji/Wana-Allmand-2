@@ -420,11 +420,10 @@ export default function Home({
   return (
     <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       
-      {/* ------------------- LEARN TAB (APP PREPARATION) ------------------- */}
+      {/* ------------------- LEARN TAB ------------------- */}
       {activeTab === 'learn' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', width: '100%' }}>
-          
-          {/* MUR DE LA VENGEANCE (TOP) */}
+        <>
+          {/* TÂCHE 1 : Point d'entrée UI - Mur de la Vengeance */}
           <div 
             className={`vengeance-entry-card ${failedWords.length > 0 ? 'active' : 'disabled'}`}
             onClick={() => {
@@ -436,36 +435,38 @@ export default function Home({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: '1rem',
-              flexWrap: 'wrap'
+              gap: '1.2rem',
+              flexWrap: 'wrap',
+              marginBottom: '1rem'
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: '220px' }}>
               <div style={{
-                fontSize: '2rem',
-                width: '48px',
-                height: '48px',
-                borderRadius: '8px',
-                background: failedWords.length > 0 ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-surface-hover)',
-                border: `1px solid ${failedWords.length > 0 ? 'rgba(239, 68, 68, 0.4)' : 'var(--border-subtle)'}`,
+                fontSize: '2.4rem',
+                width: '58px',
+                height: '58px',
+                borderRadius: '16px',
+                background: failedWords.length > 0 ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255,255,255,0.05)',
+                border: `1.5px solid ${failedWords.length > 0 ? 'rgba(239, 68, 68, 0.6)' : 'rgba(255,255,255,0.1)'}`,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                boxShadow: failedWords.length > 0 ? '0 0 20px rgba(239, 68, 68, 0.4)' : 'none'
               }}>
                 🔥
               </div>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.2rem' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                    Mur de la Vengeance
+                  <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: '#ffffff', letterSpacing: '0.3px' }}>
+                    🔥 Mur de la Vengeance
                   </h3>
                   {failedWords.length > 0 && (
-                    <span className="vengeance-flame-badge">
+                    <span className="vengeance-flame-badge" style={{ fontSize: '0.75rem', padding: '0.15rem 0.55rem' }}>
                       {failedWords.length} à purifier
                     </span>
                   )}
                 </div>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: failedWords.length > 0 ? '#fca5a5' : 'var(--text-secondary)', fontWeight: 500 }}>
+                <p style={{ margin: 0, fontSize: '0.88rem', color: failedWords.length > 0 ? '#fca5a5' : 'var(--text-muted)', fontWeight: 600 }}>
                   {failedWords.length > 0 
                     ? `${failedWords.length} mot${failedWords.length > 1 ? 's' : ''} attend${failedWords.length > 1 ? 'ent' : ''} d'être purifié${failedWords.length > 1 ? 's' : ''}`
                     : "Aucune vengeance en attente."}
@@ -477,98 +478,118 @@ export default function Home({
               <button
                 type="button"
                 className="vengeance-action-btn"
-                style={{ fontSize: '0.9rem', padding: '0.6rem 1.2rem', pointerEvents: 'none' }}
+                style={{ fontSize: '0.92rem', padding: '0.75rem 1.3rem', pointerEvents: 'none' }}
               >
                 ⚡ PURIFIER
               </button>
             ) : (
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', padding: '0.5rem' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '0.5rem' }}>
                 ✨ Rien à purifier
               </span>
             )}
           </div>
 
-          {/* MAIN ACTION SECTION (PREMIUM SAAS MINIMALIST) */}
-          <div className="card" style={{ padding: '2.5rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '28px' }}>
-            <div>
-              <h2 style={{ fontSize: '2rem', fontWeight: 800, margin: '0 0 0.4rem 0', letterSpacing: '-0.5px', color: 'var(--text-main)' }}>
-                WANA ALLMAND
-              </h2>
-              <p className="text-muted" style={{ margin: 0, fontSize: '0.95rem', fontWeight: 500 }}>
-                Compétition &amp; apprentissage de vocabulaire en direct
-              </p>
+          <div className="card card-arena" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', background: 'linear-gradient(to bottom right, var(--bg-surface), rgba(99, 102, 241, 0.1))' }}>
+            <h2 className="brand-logo-shine" style={{ fontSize: '2.4rem', marginBottom: '0.4rem', letterSpacing: '-0.5px' }}>
+              WANA ALLMAND
+            </h2>
+            <p className="text-muted" style={{ marginBottom: '1.8rem', fontSize: '1.05rem', fontWeight: 600 }}>
+              Compétition &amp; Apprentissage de vocabulaire en direct 🎮
+            </p>
+            
+            <form onSubmit={handleJoin} style={{ width: '100%', maxWidth: '300px' }}>
+              <input 
+                type="text" 
+                className="input-field" 
+                placeholder="Code (ex: AB47)" 
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                maxLength={4}
+                style={{ textAlign: 'center', letterSpacing: '2px', fontSize: '1.5rem', marginBottom: '1rem', textTransform: 'uppercase' }}
+              />
+              <button 
+                type="submit" 
+                className="btn btn-primary" 
+                disabled={joinCode.length !== 4}
+              >
+                REJOINDRE
+              </button>
+            </form>
+
+            <div style={{ width: '100%', maxWidth: '300px', marginTop: '1rem', borderTop: '2px dashed rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
+              <button 
+                type="button"
+                className="btn btn-success" 
+                onClick={handlePlaySolo} 
+                style={{ 
+                  width: '100%', 
+                  padding: '0.85rem', 
+                  fontSize: '1rem', 
+                  fontWeight: 900,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  cursor: 'pointer'
+                }}
+              >
+                ➕ CRÉER LOBBY
+              </button>
             </div>
+          </div>
 
-            <div style={{ width: '100%', maxWidth: '380px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              
-              {/* BLOC 1: REJOINDRE */}
-              <form onSubmit={handleJoin} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%' }}>
-                <div style={{ textAlign: 'left', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Rejoindre une partie
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <input 
-                    type="text" 
-                    className="input-field" 
-                    placeholder="Code (ex: AB47)" 
-                    value={joinCode}
-                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                    maxLength={4}
-                    style={{ 
-                      flex: 1,
-                      textAlign: 'center', 
-                      letterSpacing: '2px', 
-                      fontSize: '1.15rem', 
-                      fontWeight: 700,
-                      textTransform: 'uppercase' 
-                    }}
-                  />
-                  <button 
-                    type="submit" 
-                    className="btn btn-secondary" 
-                    disabled={joinCode.length !== 4}
-                    style={{ width: 'auto', padding: '0.65rem 1.25rem', whiteSpace: 'nowrap' }}
-                  >
-                    Rejoindre
-                  </button>
-                </div>
-              </form>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <h3 style={{ fontSize: '1.2rem', margin: '1rem 0 0 0' }}>Créer une nouvelle session</h3>
+            
+            {/* 3 big boxes */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
-                <span>OU</span>
-                <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
+              {/* BOX 1 : Écrire tes mots + Importer PDF */}
+              <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ cursor: 'pointer', padding: '0.75rem', border: '2px solid var(--border-color)', borderRadius: '12px', transition: 'all 0.2s' }}
+                  onClick={() => setShowWordEditor(true)}
+                  onMouseOver={e => e.currentTarget.style.borderColor='var(--primary)'}
+                  onMouseOut={e => e.currentTarget.style.borderColor='var(--border-color)'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '1.3rem' }}>✏️</span>
+                    <span style={{ fontWeight: 'bold' }}>Écrire tes mots</span>
+                  </div>
+                </div>
+                <label style={{ cursor: isUploading ? 'wait' : 'pointer', padding: '0.75rem', border: '2px solid var(--border-color)', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', transition: 'all 0.2s' }}
+                  onMouseOver={e => e.currentTarget.style.borderColor='var(--primary)'}
+                  onMouseOut={e => e.currentTarget.style.borderColor='var(--border-color)'}
+                >
+                  <span style={{ fontSize: '1.3rem' }}>📤</span>
+                  <span style={{ fontWeight: 'bold' }}>{isUploading ? 'Analyse...' : 'Importer un PDF'}</span>
+                  <input type="file" accept=".pdf" style={{ display: 'none' }} onChange={handleUpload} disabled={isUploading} />
+                </label>
               </div>
 
-              {/* BLOC 2: CRÉER */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%' }}>
-                <div style={{ textAlign: 'left', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Nouvelle session
+              {/* BOX 2 : Génération IA (blurred) */}
+              <div className="card" style={{ position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
                 </div>
-                <button 
-                  type="button"
-                  className="btn btn-primary" 
-                  onClick={handlePlaySolo} 
-                  style={{ 
-                    width: '100%', 
-                    padding: '0.75rem', 
-                    fontSize: '1rem', 
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                    cursor: 'pointer'
-                  }}
-                >
-                  ➕ Créer un Lobby
-                </button>
+                <h4 style={{ marginBottom: '1rem' }}>🎨 Génération IA</h4>
+                <input type="text" className="input-field" placeholder="Thème" value={themeInput} onChange={(e) => setThemeInput(e.target.value)} style={{ marginBottom: '1rem', padding: '0.8rem 1rem' }} />
+                <button className="btn btn-secondary" disabled>Créer</button>
+              </div>
+
+              {/* BOX 3 : Coller du texte (blurred) */}
+              <div className="card" style={{ position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
+                </div>
+                <h4 style={{ marginBottom: '1rem' }}>📝 Coller du Texte</h4>
+                <textarea className="input-field" rows={3} value={rawText} onChange={(e) => setRawText(e.target.value)} style={{ fontFamily: 'monospace', fontSize: '0.9rem', marginBottom: '1rem' }} />
+                <button className="btn btn-secondary" disabled>Extraire avec IA</button>
               </div>
 
             </div>
           </div>
 
-        </div>
+        </>
       )}
 
       {/* ------------------- MY LISTS TAB (TASK 2 & 3 SUB-TABS) ------------------- */}
