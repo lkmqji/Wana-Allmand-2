@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { exampleLists } from '../data/exampleLists';
 import { formatPlayerName, getClientPlayerKey } from '../utils/formatters';
+import { resolveWordPair } from '../utils/dictionary';
 import ListCard from './ListCard';
 
 const listsCache = {
@@ -9,30 +10,7 @@ const listsCache = {
 };
 
 function resolveWordItem(item) {
-  const germanWord = typeof item === 'string' ? item : (item.word || item.answer || '');
-  let frenchPrompt = typeof item === 'object' ? (item.question || item.french || item.fr || item.translation || '') : '';
-  
-  if (!frenchPrompt || frenchPrompt.toLowerCase().includes('traduire')) {
-    const allDict = [];
-    (exampleLists || []).forEach(l => {
-      if (Array.isArray(l.words)) allDict.push(...l.words);
-    });
-    const found = allDict.find(ex => 
-      ex.answer?.toLowerCase().trim() === germanWord.toLowerCase().trim() ||
-      ex.question?.toLowerCase().trim() === germanWord.toLowerCase().trim()
-    );
-    if (found && found.question) {
-      frenchPrompt = found.question;
-    } else {
-      frenchPrompt = germanWord;
-    }
-  }
-
-  return {
-    germanWord,
-    frenchPrompt,
-    count: typeof item === 'object' && item.count ? item.count : 1
-  };
+  return resolveWordPair(item, [exampleLists]);
 }
 
 export default function Home({ 

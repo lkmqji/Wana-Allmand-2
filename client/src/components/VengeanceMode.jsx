@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { exampleLists } from '../data/exampleLists';
+import { resolveWordPair } from '../utils/dictionary';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const ROUND_DURATION = 10.5; // 30% faster than 15s duel
@@ -80,37 +81,19 @@ export default function VengeanceMode({
   onPurify,
   onBackHome,
   playerName = 'Guerrier',
-  avatar = '🔥'
+  avatar = '🔥',
+  allLists = []
 }) {
   // Initialize queue of words to purify with local hearts: 0 and robust prompt resolution
   const [queue, setQueue] = useState(() => {
-    const allDictWords = [];
-    (exampleLists || []).forEach(list => {
-      if (Array.isArray(list.words)) allDictWords.push(...list.words);
-    });
-
+    const extraLists = [exampleLists, ...(allLists || [])];
     const initial = (failedWords || []).map((w, idx) => {
-      const germanWord = typeof w === 'string' ? w : (w.word || w.answer || '');
-      let frenchPrompt = typeof w === 'object' ? (w.question || w.french || w.fr || w.translation || '') : '';
-
-      // If prompt is missing or generic fallback, search dictionary
-      if (!frenchPrompt || frenchPrompt.toLowerCase().includes('traduire')) {
-        const found = allDictWords.find(ex => 
-          normalizeText(ex.answer) === normalizeText(germanWord) || 
-          normalizeText(ex.question) === normalizeText(germanWord)
-        );
-        if (found && found.question) {
-          frenchPrompt = found.question;
-        } else {
-          frenchPrompt = germanWord; // fallback to showing the target word
-        }
-      }
-
+      const pair = resolveWordPair(w, extraLists);
       return {
         id: idx + 1,
-        word: germanWord,
-        question: frenchPrompt,
-        count: typeof w === 'object' && w.count ? w.count : 1,
+        word: pair.germanWord, // German word to be written
+        question: pair.frenchPrompt, // French/English prompt to be translated
+        count: pair.count,
         hearts: 0
       };
     }).filter(w => Boolean(w.word));

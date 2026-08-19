@@ -461,6 +461,40 @@ app.delete('/api/users/:firebaseId', async (req, res) => {
     }
 });
 
+async function enrichUserFailedWords(user) {
+    if (!user || !Array.isArray(user.failedWords) || user.failedWords.length === 0) return user;
+    let modified = false;
+    const missing = user.failedWords.some(fw => !fw.question || fw.question.toLowerCase().includes('traduire'));
+    if (missing) {
+        try {
+            const lists = await List.find({}, 'words');
+            const map = new Map();
+            lists.forEach(l => {
+                (l.words || []).forEach(w => {
+                    if (w.answer && w.question) {
+                        map.set(w.answer.trim().toLowerCase(), w.question.trim());
+                    }
+                });
+            });
+            user.failedWords.forEach(fw => {
+                if (!fw.question || fw.question.toLowerCase().includes('traduire')) {
+                    const found = map.get((fw.word || '').trim().toLowerCase());
+                    if (found) {
+                        fw.question = found;
+                        modified = true;
+                    }
+                }
+            });
+            if (modified) {
+                await user.save();
+            }
+        } catch (e) {
+            console.error("Error enriching failed words:", e);
+        }
+    }
+    return user;
+}
+
 app.post('/api/users/sync', async (req, res) => {
     try {
         const { firebaseId, name } = req.body;
@@ -471,6 +505,7 @@ app.post('/api/users/sync', async (req, res) => {
             user.name = name;
             await user.save();
         }
+        await enrichUserFailedWords(user);
         res.json(user);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -480,8 +515,9 @@ app.post('/api/users/sync', async (req, res) => {
 // Endpoint to fetch single user stats & failedWords
 app.get('/api/users/:firebaseId', async (req, res) => {
     try {
-        const user = await User.findOne({ firebaseId: req.params.firebaseId });
+        let user = await User.findOne({ firebaseId: req.params.firebaseId });
         if (!user) return res.status(404).json({ error: 'User not found' });
+        await enrichUserFailedWords(user);
         res.json(user);
     } catch (err) {
         res.status(500).json({ error: err.message });
