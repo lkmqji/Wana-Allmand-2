@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
+import { exampleLists } from '../data/exampleLists';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const ROUND_DURATION = 10.5; // 30% faster than 15s duel
@@ -81,15 +82,38 @@ export default function VengeanceMode({
   playerName = 'Guerrier',
   avatar = '🔥'
 }) {
-  // Initialize queue of words to purify with local hearts: 0
+  // Initialize queue of words to purify with local hearts: 0 and robust prompt resolution
   const [queue, setQueue] = useState(() => {
-    const initial = (failedWords || []).map((w, idx) => ({
-      id: idx + 1,
-      word: typeof w === 'string' ? w : w.word || '',
-      question: typeof w === 'object' && w.question ? w.question : (typeof w === 'object' && w.translation ? w.translation : 'Traduire en allemand'),
-      count: typeof w === 'object' && w.count ? w.count : 1,
-      hearts: 0
-    })).filter(w => Boolean(w.word));
+    const allDictWords = [];
+    (exampleLists || []).forEach(list => {
+      if (Array.isArray(list.words)) allDictWords.push(...list.words);
+    });
+
+    const initial = (failedWords || []).map((w, idx) => {
+      const germanWord = typeof w === 'string' ? w : (w.word || w.answer || '');
+      let frenchPrompt = typeof w === 'object' ? (w.question || w.french || w.fr || w.translation || '') : '';
+
+      // If prompt is missing or generic fallback, search dictionary
+      if (!frenchPrompt || frenchPrompt.toLowerCase().includes('traduire')) {
+        const found = allDictWords.find(ex => 
+          normalizeText(ex.answer) === normalizeText(germanWord) || 
+          normalizeText(ex.question) === normalizeText(germanWord)
+        );
+        if (found && found.question) {
+          frenchPrompt = found.question;
+        } else {
+          frenchPrompt = germanWord; // fallback to showing the target word
+        }
+      }
+
+      return {
+        id: idx + 1,
+        word: germanWord,
+        question: frenchPrompt,
+        count: typeof w === 'object' && w.count ? w.count : 1,
+        hearts: 0
+      };
+    }).filter(w => Boolean(w.word));
     return initial;
   });
 
@@ -432,6 +456,26 @@ export default function VengeanceMode({
       {/* Main Game Box */}
       <div className={`vengeance-game-box ${feedback?.type === 'success' || feedback?.type === 'purify' ? 'correct-flash' : ''} ${feedback?.type === 'wrong' ? 'wrong-flash' : ''} ${isExploding ? 'heart-icon-active' : ''}`}>
         
+        {/* Pedagogical Infobox (Task 3) */}
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.08)',
+          border: '1px dashed rgba(239, 68, 68, 0.4)',
+          borderRadius: '12px',
+          padding: '0.65rem 0.9rem',
+          marginBottom: '1.2rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.6rem',
+          fontSize: '0.84rem',
+          color: '#fca5a5',
+          lineHeight: 1.4
+        }}>
+          <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>💡</span>
+          <div>
+            <strong>Mode Solo :</strong> Jouez uniquement sur vos erreurs. Remplissez les 3 cœurs (❤️❤️❤️) pour effacer définitivement le mot de vos fautes et gagner un gros bonus d'XP !
+          </div>
+        </div>
+
         {/* Visual Timer Bar (30% faster) */}
         <div className="vengeance-timer-track">
           <div
@@ -456,21 +500,24 @@ export default function VengeanceMode({
           </span>
         </div>
 
-        {/* Prompt Word / French Question */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ fontSize: '0.85rem', color: '#f97316', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.4rem' }}>
-            Mot à purifier
+        {/* Prompt Word / French Question (Task 1) */}
+        <div style={{ textAlign: 'center', marginBottom: '1.8rem' }}>
+          <div style={{ fontSize: '0.95rem', color: '#f97316', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem' }}>
+            Traduire en allemand :
           </div>
-          <div style={{
-            fontSize: '2.2rem',
+          <h1 style={{
+            fontSize: '2.6rem',
             fontWeight: 900,
             color: '#ffffff',
-            textShadow: '0 2px 10px rgba(0,0,0,0.6)'
+            margin: '0',
+            textShadow: '0 2px 16px rgba(0,0,0,0.8)',
+            letterSpacing: '0.5px',
+            lineHeight: 1.2
           }}>
-            {currentWord.question || 'Traduire en allemand'}
-          </div>
+            {currentWord.question || currentWord.word}
+          </h1>
           {currentWord.count > 1 && (
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
               Raté {currentWord.count} fois par le passé
             </div>
           )}

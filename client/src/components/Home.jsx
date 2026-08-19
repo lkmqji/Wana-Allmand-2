@@ -8,6 +8,33 @@ const listsCache = {
   archived: {} // keyed by user.uid
 };
 
+function resolveWordItem(item) {
+  const germanWord = typeof item === 'string' ? item : (item.word || item.answer || '');
+  let frenchPrompt = typeof item === 'object' ? (item.question || item.french || item.fr || item.translation || '') : '';
+  
+  if (!frenchPrompt || frenchPrompt.toLowerCase().includes('traduire')) {
+    const allDict = [];
+    (exampleLists || []).forEach(l => {
+      if (Array.isArray(l.words)) allDict.push(...l.words);
+    });
+    const found = allDict.find(ex => 
+      ex.answer?.toLowerCase().trim() === germanWord.toLowerCase().trim() ||
+      ex.question?.toLowerCase().trim() === germanWord.toLowerCase().trim()
+    );
+    if (found && found.question) {
+      frenchPrompt = found.question;
+    } else {
+      frenchPrompt = germanWord;
+    }
+  }
+
+  return {
+    germanWord,
+    frenchPrompt,
+    count: typeof item === 'object' && item.count ? item.count : 1
+  };
+}
+
 export default function Home({ 
   socket, 
   playerName, 
@@ -31,6 +58,7 @@ export default function Home({
   failedWords = [],
   onStartVengeance
 }) {
+  const [listSubTab, setListSubTab] = useState('my_lists'); // 'my_lists' | 'failed_words'
   const [showMistakesModal, setShowMistakesModal] = useState(false);
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
   const [prepTab, setPrepTab] = useState('pdf'); // 'pdf', 'text', 'examples', 'settings'
@@ -577,110 +605,258 @@ export default function Home({
         </>
       )}
 
-      {/* ------------------- MY LISTS TAB (TASK 3 REDESIGN) ------------------- */}
+      {/* ------------------- MY LISTS TAB (TASK 2 & 3 SUB-TABS) ------------------- */}
       {activeTab === 'lists' && (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+          {/* Header & Sub-tab Segmented Control */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '0.8rem' }}>
             <div>
               <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>Mes Listes 🗂️</h2>
               <p className="text-muted" style={{ fontSize: '0.85rem', marginTop: '0.2rem' }}>
-                Gérez, révisez et lancez vos listes personnalisées
+                Gérez vos listes et purifiez vos mots ratés
               </p>
             </div>
-            {selectedListIds.size >= 2 && (
-              <button onClick={handleMergeLists} className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', width: 'auto' }}>
-                Fusionner ({selectedListIds.size})
+
+            {/* Segmented Control (Pill toggle) (Task 2) */}
+            <div style={{
+              display: 'inline-flex',
+              background: 'var(--card-bg, #151e2e)',
+              padding: '0.3rem',
+              borderRadius: '14px',
+              border: '1.5px solid var(--border-color, #243044)',
+              gap: '0.3rem',
+              width: '100%',
+              maxWidth: '430px'
+            }}>
+              <button
+                type="button"
+                onClick={() => setListSubTab('my_lists')}
+                style={{
+                  flex: 1,
+                  padding: '0.65rem 1rem',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: listSubTab === 'my_lists' ? 'var(--accent-primary, var(--primary))' : 'transparent',
+                  color: listSubTab === 'my_lists' ? '#ffffff' : 'var(--text-muted)',
+                  fontWeight: 800,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  boxShadow: listSubTab === 'my_lists' ? '0 4px 14px rgba(99, 102, 241, 0.35)' : 'none'
+                }}
+              >
+                <span>📁</span>
+                <span>Mes Listes</span>
               </button>
-            )}
+
+              <button
+                type="button"
+                onClick={() => setListSubTab('failed_words')}
+                style={{
+                  flex: 1,
+                  padding: '0.65rem 1rem',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: listSubTab === 'failed_words' ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'transparent',
+                  color: listSubTab === 'failed_words' ? '#ffffff' : 'var(--text-muted)',
+                  fontWeight: 800,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  boxShadow: listSubTab === 'failed_words' ? '0 4px 14px rgba(239, 68, 68, 0.4)' : 'none'
+                }}
+              >
+                <span>💔</span>
+                <span>Fautes à Purifier ({failedWords.length})</span>
+              </button>
+            </div>
           </div>
 
-          {/* TÂCHE 2 : Dossier Rouge (Mots Ratés 💔) */}
-          <div className="pinned-mistakes-card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <span style={{ fontSize: '2.2rem', filter: 'drop-shadow(0 0 8px rgba(239, 68, 68, 0.6))' }}>💔</span>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#fca5a5' }}>
-                      Dossier Rouge : Mots Ratés 💔
-                    </h3>
-                    <span style={{
-                      background: 'rgba(239, 68, 68, 0.25)',
-                      border: '1px solid rgba(239, 68, 68, 0.5)',
-                      color: '#f87171',
-                      borderRadius: '999px',
-                      padding: '0.15rem 0.6rem',
-                      fontSize: '0.75rem',
-                      fontWeight: 800
-                    }}>
-                      {failedWords.length} mot{failedWords.length > 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-                    {failedWords.length > 0 
-                      ? "Consultez la liste de vos erreurs avant de lancer la purge." 
-                      : "Bravo ! Aucune faute en attente de purification."}
+          {/* SUB-TAB 1 : MES LISTES */}
+          {listSubTab === 'my_lists' && (
+            <>
+              {selectedListIds.size >= 2 && (
+                <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button onClick={handleMergeLists} className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', width: 'auto' }}>
+                    Fusionner ({selectedListIds.size})
+                  </button>
+                </div>
+              )}
+
+              {!user ? (
+                <div className="card text-muted text-center" style={{ padding: '2rem' }}>
+                  Connectez-vous avec votre compte Google pour créer et sauvegarder vos listes.
+                </div>
+              ) : archivedLists.length === 0 ? (
+                <div className="card text-muted text-center" style={{ padding: '2.5rem 1rem' }}>
+                  <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>📂</span>
+                  <p style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--text-main)' }}>Aucune liste sauvegardée pour le moment.</p>
+                  <p style={{ fontSize: '0.9rem', marginTop: '0.3rem' }}>
+                    Importez un fichier PDF ou écrivez vos mots depuis l'onglet Apprendre pour commencer !
                   </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.2rem' }}>
+                  {archivedLists.map(list => (
+                    <ListCard
+                      key={list._id}
+                      list={list}
+                      isSelected={selectedListIds.has(list._id)}
+                      onToggleSelect={() => toggleListSelection(list._id)}
+                      onPlay={() => handleStartDirectSession(list.words)}
+                      onEdit={() => handleEditList(list)}
+                      onTogglePublic={() => togglePublicList(list._id, list.isPublic)}
+                      onDelete={() => deleteList(list._id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* SUB-TAB 2 : FAUTES À PURIFIER (TASK 2 & 3) */}
+          {listSubTab === 'failed_words' && (
+            <>
+              {/* Pedagogical Infobox (Task 3) */}
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1.5px dashed rgba(239, 68, 68, 0.4)',
+                borderRadius: '16px',
+                padding: '1rem 1.3rem',
+                marginBottom: '1.2rem',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.85rem',
+                fontSize: '0.9rem',
+                color: 'var(--text-main)',
+                lineHeight: 1.5
+              }}>
+                <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>💡</span>
+                <div>
+                  <strong>Mode Solo :</strong> Jouez uniquement sur vos erreurs. Remplissez les 3 cœurs (❤️❤️❤️) pour effacer définitivement le mot de vos fautes et gagner un gros bonus d'XP !
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowMistakesModal(true)}
-                  disabled={failedWords.length === 0}
-                  style={{
-                    padding: '0.55rem 1.1rem',
-                    fontSize: '0.88rem',
-                    fontWeight: 700,
-                    borderColor: 'rgba(239, 68, 68, 0.4)',
-                    color: failedWords.length > 0 ? '#fca5a5' : 'var(--text-muted)'
-                  }}
-                >
-                  📖 CONSULTER
-                </button>
-                {failedWords.length > 0 && (
-                  <button
-                    type="button"
-                    className="vengeance-action-btn"
-                    onClick={() => onStartVengeance && onStartVengeance()}
-                    style={{ padding: '0.55rem 1.1rem', fontSize: '0.88rem' }}
-                  >
-                    ⚡ Lancer la Purge
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+              {/* Pinned Dossier Rouge Card */}
+              <div className="pinned-mistakes-card" style={{ marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <span style={{ fontSize: '2.4rem', filter: 'drop-shadow(0 0 8px rgba(239, 68, 68, 0.6))' }}>💔</span>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#fca5a5' }}>
+                          Dossier Rouge : Mots Ratés 💔
+                        </h3>
+                        <span style={{
+                          background: 'rgba(239, 68, 68, 0.25)',
+                          border: '1px solid rgba(239, 68, 68, 0.5)',
+                          color: '#f87171',
+                          borderRadius: '999px',
+                          padding: '0.15rem 0.6rem',
+                          fontSize: '0.75rem',
+                          fontWeight: 800
+                        }}>
+                          {failedWords.length} mot{failedWords.length > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.86rem', color: 'var(--text-muted)' }}>
+                        {failedWords.length > 0 
+                          ? "Consultez la liste de vos erreurs avant de lancer la purge." 
+                          : "Bravo ! Aucune faute en attente de purification."}
+                      </p>
+                    </div>
+                  </div>
 
-          {!user ? (
-            <div className="card text-muted text-center" style={{ padding: '2rem' }}>
-              Connectez-vous avec votre compte Google pour créer et sauvegarder vos listes.
-            </div>
-          ) : archivedLists.length === 0 ? (
-            <div className="card text-muted text-center" style={{ padding: '2.5rem 1rem' }}>
-              <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>📂</span>
-              <p style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--text-main)' }}>Aucune liste sauvegardée pour le moment.</p>
-              <p style={{ fontSize: '0.9rem', marginTop: '0.3rem' }}>
-                Importez un fichier PDF ou écrivez vos mots depuis l'onglet Apprendre pour commencer !
-              </p>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.2rem' }}>
-              {archivedLists.map(list => (
-                <ListCard
-                  key={list._id}
-                  list={list}
-                  isSelected={selectedListIds.has(list._id)}
-                  onToggleSelect={() => toggleListSelection(list._id)}
-                  onPlay={() => handleStartDirectSession(list.words)}
-                  onEdit={() => handleEditList(list)}
-                  onTogglePublic={() => togglePublicList(list._id, list.isPublic)}
-                  onDelete={() => deleteList(list._id)}
-                />
-              ))}
-            </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setShowMistakesModal(true)}
+                      disabled={failedWords.length === 0}
+                      style={{
+                        padding: '0.6rem 1.2rem',
+                        fontSize: '0.88rem',
+                        fontWeight: 700,
+                        borderColor: 'rgba(239, 68, 68, 0.4)',
+                        color: failedWords.length > 0 ? '#fca5a5' : 'var(--text-muted)'
+                      }}
+                    >
+                      📖 CONSULTER
+                    </button>
+                    {failedWords.length > 0 && (
+                      <button
+                        type="button"
+                        className="vengeance-action-btn"
+                        onClick={() => onStartVengeance && onStartVengeance()}
+                        style={{ padding: '0.6rem 1.2rem', fontSize: '0.88rem' }}
+                      >
+                        ⚡ Lancer la Purge
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Direct List Preview for failed words */}
+              {failedWords.length === 0 ? (
+                <div className="card text-center text-muted" style={{ padding: '2.5rem' }}>
+                  <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>✨</span>
+                  <p style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)' }}>Votre dossier est vierge de toute erreur !</p>
+                  <p style={{ fontSize: '0.88rem', marginTop: '0.2rem' }}>Jouez des parties en direct ou en solo pour vous entraîner.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
+                    Aperçu des fautes enregistrées :
+                  </div>
+                  {failedWords.map((item, idx) => {
+                    const resolved = resolveWordItem(item);
+                    return (
+                      <div
+                        key={idx}
+                        className="card"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '1rem',
+                          background: 'linear-gradient(135deg, rgba(25, 12, 16, 0.75) 0%, var(--bg-surface) 100%)',
+                          border: '1px solid rgba(239, 68, 68, 0.25)',
+                          padding: '1rem 1.2rem'
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#fca5a5' }}>
+                            🇩🇪 {resolved.germanWord}
+                          </div>
+                          <div style={{ fontSize: '0.9rem', color: '#cbd5e1', marginTop: '0.2rem' }}>
+                            🇫🇷 {resolved.frenchPrompt}
+                          </div>
+                        </div>
+                        <span style={{
+                          fontSize: '0.8rem',
+                          fontWeight: 800,
+                          background: 'rgba(239, 68, 68, 0.2)',
+                          color: '#f87171',
+                          padding: '0.25rem 0.65rem',
+                          borderRadius: '8px'
+                        }}>
+                          {resolved.count}x raté
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </>
       )}
@@ -1123,9 +1299,7 @@ export default function Home({
                 </div>
               ) : (
                 failedWords.map((item, idx) => {
-                  const germanWord = typeof item === 'string' ? item : (item.word || '');
-                  const frenchWord = typeof item === 'object' && (item.question || item.translation) ? (item.question || item.translation) : 'Traduire en allemand';
-                  const count = typeof item === 'object' && item.count ? item.count : 1;
+                  const resolved = resolveWordItem(item);
 
                   return (
                     <div
@@ -1143,10 +1317,10 @@ export default function Home({
                     >
                       <div>
                         <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fca5a5' }}>
-                          🇩🇪 {germanWord}
+                          🇩🇪 {resolved.germanWord}
                         </div>
                         <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '0.2rem' }}>
-                          🇫🇷 {frenchWord}
+                          🇫🇷 {resolved.frenchPrompt}
                         </div>
                       </div>
                       <span style={{
@@ -1158,7 +1332,7 @@ export default function Home({
                         borderRadius: '6px',
                         whiteSpace: 'nowrap'
                       }}>
-                        {count}x raté
+                        {resolved.count}x raté
                       </span>
                     </div>
                   );
