@@ -13,11 +13,39 @@ export function AudioProvider({ children }) {
     }
   });
 
+  // 3 Volume Sliders (Master, SFX, BGM) - Defaults 0.5
+  const [masterVolume, setMasterVolumeState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('wana_master_volume');
+      return saved !== null ? Math.max(0, Math.min(1, parseFloat(saved))) : 0.5;
+    } catch {
+      return 0.5;
+    }
+  });
+
+  const [sfxVolume, setSfxVolumeState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('wana_sfx_volume');
+      return saved !== null ? Math.max(0, Math.min(1, parseFloat(saved))) : 0.5;
+    } catch {
+      return 0.5;
+    }
+  });
+
+  const [bgmVolume, setBgmVolumeState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('wana_bgm_volume');
+      return saved !== null ? Math.max(0, Math.min(1, parseFloat(saved))) : 0.5;
+    } catch {
+      return 0.5;
+    }
+  });
+
   const isSoundEnabledRef = useRef(isSoundEnabled);
   const hasInteractedRef = useRef(false);
   const bgmRef = useRef(null);
 
-  // Sync state to ref and localStorage
+  // Sync isSoundEnabled state to ref and localStorage
   useEffect(() => {
     isSoundEnabledRef.current = isSoundEnabled;
     try {
@@ -27,6 +55,58 @@ export function AudioProvider({ children }) {
     }
   }, [isSoundEnabled]);
 
+  // Fetch server audio default configs on initial startup if user has no custom stored volumes
+  useEffect(() => {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    fetch(`${API_URL}/api/config`)
+      .then(res => res.json())
+      .then(cfg => {
+        if (cfg) {
+          if (localStorage.getItem('wana_master_volume') === null && typeof cfg.defaultMasterVol === 'number') {
+            setMasterVolumeState(cfg.defaultMasterVol);
+          }
+          if (localStorage.getItem('wana_sfx_volume') === null && typeof cfg.defaultSfxVol === 'number') {
+            setSfxVolumeState(cfg.defaultSfxVol);
+          }
+          if (localStorage.getItem('wana_bgm_volume') === null && typeof cfg.defaultBgmVol === 'number') {
+            setBgmVolumeState(cfg.defaultBgmVol);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Synchronize Master & SFX volumes to sfxManager GainNodes
+  useEffect(() => {
+    try {
+      localStorage.setItem('wana_master_volume', String(masterVolume));
+    } catch {}
+    sfx.setMasterVolume(isSoundEnabled ? masterVolume : 0);
+  }, [masterVolume, isSoundEnabled]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('wana_sfx_volume', String(sfxVolume));
+    } catch {}
+    sfx.setSfxVolume(isSoundEnabled ? sfxVolume : 0);
+  }, [sfxVolume, isSoundEnabled]);
+
+  // Synchronize BGM volume: volumeFinal = bgmVolume * masterVolume * 0.15 (soundscape max)
+  useEffect(() => {
+    try {
+      localStorage.setItem('wana_bgm_volume', String(bgmVolume));
+    } catch {}
+    const bgm = bgmRef.current;
+    if (bgm) {
+      if (isSoundEnabled) {
+        const finalBgmVol = Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.15));
+        bgm.volume = finalBgmVol;
+      } else {
+        bgm.volume = 0;
+      }
+    }
+  }, [bgmVolume, masterVolume, isSoundEnabled]);
+
   // =========================================================================
   // 🎵 BGM (Background Music) HTML5 Audio Engine
   // =========================================================================
@@ -35,8 +115,8 @@ export function AudioProvider({ children }) {
     try {
       bgmAudio = new Audio('/sounds/bgm-main.mp3');
       bgmAudio.loop = true;
-      // Strict Mixing: 0.06 (Maximum 0.08) for a subtle game feel soundscape
-      bgmAudio.volume = 0.06;
+      const initialVol = isSoundEnabledRef.current ? Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.15)) : 0;
+      bgmAudio.volume = initialVol;
       bgmAudio.preload = 'auto';
       bgmRef.current = bgmAudio;
     } catch (e) {
@@ -75,6 +155,28 @@ export function AudioProvider({ children }) {
     setIsSoundEnabled(Boolean(val));
   }, []);
 
+  const setMasterVolume = useCallback((vol) => {
+    const val = Math.max(0, Math.min(1, Number(vol)));
+    setMasterVolumeState(val);
+  }, []);
+
+  const setSfxVolume = useCallback((vol) => {
+    const val = Math.max(0, Math.min(1, Number(vol)));
+    setSfxVolumeState(val);
+  }, []);
+
+  const setBgmVolume = useCallback((vol) => {
+    const val = Math.max(0, Math.min(1, Number(vol)));
+    setBgmVolumeState(val);
+  }, []);
+
+  const resetAudioSettings = useCallback(() => {
+    setIsSoundEnabled(true);
+    setMasterVolumeState(0.5);
+    setSfxVolumeState(0.5);
+    setBgmVolumeState(0.5);
+  }, []);
+
   const startBgm = useCallback(() => {
     if (bgmRef.current && isSoundEnabledRef.current) {
       bgmRef.current.play().catch(() => {});
@@ -84,13 +186,6 @@ export function AudioProvider({ children }) {
   const pauseBgm = useCallback(() => {
     if (bgmRef.current) {
       bgmRef.current.pause();
-    }
-  }, []);
-
-  const setBgmVolume = useCallback((vol) => {
-    if (bgmRef.current) {
-      // Clamped between 0 and 0.15 with default max mix
-      bgmRef.current.volume = Math.max(0, Math.min(0.15, vol));
     }
   }, []);
 
@@ -238,9 +333,15 @@ export function AudioProvider({ children }) {
     isSoundEnabled,
     toggleSound,
     setSoundEnabled,
+    masterVolume,
+    setMasterVolume,
+    sfxVolume,
+    setSfxVolume,
+    bgmVolume,
+    setBgmVolume,
+    resetAudioSettings,
     startBgm,
     pauseBgm,
-    setBgmVolume,
     playHover,
     playClick,
     playSuccess,
@@ -276,9 +377,15 @@ export function useAudio() {
       isSoundEnabled: true,
       toggleSound: () => {},
       setSoundEnabled: () => {},
+      masterVolume: 0.5,
+      setMasterVolume: () => {},
+      sfxVolume: 0.5,
+      setSfxVolume: () => {},
+      bgmVolume: 0.5,
+      setBgmVolume: () => {},
+      resetAudioSettings: () => {},
       startBgm: () => {},
       pauseBgm: () => {},
-      setBgmVolume: () => {},
       playHover: () => {},
       playClick: () => {},
       playSuccess: () => {},

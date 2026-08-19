@@ -5,8 +5,15 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const ADMIN_UID = import.meta.env.VITE_ADMIN_UID;
 
 export default function Admin({ user, onClose }) {
-  const [activeTab, setActiveTab] = useState("overview"); // overview, users, lists, settings
-  const [config, setConfig] = useState({ guestMode: true, maintenanceMode: false, announcement: "" });
+  const [activeTab, setActiveTab] = useState("overview"); // overview, users, lists, audio, settings
+  const [config, setConfig] = useState({
+    guestMode: true,
+    maintenanceMode: false,
+    announcement: "",
+    defaultMasterVol: 0.5,
+    defaultSfxVol: 0.5,
+    defaultBgmVol: 0.5
+  });
   const [overview, setOverview] = useState(null);
   const [users, setUsers] = useState([]);
   const [lists, setLists] = useState([]);
@@ -66,7 +73,14 @@ export default function Admin({ user, onClose }) {
 
       if (cfgRes.ok) {
         const cfgData = await cfgRes.json();
-        setConfig(cfgData);
+        setConfig({
+          guestMode: cfgData.guestMode ?? true,
+          maintenanceMode: cfgData.maintenanceMode ?? false,
+          announcement: cfgData.announcement || "",
+          defaultMasterVol: cfgData.defaultMasterVol ?? 0.5,
+          defaultSfxVol: cfgData.defaultSfxVol ?? 0.5,
+          defaultBgmVol: cfgData.defaultBgmVol ?? 0.5
+        });
         setAnnouncementText(cfgData.announcement || "");
       }
       if (ovRes.ok) setOverview(await ovRes.json());
@@ -95,6 +109,30 @@ export default function Admin({ user, onClose }) {
   const showErrorMessage = (msg) => {
     setMessage(`❌ ${msg}`);
     setTimeout(() => setMessage(""), 3500);
+  };
+
+  // Update Audio Volume Default on server
+  const updateAudioConfig = async (setting, numValue) => {
+    const val = Math.max(0, Math.min(1, parseFloat(numValue)));
+    setConfig(prev => ({ ...prev, [setting]: val }));
+    setSaving(setting);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/config?adminUid=${user.uid}`, {
+        method: "POST",
+        headers: fetchHeaders,
+        body: JSON.stringify({ adminUid: user.uid, setting, value: val })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showSuccessMessage(`Réglage serveur mis à jour : ${setting} = ${Math.round(val * 100)}%`);
+      } else {
+        showErrorMessage(data.error || "Erreur lors de la mise à jour audio.");
+      }
+    } catch {
+      showErrorMessage("Erreur réseau.");
+    } finally {
+      setSaving(null);
+    }
   };
 
   // Toggle config settings
@@ -412,6 +450,7 @@ export default function Admin({ user, onClose }) {
             { id: "overview", label: "📊 Tableau de Bord", count: null },
             { id: "users", label: "👥 Utilisateurs", count: users.length },
             { id: "lists", label: "📂 Toutes les Listes", count: lists.length },
+            { id: "audio", label: "🔊 Audio par Défaut", count: null },
             { id: "settings", label: "⚙️ Système & Réglages", count: null }
           ].map(tab => (
             <button
@@ -692,7 +731,139 @@ export default function Admin({ user, onClose }) {
                 </div>
               )}
 
-              {/* ---------------- 4. SYSTEM & SETTINGS TAB ---------------- */}
+              {/* ---------------- 4. AUDIO DEFAULTS TAB ---------------- */}
+              {activeTab === "audio" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                  <div className="card" style={{ display: "flex", flexDirection: "column", gap: "1.4rem", padding: "1.5rem" }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                        <span style={{ fontSize: "1.5rem" }}>🔊</span>
+                        <h3 style={{ margin: 0, fontSize: "1.2rem", color: "var(--primary)" }}>
+                          Réglages Audio par Défaut (Global Serveur)
+                        </h3>
+                      </div>
+                      <p style={{ color: "var(--text-muted)", fontSize: "0.88rem", margin: "0.4rem 0 0 0" }}>
+                        Configurez les volumes de départ enregistrés sur MongoDB. Ces paramètres s'appliquent aux nouveaux utilisateurs et définissent les valeurs par défaut de la plateforme.
+                      </p>
+                    </div>
+
+                    {/* 1. Default Master Slider */}
+                    <div className="audio-slider-group" style={{ background: "var(--bg-main)", padding: "1rem", borderRadius: "12px", border: "1px solid var(--border-color)" }}>
+                      <div className="audio-slider-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                          <span style={{ fontSize: "1.3rem" }}>🎛️</span>
+                          <div>
+                            <strong style={{ fontSize: "0.95rem" }}>Volume Principal par Défaut (Master)</strong>
+                            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Multiplicateur général du serveur</div>
+                          </div>
+                        </div>
+                        <span className="audio-percentage-pill">
+                          {Math.round((config.defaultMasterVol ?? 0.5) * 100)}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={config.defaultMasterVol ?? 0.5}
+                        onChange={(e) => updateAudioConfig("defaultMasterVol", e.target.value)}
+                        className="wana-range-slider"
+                        style={{
+                          '--progress': `${(config.defaultMasterVol ?? 0.5) * 100}%`
+                        }}
+                      />
+                    </div>
+
+                    {/* 2. Default SFX Slider */}
+                    <div className="audio-slider-group" style={{ background: "var(--bg-main)", padding: "1rem", borderRadius: "12px", border: "1px solid var(--border-color)" }}>
+                      <div className="audio-slider-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                          <span style={{ fontSize: "1.3rem" }}>💥</span>
+                          <div>
+                            <strong style={{ fontSize: "0.95rem" }}>Volume Effets Sonores par Défaut (SFX)</strong>
+                            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Bips, explosions, notifications et duels</div>
+                          </div>
+                        </div>
+                        <span className="audio-percentage-pill">
+                          {Math.round((config.defaultSfxVol ?? 0.5) * 100)}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={config.defaultSfxVol ?? 0.5}
+                        onChange={(e) => updateAudioConfig("defaultSfxVol", e.target.value)}
+                        className="wana-range-slider"
+                        style={{
+                          '--progress': `${(config.defaultSfxVol ?? 0.5) * 100}%`
+                        }}
+                      />
+                    </div>
+
+                    {/* 3. Default BGM Slider */}
+                    <div className="audio-slider-group" style={{ background: "var(--bg-main)", padding: "1rem", borderRadius: "12px", border: "1px solid var(--border-color)" }}>
+                      <div className="audio-slider-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                          <span style={{ fontSize: "1.3rem" }}>🎵</span>
+                          <div>
+                            <strong style={{ fontSize: "0.95rem" }}>Volume Musique d'Ambiance par Défaut (BGM)</strong>
+                            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Bande sonore d'apprentissage</div>
+                          </div>
+                        </div>
+                        <span className="audio-percentage-pill">
+                          {Math.round((config.defaultBgmVol ?? 0.5) * 100)}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={config.defaultBgmVol ?? 0.5}
+                        onChange={(e) => updateAudioConfig("defaultBgmVol", e.target.value)}
+                        className="wana-range-slider"
+                        style={{
+                          '--progress': `${(config.defaultBgmVol ?? 0.5) * 100}%`
+                        }}
+                      />
+                    </div>
+
+                    {/* Quick Presets for Admin */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.8rem", paddingTop: "0.5rem" }}>
+                      <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                        {saving ? `⏳ Enregistrement du paramètre ${saving}...` : "💾 Synchronisé en temps réel avec MongoDB"}
+                      </span>
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        {[
+                          { label: "Discret (25%)", val: 0.25 },
+                          { label: "Équilibré (50%)", val: 0.5 },
+                          { label: "Dynamique (75%)", val: 0.75 },
+                          { label: "Plein (100%)", val: 1.0 }
+                        ].map(p => (
+                          <button
+                            key={p.val}
+                            type="button"
+                            onClick={() => {
+                              updateAudioConfig("defaultMasterVol", p.val);
+                              updateAudioConfig("defaultSfxVol", p.val);
+                              updateAudioConfig("defaultBgmVol", p.val);
+                            }}
+                            className="btn btn-secondary"
+                            style={{ padding: "0.35rem 0.6rem", fontSize: "0.75rem" }}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ---------------- 5. SYSTEM & SETTINGS TAB ---------------- */}
               {activeTab === "settings" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
                   {/* Guest Mode Setting */}

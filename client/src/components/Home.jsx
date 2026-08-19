@@ -3,6 +3,7 @@ import { exampleLists } from '../data/exampleLists';
 import { formatPlayerName, getClientPlayerKey } from '../utils/formatters';
 import { resolveWordPair } from '../utils/dictionary';
 import ListCard from './ListCard';
+import Profil from './Profil';
 
 const listsCache = {
   public: null,
@@ -971,173 +972,25 @@ export default function Home({
         </>
       )}
 
-      {/* ------------------- PROFILE TAB (TASK 1 & 2) ------------------- */}
+      {/* ------------------- PROFILE / SETTINGS TAB (TASK 1 & 2) ------------------- */}
       {activeTab === 'profile' && (
-        <>
-          <h2>Profil &amp; Paramètres 👤</h2>
-          
-          {/* Guest login banner */}
-          {isGuest && !user && (
-            <div style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: '14px', padding: '1.2rem', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', alignItems: 'center', textAlign: 'center' }}>
-              <span style={{ fontSize: '1.6rem' }}>👤</span>
-              <div>
-                <div style={{ fontWeight: 'bold', fontSize: '1rem', marginBottom: '0.3rem' }}>Tu es en mode invité</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>Connecte-toi pour sauvegarder tes listes, apparaître dans le classement et accéder à toutes les fonctionnalités.</div>
-              </div>
-              <button onClick={loginWithGoogle} className="btn btn-primary" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                </svg>
-                Se connecter avec Google
-              </button>
-            </div>
-          )}
-          
-          {/* Identity Card */}
-          <div className="card" style={{ marginBottom: '1rem' }}>
-            <h3 style={{ marginBottom: '1rem' }}>Votre Identité</h3>
-            <div className="mobile-stack" style={{ alignItems: 'center' }}>
-              <select 
-                className="input-field" 
-                value={avatar} 
-                onChange={(e) => setAvatar(e.target.value)}
-                style={{ padding: '0.5rem', fontSize: '1.5rem', flex: '0 0 80px', textAlign: 'center' }}
-              >
-                <option value="🦊">🦊</option>
-                <option value="🐼">🐼</option>
-                <option value="🦁">🦁</option>
-                <option value="🐸">🐸</option>
-                <option value="🦄">🦄</option>
-                <option value="😎">😎</option>
-                <option value="👻">👻</option>
-                <option value="👑">👑</option>
-              </select>
-              <input 
-                type="text" 
-                className="input-field" 
-                placeholder="Pseudo (ex: Wail...)" 
-                maxLength={32}
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
-                style={{ flex: 1 }}
-              />
-            </div>
-          </div>
-
-          {/* TASK 1 & 4: 8 THEMES SELECTOR */}
-          <div className="card" style={{ marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-              <h3 style={{ margin: 0 }}>🎨 Thèmes Visuels (8 Styles)</h3>
-              <span className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>
-                Actif : {theme?.toUpperCase() || 'MIDNIGHT'}
-              </span>
-            </div>
-            <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '0.8rem' }}>
-              Personnalisez l'ambiance et la palette graphique de toute l'application :
-            </p>
-
-            <div className="theme-grid">
-              {[
-                { id: 'midnight', name: 'Midnight', icon: '🌌', desc: 'Bleu sombre & Violet fluo', primary: '#6366f1', bg: '#0b0f19' },
-                { id: 'cyberpink', name: 'Cyber Pink', icon: '💖', desc: 'Violet sombre & Rose néon', primary: '#ff007f', bg: '#120914' },
-                { id: 'sakura', name: 'Sakura', icon: '🌸', desc: 'Blanc & Rose poudré doux', primary: '#ec4899', bg: '#fff5f8' },
-                { id: 'hacker', name: 'Hacker', icon: '💻', desc: 'Noir pur & Vert Matrix', primary: '#00ff66', bg: '#030704' },
-                { id: 'glacier', name: 'Glacier', icon: '❄️', desc: 'Bleu marine & Cyan glacial', primary: '#00f0ff', bg: '#071321' },
-                { id: 'bloodduel', name: 'BloodDuel', icon: '⚔️', desc: 'Anthracite & Rouge sang', primary: '#ef4444', bg: '#121113' },
-                { id: 'sunset', name: 'Sunset', icon: '🌅', desc: 'Terre brûlée & Orange feu', primary: '#f97316', bg: '#18110e' },
-                { id: 'classic', name: 'Classic Light', icon: '☀️', desc: 'Blanc cassé & Bleu pur', primary: '#2563eb', bg: '#f8fafc' },
-              ].map((th) => {
-                const isActive = (theme === th.id) || (th.id === 'classic' && theme === 'light');
-                return (
-                  <button
-                    key={th.id}
-                    type="button"
-                    className={`theme-card-btn ${isActive ? 'active' : ''}`}
-                    onClick={() => {
-                      if (setTheme) {
-                        setTheme(th.id);
-                        localStorage.setItem('wana_theme', th.id);
-                      }
-                    }}
-                    style={{
-                      borderLeft: `4px solid ${th.primary}`
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                      <span style={{ fontSize: '1.3rem' }}>{th.icon}</span>
-                      <div className="theme-swatch">
-                        <div className="theme-dot" style={{ backgroundColor: th.bg }} />
-                        <div className="theme-dot" style={{ backgroundColor: th.primary }} />
-                      </div>
-                    </div>
-                    <div style={{ textAlign: 'left', width: '100%' }}>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: isActive ? 'var(--primary)' : 'var(--text-main)' }}>
-                        {th.name}
-                      </div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: '1.2', marginTop: '2px' }}>
-                        {th.desc}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Preferences */}
-          {user && (
-            <div className="card" style={{ marginBottom: '1rem' }}>
-              <h3 style={{ marginBottom: '1rem' }}>Préférences</h3>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontWeight: 'bold' }}>Sauvegarde Automatique</div>
-                  <div className="text-muted" style={{ fontSize: '0.85rem' }}>Enregistre vos extractions IA.</div>
-                </div>
-                <button onClick={toggleAutoSave} className={`btn ${autoSaveEnabled ? 'btn-primary' : 'btn-secondary'}`} style={{ width: 'auto', padding: '0.5rem 1rem' }}>
-                  {autoSaveEnabled ? 'OUI' : 'NON'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* TASK 2: Admin moved to Profile */}
-          {user && isAdmin && onOpenAdmin && (
-            <div className="card" style={{ marginBottom: '1rem', background: 'rgba(99,102,241,0.08)', borderColor: 'rgba(99,102,241,0.3)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
-                <span style={{ fontSize: '1.4rem' }}>🛡️</span>
-                <h3 style={{ margin: 0, color: 'var(--primary)' }}>Administration</h3>
-              </div>
-              <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>
-                Accédez aux contrôles serveur, gestion des utilisateurs et diffusions d'annonces.
-              </p>
-              <button 
-                onClick={onOpenAdmin} 
-                className="btn btn-primary" 
-                style={{ width: '100%', padding: '0.75rem' }}
-              >
-                Ouvrir le Panneau Admin
-              </button>
-            </div>
-          )}
-
-          {/* Danger Zone */}
-          {user && (
-            <div className="card" style={{ borderColor: 'var(--danger)' }}>
-              <h3 style={{ color: 'var(--danger)', marginBottom: '1rem' }}>Zone de Danger</h3>
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                <button onClick={logout} className="btn btn-secondary" style={{ flex: 1, borderColor: 'var(--warning)', color: 'var(--warning)' }}>
-                  SE DÉCONNECTER
-                </button>
-                <button onClick={handleDeleteAccount} className="btn btn-secondary" style={{ flex: 1, color: 'var(--danger)', borderColor: 'var(--danger)' }}>
-                  SUPPRIMER MON COMPTE
-                </button>
-              </div>
-            </div>
-          )}
-        </>
+        <Profil
+          user={user}
+          isGuest={isGuest}
+          loginWithGoogle={loginWithGoogle}
+          avatar={avatar}
+          setAvatar={setAvatar}
+          playerName={playerName}
+          setPlayerName={setPlayerName}
+          theme={theme}
+          setTheme={setTheme}
+          autoSaveEnabled={autoSaveEnabled}
+          toggleAutoSave={toggleAutoSave}
+          isAdmin={isAdmin}
+          onOpenAdmin={onOpenAdmin}
+          logout={logout}
+          handleDeleteAccount={handleDeleteAccount}
+        />
       )}
 
       {/* ---- WORD EDITOR MODAL (ROOT LEVEL OVERLAY) ---- */}
