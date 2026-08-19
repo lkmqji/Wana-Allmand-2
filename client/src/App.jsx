@@ -4,6 +4,7 @@ import Home from './components/Home';
 import Lobby from './components/Lobby';
 import Game from './components/Game';
 import Results from './components/Results';
+import VengeanceMode from './components/VengeanceMode';
 import Layout from './components/Layout';
 import Admin from './components/Admin';
 import NotificationCenter from './components/NotificationCenter';
@@ -48,6 +49,29 @@ function App() {
   const [incomingInvite, setIncomingInvite] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [discordToast, setDiscordToast] = useState(null);
+  const [failedWords, setFailedWords] = useState(() => {
+    try {
+      const saved = localStorage.getItem('wana_failed_words');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const handlePurifySuccess = (word, apiData) => {
+    setFailedWords(prev => {
+      const next = prev.filter(w => (typeof w === 'string' ? w : w.word) !== word);
+      localStorage.setItem('wana_failed_words', JSON.stringify(next));
+      return next;
+    });
+    // Refresh leaderboard silently
+    fetch(`${API_URL}/api/leaderboard`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setLeaderboard(data);
+      })
+      .catch(() => {});
+  };
 
   const isAdmin = Boolean(user && ADMIN_UID && user.uid === ADMIN_UID);
 
@@ -120,7 +144,15 @@ function App() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ firebaseId: currentUser.uid, name: currentUser.displayName })
-        }).catch(console.error);
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data && Array.isArray(data.failedWords)) {
+            setFailedWords(data.failedWords);
+            localStorage.setItem('wana_failed_words', JSON.stringify(data.failedWords));
+          }
+        })
+        .catch(console.error);
       }
     });
     return () => unsubscribe();
@@ -456,6 +488,26 @@ function App() {
 
 
 
+  if (view === 'vengeance') {
+    return (
+      <div className={`page-transition`}>
+        {error && (
+          <div style={{ background: 'var(--danger)', padding: '1rem', borderRadius: '8px', position: 'absolute', top: '1rem', left: '1rem', zIndex: 100 }}>
+            {error} <button onClick={() => setError('')} style={{background:'none',border:'none',color:'white',cursor:'pointer'}}>X</button>
+          </div>
+        )}
+        <VengeanceMode 
+          failedWords={failedWords}
+          user={user}
+          onPurify={handlePurifySuccess}
+          onBackHome={() => setView('home')}
+          playerName={playerName}
+          avatar={avatar}
+        />
+      </div>
+    );
+  }
+
   if (view === 'game') {
     return (
       <div className={`app-container page-transition`}>
@@ -736,6 +788,8 @@ function App() {
             onOpenAdmin={() => setShowAdmin(true)}
             theme={theme}
             setTheme={setTheme}
+            failedWords={failedWords}
+            onStartVengeance={() => setView('vengeance')}
           />
         )}
         {view === 'lobby' && (

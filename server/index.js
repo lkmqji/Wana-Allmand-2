@@ -477,6 +477,52 @@ app.post('/api/users/sync', async (req, res) => {
     }
 });
 
+// Endpoint to fetch single user stats & failedWords
+app.get('/api/users/:firebaseId', async (req, res) => {
+    try {
+        const user = await User.findOne({ firebaseId: req.params.firebaseId });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        res.json(user);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// TASK 4: Backend API of Purification
+app.put('/api/users/:firebaseId/purify', async (req, res) => {
+    try {
+        const { firebaseId } = req.params;
+        const { word } = req.body;
+        if (!word) {
+            return res.status(400).json({ error: 'Word is required' });
+        }
+
+        let user = await User.findOne({ firebaseId });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Pull word from failedWords
+        user.failedWords = (user.failedWords || []).filter(w => w.word !== word);
+        // +50 XP bonus
+        user.xp = (user.xp || 0) + 50;
+        // Level up check
+        user.level = Math.floor(user.xp / 1000) + 1;
+
+        await user.save();
+        res.json({
+            success: true,
+            xp: user.xp,
+            level: user.level,
+            failedWords: user.failedWords,
+            user
+        });
+    } catch (err) {
+        console.error('Error purifying word:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/leaderboard', async (req, res) => {
     try {
         const topUsers = await User.find().sort({ xp: -1 }).limit(10);
@@ -1419,11 +1465,18 @@ function sendNextQuestion(sessionId) {
                         dbUser.level = Math.floor(dbUser.xp / 1000) + 1;
                         
                         // Update failed words
-                        Object.values(p.answers).forEach(ans => {
-                            if (ans.score < 100) {
+                        Object.entries(p.answers || {}).forEach(([idxStr, ans]) => {
+                            if (ans && ans.score < 100) {
+                                const qIdx = parseInt(idxStr, 10);
+                                const currentVocab = session.vocabList?.[qIdx];
+                                const questionText = currentVocab?.question || '';
                                 const wordEntry = dbUser.failedWords.find(w => w.word === ans.expected);
-                                if (wordEntry) wordEntry.count += 1;
-                                else dbUser.failedWords.push({ word: ans.expected, count: 1 });
+                                if (wordEntry) {
+                                    wordEntry.count += 1;
+                                    if (!wordEntry.question && questionText) wordEntry.question = questionText;
+                                } else {
+                                    dbUser.failedWords.push({ word: ans.expected, question: questionText, count: 1 });
+                                }
                             }
                         });
 

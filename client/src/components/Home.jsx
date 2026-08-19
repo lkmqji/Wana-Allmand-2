@@ -27,8 +27,11 @@ export default function Home({
   isAdmin, 
   onOpenAdmin,
   theme,
-  setTheme
+  setTheme,
+  failedWords = [],
+  onStartVengeance
 }) {
+  const [showMistakesModal, setShowMistakesModal] = useState(false);
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
   const [prepTab, setPrepTab] = useState('pdf'); // 'pdf', 'text', 'examples', 'settings'
   const [joinCode, setJoinCode] = useState('');
@@ -401,6 +404,72 @@ export default function Home({
       {/* ------------------- LEARN TAB ------------------- */}
       {activeTab === 'learn' && (
         <>
+          {/* TÂCHE 1 : Point d'entrée UI - Mur de la Vengeance */}
+          <div 
+            className={`vengeance-entry-card ${failedWords.length > 0 ? 'active' : 'disabled'}`}
+            onClick={() => {
+              if (failedWords.length > 0 && onStartVengeance) {
+                onStartVengeance();
+              }
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1.2rem',
+              flexWrap: 'wrap',
+              marginBottom: '1rem'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: '220px' }}>
+              <div style={{
+                fontSize: '2.4rem',
+                width: '58px',
+                height: '58px',
+                borderRadius: '16px',
+                background: failedWords.length > 0 ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255,255,255,0.05)',
+                border: `1.5px solid ${failedWords.length > 0 ? 'rgba(239, 68, 68, 0.6)' : 'rgba(255,255,255,0.1)'}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: failedWords.length > 0 ? '0 0 20px rgba(239, 68, 68, 0.4)' : 'none'
+              }}>
+                🔥
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.2rem' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: '#ffffff', letterSpacing: '0.3px' }}>
+                    🔥 Mur de la Vengeance
+                  </h3>
+                  {failedWords.length > 0 && (
+                    <span className="vengeance-flame-badge" style={{ fontSize: '0.75rem', padding: '0.15rem 0.55rem' }}>
+                      {failedWords.length} à purifier
+                    </span>
+                  )}
+                </div>
+                <p style={{ margin: 0, fontSize: '0.88rem', color: failedWords.length > 0 ? '#fca5a5' : 'var(--text-muted)', fontWeight: 600 }}>
+                  {failedWords.length > 0 
+                    ? `${failedWords.length} mot${failedWords.length > 1 ? 's' : ''} attend${failedWords.length > 1 ? 'ent' : ''} d'être purifié${failedWords.length > 1 ? 's' : ''}`
+                    : "Aucune vengeance en attente."}
+                </p>
+              </div>
+            </div>
+
+            {failedWords.length > 0 ? (
+              <button
+                type="button"
+                className="vengeance-action-btn"
+                style={{ fontSize: '0.92rem', padding: '0.75rem 1.3rem', pointerEvents: 'none' }}
+              >
+                ⚡ PURIFIER
+              </button>
+            ) : (
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '0.5rem' }}>
+                ✨ Rien à purifier
+              </span>
+            )}
+          </div>
+
           <div className="card card-arena" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', background: 'linear-gradient(to bottom right, var(--bg-surface), rgba(99, 102, 241, 0.1))' }}>
             <h2 className="brand-logo-shine" style={{ fontSize: '2.4rem', marginBottom: '0.4rem', letterSpacing: '-0.5px' }}>
               WANA ALLMAND
@@ -511,7 +580,7 @@ export default function Home({
       {/* ------------------- MY LISTS TAB (TASK 3 REDESIGN) ------------------- */}
       {activeTab === 'lists' && (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', flexWrap: 'wrap', gap: '0.5rem' }}>
             <div>
               <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>Mes Listes 🗂️</h2>
               <p className="text-muted" style={{ fontSize: '0.85rem', marginTop: '0.2rem' }}>
@@ -523,6 +592,66 @@ export default function Home({
                 Fusionner ({selectedListIds.size})
               </button>
             )}
+          </div>
+
+          {/* TÂCHE 2 : Dossier Rouge (Mots Ratés 💔) */}
+          <div className="pinned-mistakes-card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <span style={{ fontSize: '2.2rem', filter: 'drop-shadow(0 0 8px rgba(239, 68, 68, 0.6))' }}>💔</span>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#fca5a5' }}>
+                      Dossier Rouge : Mots Ratés 💔
+                    </h3>
+                    <span style={{
+                      background: 'rgba(239, 68, 68, 0.25)',
+                      border: '1px solid rgba(239, 68, 68, 0.5)',
+                      color: '#f87171',
+                      borderRadius: '999px',
+                      padding: '0.15rem 0.6rem',
+                      fontSize: '0.75rem',
+                      fontWeight: 800
+                    }}>
+                      {failedWords.length} mot{failedWords.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                    {failedWords.length > 0 
+                      ? "Consultez la liste de vos erreurs avant de lancer la purge." 
+                      : "Bravo ! Aucune faute en attente de purification."}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowMistakesModal(true)}
+                  disabled={failedWords.length === 0}
+                  style={{
+                    padding: '0.55rem 1.1rem',
+                    fontSize: '0.88rem',
+                    fontWeight: 700,
+                    borderColor: 'rgba(239, 68, 68, 0.4)',
+                    color: failedWords.length > 0 ? '#fca5a5' : 'var(--text-muted)'
+                  }}
+                >
+                  📖 CONSULTER
+                </button>
+                {failedWords.length > 0 && (
+                  <button
+                    type="button"
+                    className="vengeance-action-btn"
+                    onClick={() => onStartVengeance && onStartVengeance()}
+                    style={{ padding: '0.55rem 1.1rem', fontSize: '0.88rem' }}
+                  >
+                    ⚡ Lancer la Purge
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           {!user ? (
@@ -929,6 +1058,127 @@ export default function Home({
                 🚀 LANCER LA SESSION ({manualWords.filter(w => w.question?.trim() && w.answer?.trim()).length} mots)
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Consultation Mots Ratés (Task 2) */}
+      {showMistakesModal && (
+        <div 
+          className="modal-overlay" 
+          onClick={() => setShowMistakesModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1100,
+            padding: '1rem'
+          }}
+        >
+          <div 
+            className="modal-content"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '560px',
+              width: '100%',
+              maxHeight: '85vh',
+              display: 'flex',
+              flexDirection: 'column',
+              background: 'linear-gradient(145deg, #180c10 0%, #0d0608 100%)',
+              border: '1.5px solid rgba(239, 68, 68, 0.45)',
+              borderRadius: '22px',
+              padding: '1.8rem',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.85), 0 0 35px rgba(239, 68, 68, 0.25)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', borderBottom: '1px solid rgba(239, 68, 68, 0.2)', paddingBottom: '0.8rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <span style={{ fontSize: '1.8rem' }}>💔</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.3rem', color: '#ffffff', fontWeight: 800 }}>
+                    Dossier Rouge : Mots Ratés
+                  </h3>
+                  <span style={{ fontSize: '0.82rem', color: '#fca5a5', fontWeight: 600 }}>
+                    {failedWords.length} mot{failedWords.length > 1 ? 's' : ''} en attente de rédemption
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowMistakesModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.6rem', cursor: 'pointer', lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* List of failed words */}
+            <div style={{ overflowY: 'auto', flex: 1, paddingRight: '0.4rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem', maxHeight: '48vh' }}>
+              {failedWords.length === 0 ? (
+                <div className="text-center text-muted" style={{ padding: '2rem' }}>
+                  Aucun mot raté dans votre dossier.
+                </div>
+              ) : (
+                failedWords.map((item, idx) => {
+                  const germanWord = typeof item === 'string' ? item : (item.word || '');
+                  const frenchWord = typeof item === 'object' && (item.question || item.translation) ? (item.question || item.translation) : 'Traduire en allemand';
+                  const count = typeof item === 'object' && item.count ? item.count : 1;
+
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.04)',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        borderRadius: '12px',
+                        padding: '0.85rem 1.1rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '1rem'
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fca5a5' }}>
+                          🇩🇪 {germanWord}
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '0.2rem' }}>
+                          🇫🇷 {frenchWord}
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        background: 'rgba(239, 68, 68, 0.2)',
+                        color: '#f87171',
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '6px',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {count}x raté
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Bottom Purge Action Button */}
+            <button
+              type="button"
+              className="vengeance-action-btn"
+              disabled={failedWords.length === 0}
+              onClick={() => {
+                setShowMistakesModal(false);
+                if (onStartVengeance) onStartVengeance();
+              }}
+              style={{ width: '100%', fontSize: '1.05rem', padding: '0.95rem' }}
+            >
+              ⚡ Lancer la Purge (Mur de Vengeance)
+            </button>
           </div>
         </div>
       )}

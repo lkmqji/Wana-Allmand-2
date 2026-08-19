@@ -9,7 +9,8 @@ const userSchema = new mongoose.Schema({
   gamesWon: { type: Number, default: 0 },
   failedWords: [{
     word: String,
-    count: Number
+    question: String,
+    count: { type: Number, default: 1 }
   }]
 });
 
