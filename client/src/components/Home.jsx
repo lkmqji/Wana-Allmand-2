@@ -38,11 +38,14 @@ export default function Home({
   failedWords = [],
   onStartVengeance,
   onDeleteFailedWord,
+  onEditFailedWord,
   onClearAllFailedWords
 }) {
   const [listSubTab, setListSubTab] = useState('my_lists'); // 'my_lists' | 'failed_words'
   const [showMistakesModal, setShowMistakesModal] = useState(false);
   const [previewList, setPreviewList] = useState(null);
+  const [editingMistakeIdx, setEditingMistakeIdx] = useState(null);
+  const [editingMistakeModalIdx, setEditingMistakeModalIdx] = useState(null);
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
   const [prepTab, setPrepTab] = useState('pdf'); // 'pdf', 'text', 'examples', 'settings'
   const [joinCode, setJoinCode] = useState('');
@@ -249,6 +252,36 @@ export default function Home({
     } catch (e) {
       console.error(e);
       alert('Erreur lors de la sauvegarde de la liste.');
+    }
+  };
+
+  const handleUpdateListWords = async (listId, updatedWords) => {
+    if (!listId) return;
+    const targetList = archivedLists.find(l => l._id === listId);
+    if (!targetList) return;
+
+    const newArchivedLists = archivedLists.map(l => {
+      if (l._id === listId) {
+        return { ...l, words: updatedWords };
+      }
+      return l;
+    });
+    setArchivedLists(newArchivedLists);
+    if (user && listsCache.archived[user.uid]) {
+      listsCache.archived[user.uid] = newArchivedLists;
+    }
+
+    if (user) {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        await fetch(`${API_URL}/api/lists/${listId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: targetList.name, words: updatedWords })
+        });
+      } catch (e) {
+        console.error("Erreur mise à jour mots de la liste:", e);
+      }
     }
   };
 
@@ -760,7 +793,7 @@ export default function Home({
                       onToggleSelect={() => toggleListSelection(list._id)}
                       onPlay={() => handleStartDirectSession(list.words)}
                       onEdit={() => handleEditList(list)}
-                      onPreview={() => setPreviewList(list)}
+                      onPreview={() => setPreviewList({ ...list, isEditable: true })}
                       onTogglePublic={() => togglePublicList(list._id, list.isPublic)}
                       onDelete={() => deleteList(list._id)}
                     />
@@ -891,6 +924,8 @@ export default function Home({
                   </div>
                   {failedWords.map((item, idx) => {
                     const resolved = resolveWordItem(item);
+                    const isEditing = editingMistakeIdx === idx;
+
                     return (
                       <div
                         key={idx}
@@ -902,65 +937,112 @@ export default function Home({
                           gap: '1rem',
                           background: 'linear-gradient(135deg, rgba(25, 12, 16, 0.75) 0%, var(--bg-surface) 100%)',
                           border: '1px solid rgba(239, 68, 68, 0.25)',
-                          padding: '0.9rem 1.2rem'
+                          padding: '0.9rem 1.2rem',
+                          transition: 'all 0.2s ease'
                         }}
                       >
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fca5a5', wordBreak: 'break-word' }}>
-                            🇩🇪 {resolved.germanWord}
-                          </div>
-                          <div style={{ fontSize: '0.88rem', color: '#cbd5e1', marginTop: '0.2rem', wordBreak: 'break-word' }}>
-                            🇫🇷 {resolved.frenchPrompt}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }}>
-                          <span style={{
-                            fontSize: '0.78rem',
-                            fontWeight: 800,
-                            background: 'rgba(239, 68, 68, 0.2)',
-                            color: '#f87171',
-                            padding: '0.25rem 0.6rem',
-                            borderRadius: '8px',
-                            whiteSpace: 'nowrap'
-                          }}>
-                            {resolved.count}x raté
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (window.confirm(`Supprimer « ${resolved.germanWord} » de votre dossier de fautes ?`)) {
-                                if (onDeleteFailedWord) onDeleteFailedWord(resolved.germanWord);
-                              }
+                        {isEditing ? (
+                          <EditMistakeInlineForm
+                            item={resolved}
+                            onSave={(newGerman, newFrench) => {
+                              if (onEditFailedWord) onEditFailedWord(resolved.germanWord, newGerman, newFrench);
+                              setEditingMistakeIdx(null);
                             }}
-                            style={{
-                              background: 'rgba(239, 68, 68, 0.12)',
-                              border: '1px solid rgba(239, 68, 68, 0.35)',
-                              color: '#f87171',
-                              borderRadius: '8px',
-                              padding: '0.35rem 0.6rem',
-                              cursor: 'pointer',
-                              fontSize: '0.85rem',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.2s',
-                              lineHeight: 1
-                            }}
-                            title="Supprimer ce mot de la liste des fautes"
-                            onMouseOver={e => {
-                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.35)';
-                              e.currentTarget.style.borderColor = '#ef4444';
-                              e.currentTarget.style.transform = 'scale(1.08)';
-                            }}
-                            onMouseOut={e => {
-                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
-                              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.35)';
-                              e.currentTarget.style.transform = 'scale(1)';
-                            }}
-                          >
-                            🗑️
-                          </button>
-                        </div>
+                            onCancel={() => setEditingMistakeIdx(null)}
+                          />
+                        ) : (
+                          <>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fca5a5', wordBreak: 'break-word' }}>
+                                🇩🇪 {resolved.germanWord}
+                              </div>
+                              <div style={{ fontSize: '0.88rem', color: '#cbd5e1', marginTop: '0.2rem', wordBreak: 'break-word' }}>
+                                🇫🇷 {resolved.frenchPrompt}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                              <span style={{
+                                fontSize: '0.78rem',
+                                fontWeight: 800,
+                                background: 'rgba(239, 68, 68, 0.2)',
+                                color: '#f87171',
+                                padding: '0.25rem 0.6rem',
+                                borderRadius: '8px',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {resolved.count}x raté
+                              </span>
+
+                              <button
+                                type="button"
+                                onClick={() => setEditingMistakeIdx(idx)}
+                                style={{
+                                  background: 'rgba(99, 102, 241, 0.15)',
+                                  border: '1px solid rgba(99, 102, 241, 0.4)',
+                                  color: '#a5b4fc',
+                                  borderRadius: '8px',
+                                  padding: '0.35rem 0.55rem',
+                                  cursor: 'pointer',
+                                  fontSize: '0.85rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'all 0.2s',
+                                  lineHeight: 1
+                                }}
+                                title="Modifier ce mot"
+                                onMouseOver={e => {
+                                  e.currentTarget.style.background = 'rgba(99, 102, 241, 0.35)';
+                                  e.currentTarget.style.borderColor = 'var(--primary)';
+                                  e.currentTarget.style.transform = 'scale(1.08)';
+                                }}
+                                onMouseOut={e => {
+                                  e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)';
+                                  e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.4)';
+                                  e.currentTarget.style.transform = 'scale(1)';
+                                }}
+                              >
+                                ✏️
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm(`Supprimer « ${resolved.germanWord} » de votre dossier de fautes ?`)) {
+                                    if (onDeleteFailedWord) onDeleteFailedWord(resolved.germanWord);
+                                  }
+                                }}
+                                style={{
+                                  background: 'rgba(239, 68, 68, 0.12)',
+                                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                                  color: '#f87171',
+                                  borderRadius: '8px',
+                                  padding: '0.35rem 0.55rem',
+                                  cursor: 'pointer',
+                                  fontSize: '0.85rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'all 0.2s',
+                                  lineHeight: 1
+                                }}
+                                title="Supprimer ce mot de la liste des fautes"
+                                onMouseOver={e => {
+                                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.35)';
+                                  e.currentTarget.style.borderColor = '#ef4444';
+                                  e.currentTarget.style.transform = 'scale(1.08)';
+                                }}
+                                onMouseOut={e => {
+                                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
+                                  e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+                                  e.currentTarget.style.transform = 'scale(1)';
+                                }}
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     );
                   })}
@@ -987,7 +1069,7 @@ export default function Home({
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto' }}>
                   <button
                     type="button"
-                    onClick={() => setPreviewList(list)}
+                    onClick={() => setPreviewList({ ...list, isEditable: false })}
                     className="btn btn-secondary"
                     style={{ flex: 1, padding: '0.55rem', fontSize: '0.85rem', fontWeight: 600 }}
                   >
@@ -1027,7 +1109,7 @@ export default function Home({
                   <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto' }}>
                     <button
                       type="button"
-                      onClick={() => setPreviewList(list)}
+                      onClick={() => setPreviewList({ ...list, isEditable: false })}
                       className="btn btn-secondary"
                       style={{ flex: 1, padding: '0.55rem', fontSize: '0.85rem', fontWeight: 600 }}
                     >
@@ -1298,6 +1380,7 @@ export default function Home({
               ) : (
                 failedWords.map((item, idx) => {
                   const resolved = resolveWordItem(item);
+                  const isEditing = editingMistakeModalIdx === idx;
 
                   return (
                     <div
@@ -1310,65 +1393,112 @@ export default function Home({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        gap: '1rem'
+                        gap: '1rem',
+                        transition: 'all 0.2s ease'
                       }}
                     >
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fca5a5', wordBreak: 'break-word' }}>
-                          🇩🇪 {resolved.germanWord}
-                        </div>
-                        <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '0.2rem', wordBreak: 'break-word' }}>
-                          🇫🇷 {resolved.frenchPrompt}
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }}>
-                        <span style={{
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          background: 'rgba(239, 68, 68, 0.2)',
-                          color: '#f87171',
-                          padding: '0.2rem 0.55rem',
-                          borderRadius: '6px',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {resolved.count}x raté
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (window.confirm(`Supprimer « ${resolved.germanWord} » de votre dossier de fautes ?`)) {
-                              if (onDeleteFailedWord) onDeleteFailedWord(resolved.germanWord);
-                            }
+                      {isEditing ? (
+                        <EditMistakeInlineForm
+                          item={resolved}
+                          onSave={(newGerman, newFrench) => {
+                            if (onEditFailedWord) onEditFailedWord(resolved.germanWord, newGerman, newFrench);
+                            setEditingMistakeModalIdx(null);
                           }}
-                          style={{
-                            background: 'rgba(239, 68, 68, 0.15)',
-                            border: '1px solid rgba(239, 68, 68, 0.35)',
-                            color: '#f87171',
-                            borderRadius: '8px',
-                            padding: '0.3rem 0.55rem',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.2s',
-                            lineHeight: 1
-                          }}
-                          title="Supprimer ce mot"
-                          onMouseOver={e => {
-                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.35)';
-                            e.currentTarget.style.borderColor = '#ef4444';
-                            e.currentTarget.style.transform = 'scale(1.08)';
-                          }}
-                          onMouseOut={e => {
-                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
-                            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.35)';
-                            e.currentTarget.style.transform = 'scale(1)';
-                          }}
-                        >
-                          🗑️
-                        </button>
-                      </div>
+                          onCancel={() => setEditingMistakeModalIdx(null)}
+                        />
+                      ) : (
+                        <>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fca5a5', wordBreak: 'break-word' }}>
+                              🇩🇪 {resolved.germanWord}
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '0.2rem', wordBreak: 'break-word' }}>
+                              🇫🇷 {resolved.frenchPrompt}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                            <span style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              background: 'rgba(239, 68, 68, 0.2)',
+                              color: '#f87171',
+                              padding: '0.2rem 0.55rem',
+                              borderRadius: '6px',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {resolved.count}x raté
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => setEditingMistakeModalIdx(idx)}
+                              style={{
+                                background: 'rgba(99, 102, 241, 0.15)',
+                                border: '1px solid rgba(99, 102, 241, 0.4)',
+                                color: '#a5b4fc',
+                                borderRadius: '8px',
+                                padding: '0.3rem 0.55rem',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s',
+                                lineHeight: 1
+                              }}
+                              title="Modifier ce mot"
+                              onMouseOver={e => {
+                                e.currentTarget.style.background = 'rgba(99, 102, 241, 0.35)';
+                                e.currentTarget.style.borderColor = 'var(--primary)';
+                                e.currentTarget.style.transform = 'scale(1.08)';
+                              }}
+                              onMouseOut={e => {
+                                e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)';
+                                e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.4)';
+                                e.currentTarget.style.transform = 'scale(1)';
+                              }}
+                            >
+                              ✏️
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`Supprimer « ${resolved.germanWord} » de votre dossier de fautes ?`)) {
+                                  if (onDeleteFailedWord) onDeleteFailedWord(resolved.germanWord);
+                                }
+                              }}
+                              style={{
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                border: '1px solid rgba(239, 68, 68, 0.35)',
+                                color: '#f87171',
+                                borderRadius: '8px',
+                                padding: '0.3rem 0.55rem',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s',
+                                lineHeight: 1
+                              }}
+                              title="Supprimer ce mot"
+                              onMouseOver={e => {
+                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.35)';
+                                e.currentTarget.style.borderColor = '#ef4444';
+                                e.currentTarget.style.transform = 'scale(1.08)';
+                              }}
+                              onMouseOut={e => {
+                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
+                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+                                e.currentTarget.style.transform = 'scale(1)';
+                              }}
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   );
                 })
@@ -1396,11 +1526,69 @@ export default function Home({
       {previewList && (
         <ListPreviewModal
           list={previewList}
+          isEditable={Boolean(previewList.isEditable)}
+          onUpdateWords={(newWords) => handleUpdateListWords(previewList._id, newWords)}
           onClose={() => setPreviewList(null)}
           onPlay={handleStartDirectSession}
         />
       )}
 
     </div>
+  );
+}
+
+function EditMistakeInlineForm({ item, onSave, onCancel }) {
+  const [german, setGerman] = useState(item.germanWord || '');
+  const [french, setFrench] = useState(item.frenchPrompt || '');
+
+  const handleSubmit = (e) => {
+    if (e) e.preventDefault();
+    if (!german.trim()) return;
+    onSave(german, french);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', width: '100%' }}>
+      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+        <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>🇩🇪</span>
+        <input
+          type="text"
+          className="input-field"
+          value={german}
+          onChange={(e) => setGerman(e.target.value)}
+          placeholder="Mot Allemand"
+          style={{ flex: 1, padding: '0.35rem 0.55rem', fontSize: '0.88rem' }}
+          autoFocus
+        />
+      </div>
+      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+        <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>🇫🇷</span>
+        <input
+          type="text"
+          className="input-field"
+          value={french}
+          onChange={(e) => setFrench(e.target.value)}
+          placeholder="Traduction Français"
+          style={{ flex: 1, padding: '0.35rem 0.55rem', fontSize: '0.88rem' }}
+        />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem', marginTop: '0.2rem' }}>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={onCancel}
+          style={{ width: 'auto', padding: '0.25rem 0.65rem', fontSize: '0.78rem' }}
+        >
+          ✕ Annuler
+        </button>
+        <button
+          type="submit"
+          className="btn btn-primary"
+          style={{ width: 'auto', padding: '0.25rem 0.8rem', fontSize: '0.78rem', fontWeight: 800 }}
+        >
+          ✓ Valider
+        </button>
+      </div>
+    </form>
   );
 }

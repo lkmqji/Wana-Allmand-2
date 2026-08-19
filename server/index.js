@@ -609,6 +609,41 @@ app.delete('/api/users/:firebaseId/failed-words/clear', async (req, res) => {
     }
 });
 
+// Endpoint to edit a failed word (word + question)
+app.put('/api/users/:firebaseId/failed-words/edit', async (req, res) => {
+    try {
+        const { firebaseId } = req.params;
+        const { oldWord, newWord, newQuestion } = req.body;
+        if (!oldWord || !newWord) {
+            return res.status(400).json({ error: 'oldWord and newWord are required' });
+        }
+
+        let user = await User.findOne({ firebaseId });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const oldNorm = oldWord.trim().toLowerCase();
+        user.failedWords = (user.failedWords || []).map(w => {
+            const wWord = typeof w === 'string' ? w : (w?.word || '');
+            if (wWord.trim().toLowerCase() === oldNorm) {
+                return {
+                    word: newWord.trim(),
+                    question: newQuestion ? newQuestion.trim() : (w.question || newWord.trim()),
+                    count: typeof w === 'object' && w.count ? w.count : 1
+                };
+            }
+            return w;
+        });
+
+        await user.save();
+        res.json({ success: true, failedWords: user.failedWords, user });
+    } catch (err) {
+        console.error('Error updating failed word:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/leaderboard', async (req, res) => {
     try {
         const topUsers = await User.find().sort({ xp: -1 }).limit(10);

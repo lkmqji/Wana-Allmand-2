@@ -112,6 +112,43 @@ function App() {
     }
   };
 
+  const handleEditFailedWord = async (oldWord, newGerman, newFrench) => {
+    if (!oldWord || !newGerman?.trim()) return;
+    const oldNorm = oldWord.trim().toLowerCase();
+
+    setFailedWords(prev => {
+      const next = prev.map(w => {
+        const wWord = typeof w === 'string' ? w : (w?.word || '');
+        if (wWord.trim().toLowerCase() === oldNorm) {
+          return {
+            ...(typeof w === 'object' ? w : {}),
+            word: newGerman.trim(),
+            question: newFrench?.trim() || w.question || newGerman.trim()
+          };
+        }
+        return w;
+      });
+      try {
+        localStorage.setItem('wana_failed_words', JSON.stringify(next));
+      } catch (e) {
+        console.warn(e);
+      }
+      return next;
+    });
+
+    if (user?.uid) {
+      try {
+        await fetch(`${API_URL}/api/users/${user.uid}/failed-words/edit`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldWord, newWord: newGerman.trim(), newQuestion: newFrench?.trim() })
+        });
+      } catch (err) {
+        console.error('Error updating failed word on server:', err);
+      }
+    }
+  };
+
   const handleClearAllFailedWords = async () => {
     setFailedWords([]);
     try {
@@ -908,6 +945,7 @@ function App() {
             setTheme={setTheme}
             failedWords={failedWords}
             onDeleteFailedWord={handleDeleteFailedWord}
+            onEditFailedWord={handleEditFailedWord}
             onClearAllFailedWords={handleClearAllFailedWords}
             onStartVengeance={() => setView('vengeance')}
           />
