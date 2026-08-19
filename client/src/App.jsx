@@ -15,7 +15,8 @@ import { exampleLists } from './data/exampleLists';
 import { auth, loginWithGoogle, logout, deleteAccount } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { formatPlayerName, getClientPlayerKey } from './utils/formatters';
-import { useSoundEffects } from './context/AudioContext';
+import { useSoundEffects, useAudio } from './context/AudioContext';
+import { sfx } from './utils/sfxManager';
 
 // Connect to server (uses env variable or fallback to localhost)
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -503,16 +504,31 @@ function App() {
 
   const handleManualLoginGoogle = async () => {
     try {
-      sfx.unlockAudio();
+      try {
+        if (sfx && typeof sfx.unlockAudio === 'function') {
+          sfx.unlockAudio();
+        }
+      } catch (audioErr) {
+        console.debug('Audio unlock error:', audioErr);
+      }
       setHasEnteredApp(true);
       await loginWithGoogle();
     } catch (err) {
       console.error('Manual login error:', err);
+      if (err?.code !== 'auth/popup-closed-by-user') {
+        alert("Erreur de connexion : " + (err.message || err.code || "Impossible de se connecter avec Google."));
+      }
     }
   };
 
   const handleManualLoginGuest = () => {
-    sfx.unlockAudio();
+    try {
+      if (sfx && typeof sfx.unlockAudio === 'function') {
+        sfx.unlockAudio();
+      }
+    } catch (audioErr) {
+      console.debug('Audio unlock error:', audioErr);
+    }
     setIsGuest(true);
     setHasEnteredApp(true);
   };
