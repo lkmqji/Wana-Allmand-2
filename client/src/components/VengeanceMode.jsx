@@ -112,12 +112,27 @@ export default function VengeanceMode({
   const [isCompleted, setIsCompleted] = useState(false);
   const [initialTotalCount] = useState(() => (failedWords || []).length || 1);
 
-  const { playSuccess, playError, playExplosion } = useSoundEffects();
+  const { playSuccess, playError, playExplosion, playCountdownGo, playTimeWarning } = useSoundEffects();
 
   const inputRef = useRef(null);
   const timerRef = useRef(null);
 
   const currentWord = queue[currentIndex] || null;
+
+  // Synchronized Sound on Word Appearance (DOM Render)
+  useEffect(() => {
+    if (currentWord && !isCompleted && !feedback) {
+      playCountdownGo();
+    }
+  }, [currentIndex, currentWord?.id, isCompleted]);
+
+  // Time warning (<= 5 seconds) tension sound ticker in Vengeance Mode
+  const roundedVengeanceTime = Math.ceil(timeLeft);
+  useEffect(() => {
+    if (roundedVengeanceTime <= 5 && roundedVengeanceTime > 0 && !isAnswering && !feedback && !isCompleted && currentWord) {
+      playTimeWarning();
+    }
+  }, [roundedVengeanceTime, isAnswering, feedback, isCompleted, currentWord, playTimeWarning]);
 
   // Auto-focus input on new word/round or after feedback (Task 3)
   useEffect(() => {

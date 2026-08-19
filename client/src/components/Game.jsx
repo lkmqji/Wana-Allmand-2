@@ -219,10 +219,17 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     }
   }, [reactionCooldown]);
 
-  // Time warning (< 3 seconds) sound ticker
+  // Synchronized Sound on Word Appearance (DOM Render)
+  useEffect(() => {
+    if (question && !roundResult && !isPaused) {
+      playCountdownGo();
+    }
+  }, [questionIndex, question]);
+
+  // Time warning (<= 5 seconds) tension sound ticker
   const roundedTime = Math.ceil(timeRemaining);
   useEffect(() => {
-    if (roundedTime <= 3 && roundedTime > 0 && !hasAnswered && !roundResult && !isGameFrozenOrPaused) {
+    if (roundedTime <= 5 && roundedTime > 0 && !hasAnswered && !roundResult && !isGameFrozenOrPaused) {
       playTimeWarning();
     }
   }, [roundedTime, hasAnswered, roundResult, isGameFrozenOrPaused, playTimeWarning]);
@@ -230,7 +237,6 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   // Socket Events
   useEffect(() => {
     const onNewQuestion = (data) => {
-      playCountdownGo();
       setQuestion(data.question);
       setQuestionIndex(data.questionIndex);
       setTotalQuestions(data.totalQuestions);

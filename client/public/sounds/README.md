@@ -1,8 +1,21 @@
-# Dossier des Effets Sonores (SFX) - Wana Allmand
+# Dossier des Effets Sonores (SFX) et Musique (BGM) - Wana Allmand
 
-L'application intègre un **SFX Manager Web Audio API** procédural qui génère instantanément et sans latence tous les sons de l'interface, du jeu, du chat et de la progression.
+L'application intègre :
+1. **Un lecteur BGM (Background Music)** en boucle pour le fichier `bgm-main.mp3`.
+2. **Un SFX Manager Web Audio API** procédural qui génère instantanément et sans latence tous les sons de l'interface, du jeu, du chat et de la progression (avec possibilité de remplacer par des fichiers `.mp3`).
 
-Si vous souhaitez remplacer les sons synthétisés par vos propres fichiers audio (`.mp3`), placez simplement vos fichiers dans ce dossier `/public/sounds/` avec les noms suivants :
+---
+
+## 🎵 Musique de Fond (BGM)
+Pour activer la musique d'ambiance du jeu :
+- Placez votre musique au format MP3 directement ici : `public/sounds/bgm-main.mp3`
+- Le lecteur la lira automatiquement en boucle à un volume doux (0.06 / 6%).
+- Elle se coupera instantanément si l'utilisateur clique sur le bouton 🔇 (Muet).
+
+---
+
+## 🔊 Effets Sonores (SFX optionnels en MP3)
+Si vous souhaitez remplacer les synthétiseurs procéduraux par vos propres fichiers `.mp3`, placez-les dans ce dossier avec les noms exacts suivants :
 
 ### 🖱️ Interface & Base
 1. `hover.mp3` - Petit "tic" court de survol d'interface.
@@ -21,7 +34,7 @@ Si vous souhaitez remplacer les sons synthétisés par vos propres fichiers audi
 ### ⚔️ Duel & Gameplay (Volume moyen)
 11. `countdown_tick.mp3` - "Bip" grave et court (pour le 3... 2... 1...).
 12. `countdown_go.mp3` - "BEEP!" plus long et aigu (pour le GO!).
-13. `time_warning.mp3` - Battement de cœur rapide / "Tic-Tac" angoissant (< 3 secondes).
+13. `time_warning.mp3` - Battement de cœur rapide / "Tic-Tac" angoissant (< 5 secondes).
 14. `opponent_answered.mp3` - "Clac" sourd de pression quand l'adversaire valide sa réponse.
 15. `freeze.mp3` - Bruit de verre brisé / vent glacial du pouvoir 🥶.
 

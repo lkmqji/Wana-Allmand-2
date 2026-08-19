@@ -14,12 +14,56 @@ export function AudioProvider({ children }) {
   });
 
   const isSoundEnabledRef = useRef(isSoundEnabled);
+  const hasInteractedRef = useRef(false);
+  const bgmRef = useRef(null);
+
+  // Sync state to ref and localStorage
   useEffect(() => {
     isSoundEnabledRef.current = isSoundEnabled;
     try {
       localStorage.setItem('wana_sound_enabled', String(isSoundEnabled));
     } catch (e) {
       console.warn('LocalStorage error:', e);
+    }
+  }, [isSoundEnabled]);
+
+  // =========================================================================
+  // 🎵 BGM (Background Music) HTML5 Audio Engine
+  // =========================================================================
+  useEffect(() => {
+    let bgmAudio = null;
+    try {
+      bgmAudio = new Audio('/sounds/bgm-main.mp3');
+      bgmAudio.loop = true;
+      // Strict Mixing: 0.06 (Maximum 0.08) for a subtle game feel soundscape
+      bgmAudio.volume = 0.06;
+      bgmAudio.preload = 'auto';
+      bgmRef.current = bgmAudio;
+    } catch (e) {
+      console.debug('BGM initialization notice:', e);
+    }
+
+    return () => {
+      if (bgmAudio) {
+        bgmAudio.pause();
+        bgmAudio.src = '';
+      }
+    };
+  }, []);
+
+  // 🔄 Sync BGM playback with isSoundEnabled state
+  useEffect(() => {
+    const bgm = bgmRef.current;
+    if (!bgm) return;
+
+    if (isSoundEnabled) {
+      if (hasInteractedRef.current) {
+        bgm.play().catch(err => {
+          console.debug('BGM play waiting for user action or file presence:', err);
+        });
+      }
+    } else {
+      bgm.pause();
     }
   }, [isSoundEnabled]);
 
@@ -31,7 +75,28 @@ export function AudioProvider({ children }) {
     setIsSoundEnabled(Boolean(val));
   }, []);
 
-  // SFX Methods - Base UI
+  const startBgm = useCallback(() => {
+    if (bgmRef.current && isSoundEnabledRef.current) {
+      bgmRef.current.play().catch(() => {});
+    }
+  }, []);
+
+  const pauseBgm = useCallback(() => {
+    if (bgmRef.current) {
+      bgmRef.current.pause();
+    }
+  }, []);
+
+  const setBgmVolume = useCallback((vol) => {
+    if (bgmRef.current) {
+      // Clamped between 0 and 0.15 with default max mix
+      bgmRef.current.volume = Math.max(0, Math.min(0.15, vol));
+    }
+  }, []);
+
+  // =========================================================================
+  // 🔊 SFX Methods
+  // =========================================================================
   const playHover = useCallback(() => {
     sfx.playHover(isSoundEnabledRef.current);
   }, []);
@@ -107,10 +172,19 @@ export function AudioProvider({ children }) {
     sfx.playLevelUp(isSoundEnabledRef.current);
   }, []);
 
-  // Unlock AudioContext on first user interaction & Bind global UI sounds (Hover & Click)
+  // Unlock AudioContext & Launch BGM on first user interaction (Autoplay policy compliance)
   useEffect(() => {
     const handleFirstInteraction = () => {
+      hasInteractedRef.current = true;
       sfx.unlockAudio();
+
+      // Start BGM if sound is enabled
+      if (isSoundEnabledRef.current && bgmRef.current) {
+        bgmRef.current.play().catch(e => {
+          console.debug('BGM autoplay on interaction notice:', e);
+        });
+      }
+
       window.removeEventListener('pointerdown', handleFirstInteraction);
       window.removeEventListener('keydown', handleFirstInteraction);
       window.removeEventListener('touchstart', handleFirstInteraction);
@@ -160,6 +234,9 @@ export function AudioProvider({ children }) {
     isSoundEnabled,
     toggleSound,
     setSoundEnabled,
+    startBgm,
+    pauseBgm,
+    setBgmVolume,
     playHover,
     playClick,
     playSuccess,
@@ -190,11 +267,13 @@ export function AudioProvider({ children }) {
 export function useAudio() {
   const context = useContext(AudioContext);
   if (!context) {
-    // Fallback safe dummy object
     return {
       isSoundEnabled: true,
       toggleSound: () => {},
       setSoundEnabled: () => {},
+      startBgm: () => {},
+      pauseBgm: () => {},
+      setBgmVolume: () => {},
       playHover: () => {},
       playClick: () => {},
       playSuccess: () => {},
