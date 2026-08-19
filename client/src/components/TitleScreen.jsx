@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAudio } from '../context/AudioContext';
 import { sfx } from '../utils/sfxManager';
 
-export default function TitleScreen({ onEnter, user, playerName, avatar }) {
+export default function TitleScreen({ onEnter, onLogout, user, playerName, avatar }) {
   const [isExiting, setIsExiting] = useState(false);
   const { startBgm, playGameStart, isSoundEnabled } = useAudio();
 
@@ -33,9 +33,11 @@ export default function TitleScreen({ onEnter, user, playerName, avatar }) {
     }, 500);
   };
 
+  const googleName = user?.displayName || playerName || 'Joueur';
+  const displayPseudo = playerName || user?.displayName || 'Anonyme';
+
   return (
     <div
-      onClick={handleStart}
       style={{
         position: 'fixed',
         top: 0,
@@ -49,7 +51,6 @@ export default function TitleScreen({ onEnter, user, playerName, avatar }) {
         justifyContent: 'center',
         background: 'radial-gradient(ellipse at center, #1e1b4b 0%, #0f172a 60%, #030712 100%)',
         color: '#ffffff',
-        cursor: 'pointer',
         userSelect: 'none',
         overflow: 'hidden',
         transition: 'opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -80,7 +81,8 @@ export default function TitleScreen({ onEnter, user, playerName, avatar }) {
           alignItems: 'center',
           textAlign: 'center',
           padding: '2rem',
-          maxWidth: '650px'
+          maxWidth: '650px',
+          width: '100%'
         }}
       >
         {/* Badge */}
@@ -98,7 +100,7 @@ export default function TitleScreen({ onEnter, user, playerName, avatar }) {
             fontWeight: 800,
             letterSpacing: '1.5px',
             textTransform: 'uppercase',
-            marginBottom: '1.5rem',
+            marginBottom: '1.2rem',
             boxShadow: '0 0 20px rgba(99, 102, 241, 0.3)'
           }}
         >
@@ -109,7 +111,7 @@ export default function TitleScreen({ onEnter, user, playerName, avatar }) {
         <h1
           className="brand-logo-shine"
           style={{
-            fontSize: 'clamp(2.8rem, 8vw, 4.8rem)',
+            fontSize: 'clamp(2.5rem, 7vw, 4.2rem)',
             fontWeight: 950,
             letterSpacing: '2px',
             margin: 0,
@@ -123,28 +125,77 @@ export default function TitleScreen({ onEnter, user, playerName, avatar }) {
           WANA ALLMAND
         </h1>
 
-        {/* User Greeting if authenticated */}
-        {(playerName || user?.displayName) && (
+        {/* TÂCHE 2: Google Identity & In-game Pseudonym Card */}
+        <div
+          style={{
+            marginTop: '2rem',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.6rem'
+          }}
+        >
+          {/* Profile Photo / Avatar */}
           <div
             style={{
-              marginTop: '1.2rem',
-              fontSize: '1.1rem',
-              color: '#94a3b8',
+              width: '68px',
+              height: '68px',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              border: '3px solid #6366f1',
+              boxShadow: '0 0 25px rgba(99, 102, 241, 0.5), 0 8px 20px rgba(0, 0, 0, 0.4)',
+              background: '#1e293b',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem'
+              justifyContent: 'center'
             }}
           >
-            <span>{avatar || '🦊'}</span>
-            <span>Prêt pour le combat, <strong style={{ color: '#f8fafc' }}>{playerName || user?.displayName}</strong> ?</span>
+            {user?.photoURL ? (
+              <img
+                src={user.photoURL}
+                alt={googleName}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <span style={{ fontSize: '2.2rem' }}>{avatar || '🦊'}</span>
+            )}
           </div>
-        )}
 
-        {/* Animated Action Prompt */}
-        <div style={{ marginTop: '3.5rem' }}>
+          {/* Real Google Account Name */}
+          <h3
+            style={{
+              margin: '0.4rem 0 0 0',
+              fontSize: '1.35rem',
+              fontWeight: 700,
+              color: '#f8fafc',
+              letterSpacing: '0.3px'
+            }}
+          >
+            {googleName}
+          </h3>
+
+          {/* In-game Pseudonym */}
+          <div
+            style={{
+              fontSize: '0.92rem',
+              color: 'var(--text-muted, #94a3b8)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem'
+            }}
+          >
+            <span>Pseudo :</span>
+            <span style={{ color: '#c7d2fe', fontWeight: 600 }}>{displayPseudo}</span>
+          </div>
+        </div>
+
+        {/* Main Action Button */}
+        <div style={{ marginTop: '2.5rem' }}>
           <button
             type="button"
             className="title-screen-enter-btn"
+            onClick={handleStart}
             style={{
               position: 'relative',
               display: 'inline-flex',
@@ -152,7 +203,7 @@ export default function TitleScreen({ onEnter, user, playerName, avatar }) {
               justifyContent: 'center',
               gap: '0.8rem',
               padding: '1.1rem 2.8rem',
-              fontSize: '1.2rem',
+              fontSize: '1.15rem',
               fontWeight: 800,
               color: '#ffffff',
               background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #ec4899 100%)',
@@ -164,22 +215,47 @@ export default function TitleScreen({ onEnter, user, playerName, avatar }) {
               transition: 'transform 0.15s ease'
             }}
           >
-            <span style={{ fontSize: '1.4rem' }}>▶</span>
-            <span>Entrer dans l'arène</span>
+            <span style={{ fontSize: '1.3rem' }}>▶</span>
+            <span>
+              {user?.displayName ? `Continuer avec ${user.displayName}` : 'Continuer dans l\'arène'}
+            </span>
           </button>
         </div>
 
-        {/* Sound Notice Hint */}
-        <p
-          style={{
-            marginTop: '2rem',
-            fontSize: '0.85rem',
-            color: '#64748b',
-            letterSpacing: '0.5px'
-          }}
-        >
-          {isSoundEnabled ? '🔊 Audio & Effets Sonores activés' : '🔇 Audio coupé'} • Cliquez n'importe où pour démarrer
-        </p>
+        {/* TÂCHE 3: Switch User / Logout Button */}
+        <div style={{ marginTop: '2.2rem' }}>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onLogout) onLogout();
+            }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-muted, #94a3b8)',
+              fontSize: '0.95rem',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.5rem 1rem',
+              borderRadius: '8px',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.color = '#ffffff';
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.color = '#94a3b8';
+              e.currentTarget.style.background = 'transparent';
+            }}
+          >
+            <span>🔄</span>
+            <span>Changer d'utilisateur</span>
+          </button>
+        </div>
       </div>
 
       <style>{`

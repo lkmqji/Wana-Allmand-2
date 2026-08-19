@@ -501,6 +501,22 @@ function App() {
 
 
 
+  const handleManualLoginGoogle = async () => {
+    try {
+      sfx.unlockAudio();
+      setHasEnteredApp(true);
+      await loginWithGoogle();
+    } catch (err) {
+      console.error('Manual login error:', err);
+    }
+  };
+
+  const handleManualLoginGuest = () => {
+    sfx.unlockAudio();
+    setIsGuest(true);
+    setHasEnteredApp(true);
+  };
+
   if (isAuthLoading) {
     return (
       <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -552,7 +568,7 @@ function App() {
               Connecte-toi pour accéder à toutes les fonctionnalités : tes listes, le classement, et bien plus.
             </p>
             <button
-              onClick={loginWithGoogle}
+              onClick={handleManualLoginGoogle}
               className="btn btn-primary"
               style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', fontSize: '1rem', padding: '0.9rem' }}
             >
@@ -567,7 +583,7 @@ function App() {
 
             {serverGuestMode && (
               <button
-                onClick={() => setIsGuest(true)}
+                onClick={handleManualLoginGuest}
                 className="btn btn-secondary"
                 style={{ width: '100%', fontSize: '1rem', padding: '0.75rem', opacity: 0.8 }}
               >
@@ -585,6 +601,11 @@ function App() {
     return (
       <TitleScreen
         onEnter={() => setHasEnteredApp(true)}
+        onLogout={() => {
+          logout();
+          setIsGuest(false);
+          setHasEnteredApp(false);
+        }}
         user={user}
         playerName={playerName}
         avatar={avatar}
