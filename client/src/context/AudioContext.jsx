@@ -172,6 +172,10 @@ export function AudioProvider({ children }) {
     sfx.playLevelUp(isSoundEnabledRef.current);
   }, []);
 
+  const playGameStart = useCallback(() => {
+    sfx.playGameStart(isSoundEnabledRef.current);
+  }, []);
+
   // Unlock AudioContext & Launch BGM on first user interaction (Autoplay policy compliance)
   useEffect(() => {
     const handleFirstInteraction = () => {
@@ -254,7 +258,8 @@ export function AudioProvider({ children }) {
     playFreeze,
     playVictory,
     playDefeat,
-    playLevelUp
+    playLevelUp,
+    playGameStart
   };
 
   return (
@@ -291,7 +296,8 @@ export function useAudio() {
       playFreeze: () => {},
       playVictory: () => {},
       playDefeat: () => {},
-      playLevelUp: () => {}
+      playLevelUp: () => {},
+      playGameStart: () => {}
     };
   }
   return context;

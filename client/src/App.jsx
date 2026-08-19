@@ -10,6 +10,7 @@ import Admin from './components/Admin';
 import NotificationCenter from './components/NotificationCenter';
 import InviteModal from './components/InviteModal';
 import RightPanel from './components/RightPanel';
+import TitleScreen from './components/TitleScreen';
 import { exampleLists } from './data/exampleLists';
 import { auth, loginWithGoogle, logout, deleteAccount } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -26,6 +27,7 @@ const socket = io(API_URL, {
 
 function App() {
   const { playMessageReceived, playNotification } = useSoundEffects();
+  const [hasEnteredApp, setHasEnteredApp] = useState(false);
   const [view, setView] = useState('home'); // home, lobby, game, results
   const [activeTab, setActiveTab] = useState('learn'); // learn, lists, community, stats, profile
   const [session, setSession] = useState(null);
@@ -499,46 +501,6 @@ function App() {
 
 
 
-  if (view === 'vengeance') {
-    return (
-      <div className={`page-transition`}>
-        {error && (
-          <div style={{ background: 'var(--danger)', padding: '1rem', borderRadius: '8px', position: 'absolute', top: '1rem', left: '1rem', zIndex: 100 }}>
-            {error} <button onClick={() => setError('')} style={{background:'none',border:'none',color:'white',cursor:'pointer'}}>X</button>
-          </div>
-        )}
-        <VengeanceMode 
-          failedWords={failedWords}
-          user={user}
-          onPurify={handlePurifySuccess}
-          onBackHome={() => setView('home')}
-          playerName={playerName}
-          avatar={avatar}
-        />
-      </div>
-    );
-  }
-
-  if (view === 'game') {
-    return (
-      <div className={`app-container page-transition`}>
-        {error && (
-          <div style={{ background: 'var(--danger)', padding: '1rem', borderRadius: '8px', position: 'absolute', top: '1rem', left: '1rem', zIndex: 100 }}>
-            {error} <button onClick={() => setError('')} style={{background:'none',border:'none',color:'white',cursor:'pointer'}}>X</button>
-          </div>
-        )}
-        <Game 
-          socket={socket} 
-          session={session} 
-          playerName={playerName} 
-          avatar={avatar} 
-          chatMessages={chatMessages} 
-          setChatMessages={setChatMessages} 
-        />
-      </div>
-    );
-  }
-
   if (isAuthLoading) {
     return (
       <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -547,6 +509,7 @@ function App() {
     );
   }
 
+  // 1. Unauthenticated users see Login Screen
   if (!user && !isGuest) {
     return (
       <div className="app-container" style={{
@@ -613,6 +576,59 @@ function App() {
             )}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // 2. Authenticated users who haven't clicked enter yet see the Title Screen (Unlocks Audio)
+  if (!hasEnteredApp) {
+    return (
+      <TitleScreen
+        onEnter={() => setHasEnteredApp(true)}
+        user={user}
+        playerName={playerName}
+        avatar={avatar}
+      />
+    );
+  }
+
+  // 3. Main game & dashboard views once inside
+  if (view === 'vengeance') {
+    return (
+      <div className={`page-transition`}>
+        {error && (
+          <div style={{ background: 'var(--danger)', padding: '1rem', borderRadius: '8px', position: 'absolute', top: '1rem', left: '1rem', zIndex: 100 }}>
+            {error} <button onClick={() => setError('')} style={{background:'none',border:'none',color:'white',cursor:'pointer'}}>X</button>
+          </div>
+        )}
+        <VengeanceMode 
+          failedWords={failedWords}
+          user={user}
+          onPurify={handlePurifySuccess}
+          onBackHome={() => setView('home')}
+          playerName={playerName}
+          avatar={avatar}
+        />
+      </div>
+    );
+  }
+
+  if (view === 'game') {
+    return (
+      <div className={`app-container page-transition`}>
+        {error && (
+          <div style={{ background: 'var(--danger)', padding: '1rem', borderRadius: '8px', position: 'absolute', top: '1rem', left: '1rem', zIndex: 100 }}>
+            {error} <button onClick={() => setError('')} style={{background:'none',border:'none',color:'white',cursor:'pointer'}}>X</button>
+          </div>
+        )}
+        <Game 
+          socket={socket} 
+          session={session} 
+          playerName={playerName} 
+          avatar={avatar} 
+          chatMessages={chatMessages} 
+          setChatMessages={setChatMessages} 
+        />
       </div>
     );
   }
@@ -786,7 +802,7 @@ function App() {
             setAvatar={setAvatar}
             user={user}
             loginWithGoogle={loginWithGoogle}
-            logout={() => { logout(); setIsGuest(false); }}
+            logout={() => { logout(); setIsGuest(false); setHasEnteredApp(false); }}
             deleteAccount={deleteAccount}
             activeTab={activeTab}
             setActiveTab={setActiveTab}

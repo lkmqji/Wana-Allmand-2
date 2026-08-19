@@ -773,6 +773,57 @@ class SFXManager {
       console.debug('SFX LevelUp error:', e);
     }
   }
+
+  /**
+   * 13. playGameStart() : Accord cinématographique percutant de lancement d'arène.
+   */
+  playGameStart(enabled = true) {
+    if (!enabled) return;
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+
+      const startTime = ctx.currentTime;
+
+      // 1. Sub-bass punch
+      const sub = ctx.createOscillator();
+      const subGain = ctx.createGain();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(120, startTime);
+      sub.frequency.exponentialRampToValueAtTime(40, startTime + 0.4);
+      subGain.gain.setValueAtTime(0.25, startTime);
+      subGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
+      sub.connect(subGain);
+      subGain.connect(ctx.destination);
+      sub.start(startTime);
+      sub.stop(startTime + 0.45);
+
+      // 2. High energetic power chime arpeggio (C4, G4, C5, E5, G5, C6)
+      const chord = [261.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
+      chord.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const noteStart = startTime + idx * 0.04;
+        const dur = 0.55;
+
+        osc.type = idx >= 4 ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(freq, noteStart);
+
+        gain.gain.setValueAtTime(0.0001, noteStart);
+        gain.gain.linearRampToValueAtTime(0.18, noteStart + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, noteStart + dur);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(noteStart);
+        osc.stop(noteStart + dur + 0.05);
+      });
+    } catch (e) {
+      console.debug('SFX GameStart error:', e);
+    }
+  }
 }
 
 export const sfx = new SFXManager();
+
