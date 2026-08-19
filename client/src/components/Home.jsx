@@ -59,6 +59,19 @@ export default function Home({
   const [editingListId, setEditingListId] = useState(null);
   const [listTitle, setListTitle] = useState('');
   const [importNotice, setImportNotice] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredArchivedLists = archivedLists.filter((list) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    const title = (list.title || list.name || '').toLowerCase();
+    const desc = (list.description || '').toLowerCase();
+    const hasWordMatch = Array.isArray(list.words) && list.words.some(w =>
+      (w.question && w.question.toLowerCase().includes(q)) ||
+      (w.answer && w.answer.toLowerCase().includes(q))
+    );
+    return title.includes(q) || desc.includes(q) || hasWordMatch;
+  });
 
   const handleStartDirectSession = (wordList) => {
     const validWords = (wordList || []).filter(w => w.question?.trim() && w.answer?.trim());
@@ -506,21 +519,17 @@ export default function Home({
             <div style={{ width: '100%', maxWidth: '300px', marginTop: '1rem', borderTop: '2px dashed rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
               <button 
                 type="button"
-                className="btn btn-secondary" 
+                className="btn btn-success" 
                 onClick={handlePlaySolo} 
                 style={{ 
                   width: '100%', 
                   padding: '0.85rem', 
                   fontSize: '1rem', 
                   fontWeight: 900,
-                  background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-                  color: '#ffffff',
-                  border: 'none',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '0.5rem',
-                  boxShadow: '0 4px 15px rgba(99, 102, 241, 0.35)',
                   cursor: 'pointer'
                 }}
               >
@@ -661,6 +670,46 @@ export default function Home({
           {/* SUB-TAB 1 : MES LISTES */}
           {listSubTab === 'my_lists' && (
             <>
+              {/* Search Bar for Lists (Task 2) */}
+              {user && archivedLists.length > 0 && (
+                <div style={{ marginBottom: '1.2rem', position: 'relative' }}>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="🔍 Rechercher une liste..."
+                    className="input-field"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 2.4rem 0.75rem 1rem',
+                      fontSize: '0.92rem',
+                      borderRadius: '12px'
+                    }}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      style={{
+                        position: 'absolute',
+                        right: '0.75rem',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        padding: '0.2rem'
+                      }}
+                      title="Effacer la recherche"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              )}
+
               {selectedListIds.size >= 2 && (
                 <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
                   <button onClick={handleMergeLists} className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', width: 'auto' }}>
@@ -681,9 +730,24 @@ export default function Home({
                     Importez un fichier PDF ou écrivez vos mots depuis l'onglet Apprendre pour commencer !
                   </p>
                 </div>
+              ) : filteredArchivedLists.length === 0 ? (
+                <div className="card text-muted text-center" style={{ padding: '2.5rem 1rem' }}>
+                  <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>🔍</span>
+                  <p style={{ fontWeight: 'bold', fontSize: '1rem', color: 'var(--text-main)' }}>
+                    Aucune liste ne correspond à « {searchQuery} »
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="btn btn-secondary"
+                    style={{ width: 'auto', margin: '1rem auto 0 auto', padding: '0.4rem 1rem', fontSize: '0.85rem' }}
+                  >
+                    Effacer la recherche
+                  </button>
+                </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.2rem' }}>
-                  {archivedLists.map(list => (
+                  {filteredArchivedLists.map(list => (
                     <ListCard
                       key={list._id}
                       list={list}

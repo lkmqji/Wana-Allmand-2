@@ -116,12 +116,14 @@ export default function VengeanceMode({
 
   const currentWord = queue[currentIndex] || null;
 
-  // Auto-focus input on new word/round
+  // Auto-focus input on new word/round or after feedback (Task 3)
   useEffect(() => {
-    if (!isAnswering && !isCompleted && inputRef.current) {
-      inputRef.current.focus();
+    if (!isAnswering && !isCompleted && !feedback) {
+      inputRef.current?.focus();
+      const t = setTimeout(() => inputRef.current?.focus(), 50);
+      return () => clearTimeout(t);
     }
-  }, [currentIndex, isAnswering, isCompleted]);
+  }, [currentIndex, isAnswering, isCompleted, feedback, currentWord]);
 
   // Trigger triumph confetti on complete
   useEffect(() => {
@@ -532,6 +534,7 @@ export default function VengeanceMode({
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
           <input
             ref={inputRef}
+            autoFocus
             type="text"
             className="input-field"
             placeholder="Écris la traduction en allemand..."

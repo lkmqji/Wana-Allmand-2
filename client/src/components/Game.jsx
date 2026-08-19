@@ -69,6 +69,13 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const inputRef = useRef(null);
   const [flashEffect, setFlashEffect] = useState(null); // 'success' | 'error' | null
 
+  // Force auto-focus on input whenever a new word is displayed or round becomes active (Task 3)
+  useEffect(() => {
+    if (!roundResult && !hasAnswered && !isFrozen && !isPaused && leaveRequestState === 'none' && !disconnectGrace.disconnected) {
+      inputRef.current?.focus();
+    }
+  }, [question, roundResult, hasAnswered, isFrozen, isPaused, leaveRequestState, disconnectGrace.disconnected]);
+
   const allowPause = session?.settings?.allowPause !== false;
 
   const showToast = (text, type = 'info') => {
@@ -1245,6 +1252,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
               <form onSubmit={handleSubmit} style={{ margin: '0 auto 1.5rem auto', width: '100%', maxWidth: '400px', position: 'relative' }}>
                 <input
                   ref={inputRef}
+                  autoFocus
                   type="text"
                   className="input-field"
                   value={answer}

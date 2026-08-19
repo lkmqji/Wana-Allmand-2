@@ -8,6 +8,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
   const [searchQuery, setSearchQuery] = useState('');
   const [invitedSockets, setInvitedSockets] = useState({});
   const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedInvite, setCopiedInvite] = useState(false);
   const messages = chatMessages;
   const [inputMsg, setInputMsg] = useState('');
   const chatBottomRef = useRef(null);
@@ -251,6 +252,14 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
       navigator.clipboard.writeText(session.id);
       setCopiedCode(true);
       setTimeout(() => setCopiedCode(false), 2000);
+    }
+  };
+
+  const handleCopyInvite = () => {
+    if (session?.id) {
+      navigator.clipboard.writeText(`Rejoins mon duel d'allemand ! Code : ${session.id}`);
+      setCopiedInvite(true);
+      setTimeout(() => setCopiedInvite(false), 2000);
     }
   };
 
@@ -777,7 +786,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
 
           {isHost ? (
             <button
-              className="btn btn-primary"
+              className="btn btn-success"
               onClick={handleStart}
               style={{ flex: 1, padding: '0.7rem 1.2rem', fontSize: '0.95rem', fontWeight: 900, letterSpacing: '0.5px' }}
             >
@@ -1100,6 +1109,46 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
         {/* ----------------- ONGLET 2 : JOUEURS CONNECTES & INVITATIONS ----------------- */}
         {activeTab === 'online' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            {/* Direct Invitation Copy Banner (Task 4) */}
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '12px',
+              padding: '0.65rem 0.85rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.6rem',
+              flexWrap: 'wrap'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <span style={{ fontSize: '1.1rem' }}>🔗</span>
+                <div>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                    Code : <span style={{ color: 'var(--primary)', letterSpacing: '1px', fontWeight: 900 }}>{session?.id}</span>
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    Partagez l'invitation à vos amis
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCopyInvite}
+                className={`btn ${copiedInvite ? 'btn-success' : 'btn-primary'}`}
+                style={{
+                  width: 'auto',
+                  padding: '0.4rem 0.85rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 800,
+                  borderRadius: '10px'
+                }}
+              >
+                {copiedInvite ? 'Copié ! ✅' : "🔗 Copier l'invitation"}
+              </button>
+            </div>
+
             <div style={{ position: 'relative' }}>
               <input
                 type="text"
@@ -1144,9 +1193,23 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                   ) : (
                     <>
                       <p style={{ margin: 0, fontWeight: 'bold' }}>Aucun autre joueur connecté.</p>
-                      <p style={{ fontSize: '0.75rem', marginTop: '0.2rem' }}>
+                      <p style={{ fontSize: '0.75rem', marginTop: '0.2rem', marginBottom: '0.6rem' }}>
                         Partagez le code <strong style={{ color: 'var(--primary)' }}>{session?.id}</strong> pour inviter un ami !
                       </p>
+                      <button
+                        type="button"
+                        onClick={handleCopyInvite}
+                        className={`btn ${copiedInvite ? 'btn-success' : 'btn-secondary'}`}
+                        style={{
+                          width: 'auto',
+                          margin: '0 auto',
+                          padding: '0.35rem 0.8rem',
+                          fontSize: '0.78rem',
+                          borderRadius: '8px'
+                        }}
+                      >
+                        {copiedInvite ? 'Copié ! ✅' : "🔗 Copier l'invitation"}
+                      </button>
                     </>
                   )}
                 </div>

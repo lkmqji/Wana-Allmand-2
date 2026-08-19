@@ -144,7 +144,7 @@ export default function ListCard({
       {/* Primary Action Button (100% Width on Bottom) */}
       <button
         onClick={onPlay}
-        className="btn btn-primary"
+        className="btn btn-success"
         style={{
           width: '100%',
           padding: '0.75rem 1rem',
