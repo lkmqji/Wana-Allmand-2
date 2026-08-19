@@ -15,9 +15,10 @@ class SFXManager {
     this.lastTimeWarningTime = 0;
     this.audioUnlocked = false;
 
-    // Master and SFX volume controls (0 to 1) with strong base gain boost on SFX
+    // Master and SFX volume controls (0 to 1) with boosted overall app gain
     this.masterVolume = 0.5;
     this.sfxVolume = 0.5;
+    this.masterBaseMultiplier = 1.35; // +35% total volume output boost across the application
     this.sfxBaseMultiplier = 1.85; // Boosted base volume for distinct, punchy procedural SFX
     this.masterGainNode = null;
     this.sfxGainNode = null;
@@ -57,13 +58,13 @@ class SFXManager {
         
         // Anti-clipping limiter / compressor to ensure clear, punchy sound without distortion
         this.compressorNode = this.ctx.createDynamicsCompressor();
-        this.compressorNode.threshold.setValueAtTime(-1.5, this.ctx.currentTime);
+        this.compressorNode.threshold.setValueAtTime(-1.0, this.ctx.currentTime);
         this.compressorNode.knee.setValueAtTime(8, this.ctx.currentTime);
         this.compressorNode.ratio.setValueAtTime(12, this.ctx.currentTime);
         this.compressorNode.attack.setValueAtTime(0.003, this.ctx.currentTime);
         this.compressorNode.release.setValueAtTime(0.15, this.ctx.currentTime);
         
-        this.masterGainNode.gain.setValueAtTime(this.masterVolume, this.ctx.currentTime);
+        this.masterGainNode.gain.setValueAtTime(this.masterVolume * this.masterBaseMultiplier, this.ctx.currentTime);
         this.sfxGainNode.gain.setValueAtTime(this.sfxVolume * this.sfxBaseMultiplier, this.ctx.currentTime);
 
         this.sfxGainNode.connect(this.masterGainNode);
@@ -85,13 +86,13 @@ class SFXManager {
       this.masterGainNode = ctx.createGain();
       this.sfxGainNode = ctx.createGain();
       this.compressorNode = ctx.createDynamicsCompressor();
-      this.compressorNode.threshold.setValueAtTime(-1.5, ctx.currentTime);
+      this.compressorNode.threshold.setValueAtTime(-1.0, ctx.currentTime);
       this.compressorNode.knee.setValueAtTime(8, ctx.currentTime);
       this.compressorNode.ratio.setValueAtTime(12, ctx.currentTime);
       this.compressorNode.attack.setValueAtTime(0.003, ctx.currentTime);
       this.compressorNode.release.setValueAtTime(0.15, ctx.currentTime);
 
-      this.masterGainNode.gain.setValueAtTime(this.masterVolume, ctx.currentTime);
+      this.masterGainNode.gain.setValueAtTime(this.masterVolume * this.masterBaseMultiplier, ctx.currentTime);
       this.sfxGainNode.gain.setValueAtTime(this.sfxVolume * this.sfxBaseMultiplier, ctx.currentTime);
       this.sfxGainNode.connect(this.masterGainNode);
       this.masterGainNode.connect(this.compressorNode);
@@ -109,7 +110,7 @@ class SFXManager {
     this.masterVolume = Math.max(0, Math.min(1, Number(val)));
     if (this.ctx && this.masterGainNode) {
       try {
-        this.masterGainNode.gain.setValueAtTime(this.masterVolume, this.ctx.currentTime);
+        this.masterGainNode.gain.setValueAtTime(this.masterVolume * this.masterBaseMultiplier, this.ctx.currentTime);
       } catch (e) {
         console.debug('Error setting master gain:', e);
       }

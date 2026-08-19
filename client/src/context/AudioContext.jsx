@@ -13,22 +13,22 @@ export function AudioProvider({ children }) {
     }
   });
 
-  // 3 Volume Sliders (Master, SFX, BGM) - Defaults 0.5
+  // 3 Volume Sliders (Master, SFX, BGM) - Defaults: Master 0.7, SFX 0.6, BGM 0.5
   const [masterVolume, setMasterVolumeState] = useState(() => {
     try {
       const saved = localStorage.getItem('wana_master_volume');
-      return saved !== null ? Math.max(0, Math.min(1, parseFloat(saved))) : 0.5;
+      return saved !== null ? Math.max(0, Math.min(1, parseFloat(saved))) : 0.7;
     } catch {
-      return 0.5;
+      return 0.7;
     }
   });
 
   const [sfxVolume, setSfxVolumeState] = useState(() => {
     try {
       const saved = localStorage.getItem('wana_sfx_volume');
-      return saved !== null ? Math.max(0, Math.min(1, parseFloat(saved))) : 0.5;
+      return saved !== null ? Math.max(0, Math.min(1, parseFloat(saved))) : 0.6;
     } catch {
-      return 0.5;
+      return 0.6;
     }
   });
 
@@ -70,7 +70,7 @@ export function AudioProvider({ children }) {
     sfx.setSfxVolume(isSoundEnabled ? sfxVolume : 0);
   }, [sfxVolume, isSoundEnabled]);
 
-  // Synchronize BGM volume: volumeFinal = bgmVolume * masterVolume * 0.08 (soundscape mix)
+  // Synchronize BGM volume: volumeFinal = bgmVolume * masterVolume * 0.10 (harmonious background soundscape)
   useEffect(() => {
     try {
       localStorage.setItem('wana_bgm_volume', String(bgmVolume));
@@ -78,7 +78,7 @@ export function AudioProvider({ children }) {
     const bgm = bgmRef.current;
     if (bgm) {
       if (isSoundEnabled) {
-        const finalBgmVol = Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.08));
+        const finalBgmVol = Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.10));
         bgm.volume = finalBgmVol;
       } else {
         bgm.volume = 0;
@@ -94,7 +94,7 @@ export function AudioProvider({ children }) {
     try {
       bgmAudio = new Audio('/sounds/bgm-main.mp3');
       bgmAudio.loop = true;
-      const initialVol = isSoundEnabledRef.current ? Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.08)) : 0;
+      const initialVol = isSoundEnabledRef.current ? Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.10)) : 0;
       bgmAudio.volume = initialVol;
       bgmAudio.preload = 'auto';
       bgmRef.current = bgmAudio;
