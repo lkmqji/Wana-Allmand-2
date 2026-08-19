@@ -25,6 +25,7 @@ export default function ListCard({
   onToggleSelect,
   onPlay,
   onEdit,
+  onPreview,
   onTogglePublic,
   onDelete
 }) {
@@ -84,15 +85,36 @@ export default function ListCard({
         )}
       </div>
 
-      {/* Secondary Controls Bar (Edit, Privacy Status, Delete) */}
-      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+      {/* Secondary Controls Bar (Preview, Edit, Privacy Status, Delete) */}
+      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        {onPreview && (
+          <button
+            onClick={onPreview}
+            className="btn btn-secondary"
+            style={{ 
+              flex: 1, 
+              minWidth: '70px',
+              padding: '0.45rem 0.5rem', 
+              fontSize: '0.8rem', 
+              fontWeight: 600,
+              borderRadius: '10px',
+              borderColor: 'rgba(99, 102, 241, 0.4)',
+              color: 'var(--text-main)'
+            }}
+            title="Visualiser les mots de la liste"
+          >
+            👁️ Voir
+          </button>
+        )}
+
         {onEdit && (
           <button
             onClick={onEdit}
             className="btn btn-secondary"
             style={{ 
               flex: 1, 
-              padding: '0.45rem 0.6rem', 
+              minWidth: '70px',
+              padding: '0.45rem 0.5rem', 
               fontSize: '0.8rem', 
               fontWeight: 600,
               borderRadius: '10px'
@@ -109,7 +131,8 @@ export default function ListCard({
             className="btn btn-secondary"
             style={{ 
               flex: 1, 
-              padding: '0.45rem 0.6rem', 
+              minWidth: '70px',
+              padding: '0.45rem 0.5rem', 
               fontSize: '0.8rem', 
               fontWeight: 600,
               borderRadius: '10px',
@@ -118,7 +141,7 @@ export default function ListCard({
             }}
             title={list.isPublic ? 'Rendre privée' : 'Partager avec la communauté'}
           >
-            {list.isPublic ? '🌍 Publique' : '🔒 Privée'}
+            {list.isPublic ? '🌍 Public' : '🔒 Privé'}
           </button>
         )}
 
@@ -128,7 +151,7 @@ export default function ListCard({
             className="btn btn-secondary"
             style={{ 
               width: 'auto', 
-              padding: '0.45rem 0.75rem', 
+              padding: '0.45rem 0.65rem', 
               fontSize: '0.85rem', 
               borderRadius: '10px',
               borderColor: 'rgba(239, 68, 68, 0.4)',

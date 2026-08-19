@@ -4,6 +4,7 @@ import { formatPlayerName, getClientPlayerKey } from '../utils/formatters';
 import { resolveWordPair } from '../utils/dictionary';
 import ListCard from './ListCard';
 import Profil from './Profil';
+import ListPreviewModal from './ListPreviewModal';
 
 const listsCache = {
   public: null,
@@ -41,6 +42,7 @@ export default function Home({
 }) {
   const [listSubTab, setListSubTab] = useState('my_lists'); // 'my_lists' | 'failed_words'
   const [showMistakesModal, setShowMistakesModal] = useState(false);
+  const [previewList, setPreviewList] = useState(null);
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
   const [prepTab, setPrepTab] = useState('pdf'); // 'pdf', 'text', 'examples', 'settings'
   const [joinCode, setJoinCode] = useState('');
@@ -758,6 +760,7 @@ export default function Home({
                       onToggleSelect={() => toggleListSelection(list._id)}
                       onPlay={() => handleStartDirectSession(list.words)}
                       onEdit={() => handleEditList(list)}
+                      onPreview={() => setPreviewList(list)}
                       onTogglePublic={() => togglePublicList(list._id, list.isPublic)}
                       onDelete={() => deleteList(list._id)}
                     />
@@ -981,7 +984,24 @@ export default function Home({
                   <h4>{list.title}</h4>
                   <p className="text-muted" style={{ fontSize: '0.85rem' }}>{list.subtitle} • {list.count}</p>
                 </div>
-                <button onClick={() => handleStartDirectSession(list.words)} className="btn btn-secondary" style={{ marginTop: 'auto' }}>JOUER</button>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewList(list)}
+                    className="btn btn-secondary"
+                    style={{ flex: 1, padding: '0.55rem', fontSize: '0.85rem', fontWeight: 600 }}
+                  >
+                    👁️ Voir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleStartDirectSession(list.words)}
+                    className="btn btn-success"
+                    style={{ flex: 1, padding: '0.55rem', fontSize: '0.85rem', fontWeight: 700 }}
+                  >
+                    ⚔️ JOUER
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -992,17 +1012,36 @@ export default function Home({
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
               {publicLists.map(list => (
-                <div key={list._id} className="card" style={{ borderColor: 'var(--warning)' }}>
-                  <h4>
-                    {list.creatorName && (
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginRight: '0.5rem', background: 'rgba(255,255,255,0.1)', padding: '0.2rem 0.4rem', borderRadius: '4px' }}>
-                        {list.creatorName.substring(0, 2).toUpperCase()}
-                      </span>
-                    )}
-                    {list.name}
-                  </h4>
-                  <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '1rem', marginTop: '0.5rem' }}>{list.words.length} mots</p>
-                  <button onClick={() => handleStartDirectSession(list.words)} className="btn btn-secondary" style={{ color: 'var(--warning)', borderColor: 'var(--warning)' }}>JOUER</button>
+                <div key={list._id} className="card" style={{ borderColor: 'var(--warning)', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                  <div>
+                    <h4>
+                      {list.creatorName && (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginRight: '0.5rem', background: 'rgba(255,255,255,0.1)', padding: '0.2rem 0.4rem', borderRadius: '4px' }}>
+                          {list.creatorName.substring(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                      {list.name}
+                    </h4>
+                    <p className="text-muted" style={{ fontSize: '0.85rem', marginTop: '0.3rem' }}>{list.words.length} mots</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto' }}>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewList(list)}
+                      className="btn btn-secondary"
+                      style={{ flex: 1, padding: '0.55rem', fontSize: '0.85rem', fontWeight: 600 }}
+                    >
+                      👁️ Voir
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleStartDirectSession(list.words)}
+                      className="btn btn-secondary"
+                      style={{ flex: 1, padding: '0.55rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--warning)', borderColor: 'var(--warning)' }}
+                    >
+                      ⚔️ JOUER
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1351,6 +1390,15 @@ export default function Home({
             </button>
           </div>
         </div>
+      )}
+
+      {/* List Preview Modal for ANY list */}
+      {previewList && (
+        <ListPreviewModal
+          list={previewList}
+          onClose={() => setPreviewList(null)}
+          onPlay={handleStartDirectSession}
+        />
       )}
 
     </div>

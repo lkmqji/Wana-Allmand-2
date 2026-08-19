@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { exampleLists, getAllDefaultWords } from '../data/exampleLists';
 import { formatPlayerName, extractEmoji, generateBurstParticles } from '../utils/formatters';
 import { useSoundEffects } from '../context/AudioContext';
+import ListPreviewModal from './ListPreviewModal';
 
 export default function Lobby({ socket, session, players, isHost, setView, onlineUsers = [], playerName, avatar, user, chatMessages = [], setChatMessages }) {
   const { playAlert, playMessageSent, playReactionBurst } = useSoundEffects();
@@ -65,6 +66,8 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
 
   // Community list picker state
   const [showCommunityPicker, setShowCommunityPicker] = useState(false);
+  const [previewCommunityList, setPreviewCommunityList] = useState(null);
+  const [editingWordIdx, setEditingWordIdx] = useState(null);
   const [publicLists, setPublicLists] = useState([]);
   const [loadingPublicLists, setLoadingPublicLists] = useState(false);
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
@@ -1369,13 +1372,13 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
             )}
 
             <div style={{
-              height: '240px',
+              maxHeight: '320px',
               overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',
-              gap: '0.4rem',
+              gap: '0.6rem',
               paddingRight: '0.3rem',
-              marginBottom: '0.4rem'
+              marginBottom: '0.5rem'
             }}>
               {words.length === 0 ? (
                 /* Empty state when all words were deleted / empty */
@@ -1426,61 +1429,167 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                 words.map((w, idx) => (
                   <div
                     key={w.id || idx}
+                    className="card"
                     style={{
                       display: 'flex',
-                      gap: '0.4rem',
                       alignItems: 'center',
-                      background: 'var(--bg-main)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '8px',
-                      padding: '0.3rem 0.5rem'
+                      justifyContent: 'space-between',
+                      gap: '0.8rem',
+                      background: 'linear-gradient(135deg, rgba(25, 12, 16, 0.75) 0%, var(--bg-surface) 100%)',
+                      border: '1px solid rgba(239, 68, 68, 0.25)',
+                      borderRadius: '14px',
+                      padding: '0.85rem 1.1rem',
+                      transition: 'all 0.2s ease'
                     }}
                   >
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', width: '18px', textAlign: 'center' }}>
-                      {idx + 1}
-                    </span>
+                    {editingWordIdx === idx ? (
+                      /* Inline Edit Form when clicking the pen icon ✏️ */
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>🇩🇪</span>
+                          <input
+                            type="text"
+                            className="input-field"
+                            value={w.answer || ''}
+                            onChange={(e) => handleLocalWordChange(idx, 'answer', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleCommitWordChange(idx);
+                                setEditingWordIdx(null);
+                              }
+                            }}
+                            placeholder="Mot en Allemand (ex: das Haus)"
+                            style={{ flex: 1, padding: '0.4rem 0.6rem', fontSize: '0.9rem' }}
+                            autoFocus
+                          />
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>🇫🇷</span>
+                          <input
+                            type="text"
+                            className="input-field"
+                            value={w.question || ''}
+                            onChange={(e) => handleLocalWordChange(idx, 'question', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleCommitWordChange(idx);
+                                setEditingWordIdx(null);
+                              }
+                            }}
+                            placeholder="Traduction en Français (ex: la maison)"
+                            style={{ flex: 1, padding: '0.4rem 0.6rem', fontSize: '0.9rem' }}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.2rem' }}>
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => {
+                              handleCommitWordChange(idx);
+                              setEditingWordIdx(null);
+                            }}
+                            style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}
+                          >
+                            ✓ Valider
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Display Mode (Styled like the photo) */
+                      <>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fca5a5', wordBreak: 'break-word', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span>🇩🇪</span>
+                            <span>{w.answer || '—'}</span>
+                          </div>
+                          <div style={{ fontSize: '0.88rem', color: '#cbd5e1', marginTop: '0.25rem', wordBreak: 'break-word', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span>🇫🇷</span>
+                            <span>{w.question || '—'}</span>
+                          </div>
+                        </div>
 
-                    <input
-                      type="text"
-                      className="input-field"
-                      value={w.question}
-                      disabled={!isHost}
-                      onChange={(e) => handleLocalWordChange(idx, 'question', e.target.value)}
-                      onBlur={() => handleCommitWordChange(idx)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-                      placeholder="Français"
-                      style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.8rem', borderRadius: '6px', cursor: isHost ? 'text' : 'default' }}
-                    />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                          <span style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 800,
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            color: 'var(--text-muted)',
+                            padding: '0.2rem 0.55rem',
+                            borderRadius: '6px',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            #{idx + 1}
+                          </span>
 
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>➔</span>
+                          {isHost && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setEditingWordIdx(idx)}
+                                style={{
+                                  background: 'rgba(99, 102, 241, 0.15)',
+                                  border: '1px solid rgba(99, 102, 241, 0.4)',
+                                  color: '#a5b4fc',
+                                  borderRadius: '8px',
+                                  padding: '0.35rem 0.55rem',
+                                  cursor: 'pointer',
+                                  fontSize: '0.85rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'all 0.2s',
+                                  lineHeight: 1
+                                }}
+                                title="Modifier ce mot"
+                                onMouseOver={e => {
+                                  e.currentTarget.style.background = 'rgba(99, 102, 241, 0.35)';
+                                  e.currentTarget.style.borderColor = 'var(--primary)';
+                                  e.currentTarget.style.transform = 'scale(1.08)';
+                                }}
+                                onMouseOut={e => {
+                                  e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)';
+                                  e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.4)';
+                                  e.currentTarget.style.transform = 'scale(1)';
+                                }}
+                              >
+                                ✏️
+                              </button>
 
-                    <input
-                      type="text"
-                      className="input-field"
-                      value={w.answer}
-                      disabled={!isHost}
-                      onChange={(e) => handleLocalWordChange(idx, 'answer', e.target.value)}
-                      onBlur={() => handleCommitWordChange(idx)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-                      placeholder="Allemand"
-                      style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.8rem', borderRadius: '6px', cursor: isHost ? 'text' : 'default' }}
-                    />
-
-                    {isHost && (
-                      <button
-                        onClick={() => handleDeleteWord(idx)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--danger)',
-                          cursor: 'pointer',
-                          padding: '0 0.3rem',
-                          fontSize: '0.85rem'
-                        }}
-                        title="Supprimer ce mot"
-                      >
-                        ✕
-                      </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteWord(idx)}
+                                style={{
+                                  background: 'rgba(239, 68, 68, 0.12)',
+                                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                                  color: '#f87171',
+                                  borderRadius: '8px',
+                                  padding: '0.35rem 0.55rem',
+                                  cursor: 'pointer',
+                                  fontSize: '0.85rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'all 0.2s',
+                                  lineHeight: 1
+                                }}
+                                title="Supprimer ce mot"
+                                onMouseOver={e => {
+                                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.35)';
+                                  e.currentTarget.style.borderColor = '#ef4444';
+                                  e.currentTarget.style.transform = 'scale(1.08)';
+                                }}
+                                onMouseOut={e => {
+                                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
+                                  e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+                                  e.currentTarget.style.transform = 'scale(1)';
+                                }}
+                              >
+                                🗑️
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
                 ))
@@ -1857,7 +1966,6 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                   {exampleLists.map((list) => (
                     <div
                       key={list.id}
-                      onClick={() => handleLoadPredefinedList(list)}
                       style={{
                         display: 'flex',
                         justifyContent: 'space-between',
@@ -1866,22 +1974,31 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                         border: '1px solid var(--border-color)',
                         borderRadius: '10px',
                         padding: '0.6rem 0.8rem',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s'
+                        gap: '0.5rem'
                       }}
-                      onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
                     >
-                      <div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{list.title}</div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{list.subtitle}</div>
                       </div>
-                      <button
-                        className="btn btn-primary"
-                        style={{ width: 'auto', padding: '0.3rem 0.7rem', fontSize: '0.75rem' }}
-                      >
-                        Charger ({list.words.length} mots)
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewCommunityList(list)}
+                          className="btn btn-secondary"
+                          style={{ width: 'auto', padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                        >
+                          👁️ Voir
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleLoadPredefinedList(list)}
+                          className="btn btn-primary"
+                          style={{ width: 'auto', padding: '0.3rem 0.7rem', fontSize: '0.75rem' }}
+                        >
+                          Charger ({list.words.length} mots)
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1905,7 +2022,6 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                     {publicLists.map((list) => (
                       <div
                         key={list._id}
-                        onClick={() => handleLoadPredefinedList(list)}
                         style={{
                           display: 'flex',
                           justifyContent: 'space-between',
@@ -1914,24 +2030,33 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
                           border: '1px solid var(--border-color)',
                           borderRadius: '10px',
                           padding: '0.6rem 0.8rem',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s'
+                          gap: '0.5rem'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--warning)'}
-                        onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
                       >
-                        <div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{list.name}</div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                             Par {list.creatorName || 'Membre'} • {list.words.length} mots
                           </div>
                         </div>
-                        <button
-                          className="btn btn-secondary"
-                          style={{ width: 'auto', padding: '0.3rem 0.7rem', fontSize: '0.75rem', color: 'var(--warning)', borderColor: 'var(--warning)' }}
-                        >
-                          Charger
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewCommunityList(list)}
+                            className="btn btn-secondary"
+                            style={{ width: 'auto', padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                          >
+                            👁️ Voir
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleLoadPredefinedList(list)}
+                            className="btn btn-secondary"
+                            style={{ width: 'auto', padding: '0.3rem 0.7rem', fontSize: '0.75rem', color: 'var(--warning)', borderColor: 'var(--warning)' }}
+                          >
+                            Charger
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1951,6 +2076,15 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
             </div>
           </div>
         </div>
+      )}
+
+      {/* Preview modal for community/default list inside Lobby */}
+      {previewCommunityList && (
+        <ListPreviewModal
+          list={previewCommunityList}
+          onClose={() => setPreviewCommunityList(null)}
+          onPlay={handleLoadPredefinedList}
+        />
       )}
 
     </div>
