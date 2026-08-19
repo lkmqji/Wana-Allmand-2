@@ -819,6 +819,11 @@ io.on('connection', (socket) => {
     socket.on('submit_answer', ({ sessionId, answer, timeRemaining }) => {
         const result = gameManager.submitAnswer(sessionId, socket.id, answer, timeRemaining);
         
+        // Real-time opponent answered notification
+        if (sessionId) {
+            socket.to(sessionId).emit('opponent_answered', { playerId: socket.id });
+        }
+
         if (result && result.powerUpTarget) {
             io.to(result.powerUpTarget).emit('powerup_frozen', 3); // freeze for 3 seconds
         }

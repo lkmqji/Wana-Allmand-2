@@ -31,7 +31,7 @@ export function AudioProvider({ children }) {
     setIsSoundEnabled(Boolean(val));
   }, []);
 
-  // SFX Methods
+  // SFX Methods - Base UI
   const playHover = useCallback(() => {
     sfx.playHover(isSoundEnabledRef.current);
   }, []);
@@ -56,6 +56,57 @@ export function AudioProvider({ children }) {
     sfx.playAlert(isSoundEnabledRef.current);
   }, []);
 
+  // SFX Methods - Social & UI (Low Volume)
+  const playMessageSent = useCallback(() => {
+    sfx.playMessageSent(isSoundEnabledRef.current);
+  }, []);
+
+  const playMessageReceived = useCallback(() => {
+    sfx.playMessageReceived(isSoundEnabledRef.current);
+  }, []);
+
+  const playNotification = useCallback(() => {
+    sfx.playNotification(isSoundEnabledRef.current);
+  }, []);
+
+  const playReactionBurst = useCallback(() => {
+    sfx.playReactionBurst(isSoundEnabledRef.current);
+  }, []);
+
+  // SFX Methods - Gameplay & Duel
+  const playCountdownTick = useCallback(() => {
+    sfx.playCountdownTick(isSoundEnabledRef.current);
+  }, []);
+
+  const playCountdownGo = useCallback(() => {
+    sfx.playCountdownGo(isSoundEnabledRef.current);
+  }, []);
+
+  const playTimeWarning = useCallback(() => {
+    sfx.playTimeWarning(isSoundEnabledRef.current);
+  }, []);
+
+  const playOpponentAnswered = useCallback(() => {
+    sfx.playOpponentAnswered(isSoundEnabledRef.current);
+  }, []);
+
+  const playFreeze = useCallback(() => {
+    sfx.playFreeze(isSoundEnabledRef.current);
+  }, []);
+
+  // SFX Methods - Progression & Results
+  const playVictory = useCallback(() => {
+    sfx.playVictory(isSoundEnabledRef.current);
+  }, []);
+
+  const playDefeat = useCallback(() => {
+    sfx.playDefeat(isSoundEnabledRef.current);
+  }, []);
+
+  const playLevelUp = useCallback(() => {
+    sfx.playLevelUp(isSoundEnabledRef.current);
+  }, []);
+
   // Unlock AudioContext on first user interaction & Bind global UI sounds (Hover & Click)
   useEffect(() => {
     const handleFirstInteraction = () => {
@@ -69,7 +120,7 @@ export function AudioProvider({ children }) {
     window.addEventListener('keydown', handleFirstInteraction, { passive: true });
     window.addEventListener('touchstart', handleFirstInteraction, { passive: true });
 
-    // Global UI event listeners for UI buttons, tabs, modal close/triggers & cards
+    // Global UI event listeners for interactive elements
     const isInteractiveElement = (target) => {
       if (!target || !(target instanceof Element)) return false;
       return Boolean(
@@ -114,7 +165,19 @@ export function AudioProvider({ children }) {
     playSuccess,
     playError,
     playExplosion,
-    playAlert
+    playAlert,
+    playMessageSent,
+    playMessageReceived,
+    playNotification,
+    playReactionBurst,
+    playCountdownTick,
+    playCountdownGo,
+    playTimeWarning,
+    playOpponentAnswered,
+    playFreeze,
+    playVictory,
+    playDefeat,
+    playLevelUp
   };
 
   return (
@@ -127,7 +190,7 @@ export function AudioProvider({ children }) {
 export function useAudio() {
   const context = useContext(AudioContext);
   if (!context) {
-    // Fallback safe dummy object if rendered outside provider
+    // Fallback safe dummy object
     return {
       isSoundEnabled: true,
       toggleSound: () => {},
@@ -137,11 +200,22 @@ export function useAudio() {
       playSuccess: () => {},
       playError: () => {},
       playExplosion: () => {},
-      playAlert: () => {}
+      playAlert: () => {},
+      playMessageSent: () => {},
+      playMessageReceived: () => {},
+      playNotification: () => {},
+      playReactionBurst: () => {},
+      playCountdownTick: () => {},
+      playCountdownGo: () => {},
+      playTimeWarning: () => {},
+      playOpponentAnswered: () => {},
+      playFreeze: () => {},
+      playVictory: () => {},
+      playDefeat: () => {},
+      playLevelUp: () => {}
     };
   }
   return context;
 }
 
-// Alias for convenience as requested
 export const useSoundEffects = useAudio;

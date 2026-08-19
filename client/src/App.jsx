@@ -14,6 +14,7 @@ import { exampleLists } from './data/exampleLists';
 import { auth, loginWithGoogle, logout, deleteAccount } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { formatPlayerName, getClientPlayerKey } from './utils/formatters';
+import { useSoundEffects } from './context/AudioContext';
 
 // Connect to server (uses env variable or fallback to localhost)
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -24,6 +25,7 @@ const socket = io(API_URL, {
 });
 
 function App() {
+  const { playMessageReceived, playNotification } = useSoundEffects();
   const [view, setView] = useState('home'); // home, lobby, game, results
   const [activeTab, setActiveTab] = useState('learn'); // learn, lists, community, stats, profile
   const [session, setSession] = useState(null);
@@ -233,6 +235,7 @@ function App() {
     });
 
     socket.on('invite_response', (resp) => {
+      playNotification();
       if (resp.accepted) {
         setToastNotif({
           icon: '⚔️',
@@ -265,6 +268,7 @@ function App() {
       setPlayers(data.players);
       setSession(prev => ({ ...prev, vocabList: data.vocabList }));
       setView('results');
+      playNotification();
       setToastNotif({
         icon: '🏆',
         title: 'Victoire par forfait !',
@@ -287,6 +291,7 @@ function App() {
         setView('results');
       }
 
+      playNotification();
       setToastNotif({
         icon: '⚡',
         title: 'Session réintégrée',
@@ -300,10 +305,12 @@ function App() {
     });
 
     socket.on('admin_announcement', (msg) => {
+      playNotification();
       setAnnouncement(msg);
     });
 
     socket.on('new_notification', (notif) => {
+      playNotification();
       setNotifications(prev => [notif, ...prev]);
       setUnreadCount(prev => prev + 1);
       setToastNotif(notif);
@@ -338,21 +345,25 @@ function App() {
       socket.off('error');
       socket.off('kicked');
     };
-  }, []);
+  }, [playNotification]);
 
   // Global Chat Listener & Discord-like Floating Toast (Task 2 & Task 5)
   useEffect(() => {
     const handleIncomingChatMessage = (msg) => {
       if (!msg) return;
+      
+      const isFromOtherPlayer = msg.senderId && msg.senderId !== socket.id;
+      if (isFromOtherPlayer && !msg.isSystem) {
+        playMessageReceived();
+      }
+
       setChatMessages(prev => {
         if (msg.id && prev.some(m => m.id === msg.id)) return prev;
         return [...prev, msg];
       });
 
-      // Task 5: If user is outside lobby, game, and results (e.g. in Profile, Mes Listes, Communauté, etc.),
-      // or if activeTab is not 'learn', and message is sent by an opponent/other player, trigger Discord-like toast!
+      // If user is outside active chat view, trigger floating Discord-like toast
       const isChatVisibleDirectly = ['lobby', 'game', 'results'].includes(view) && activeTab === 'learn';
-      const isFromOtherPlayer = msg.senderId && msg.senderId !== socket.id;
       if (!isChatVisibleDirectly && isFromOtherPlayer && !msg.isSystem) {
         setDiscordToast({
           id: msg.id || Date.now(),
@@ -372,7 +383,7 @@ function App() {
       socket.off('game_chat_message', handleIncomingChatMessage);
       socket.off('receive_message', handleIncomingChatMessage);
     };
-  }, [view, activeTab]);
+  }, [view, activeTab, playMessageReceived]);
 
   // Save active session to localStorage so closing/reopening browser directly rejoins lobby or game
   useEffect(() => {

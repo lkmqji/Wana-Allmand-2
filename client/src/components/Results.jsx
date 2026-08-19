@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { formatPlayerName, getClientPlayerKey, extractEmoji, generateBurstParticles } from '../utils/formatters';
+import { useSoundEffects } from '../context/AudioContext';
 
 const PRESET_RESULTS_CHAT = [
   "GG! 🏆",
@@ -13,6 +14,7 @@ const PRESET_RESULTS_CHAT = [
 const PRESET_REACTIONS = ['🔥', '⚡', '🏆', '⚔️', '💪', '👏'];
 
 export default function Results({ players = {}, setView, socket, session, isHost, playerName, avatar, user, chatMessages = [], setChatMessages }) {
+  const { playVictory, playDefeat, playMessageSent, playReactionBurst } = useSoundEffects();
   const [currentPlayers, setCurrentPlayers] = useState(players || {});
   
   // Telegram Burst reactions state & 5s cooldown
@@ -43,6 +45,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
     };
 
     const handleReactionBurst = (data) => {
+      playReactionBurst();
       if (data?.particles && Array.isArray(data.particles)) {
         setFloatingReactions(prev => [...prev, ...data.particles]);
         setTimeout(() => {
@@ -70,17 +73,27 @@ export default function Results({ players = {}, setView, socket, session, isHost
       socket.off('floating_reaction_burst', handleReactionBurst);
       socket.off('floating_reaction', handleReactionBurst);
     };
-  }, [socket]);
+  }, [socket, playReactionBurst]);
 
   const playerArr = Object.values(currentPlayers || {}).sort((a, b) => b.score - a.score);
   const winner = playerArr[0];
   const isDraw = playerArr.length > 1 && playerArr[0].score === playerArr[1].score;
   const isSolo = playerArr.length <= 1;
+  const isWinner = winner?.id === socket?.id;
 
   // Mini-Chat input & list ref
   const [chatInput, setChatInput] = useState('');
   const [floatingBubbles, setFloatingBubbles] = useState([]);
   const chatListRef = useRef(null);
+
+  // Play Victory or Defeat Sound on Mount
+  useEffect(() => {
+    if (isWinner || isDraw || isSolo) {
+      playVictory();
+    } else {
+      playDefeat();
+    }
+  }, []);
 
   // Proposal for failed words replay
   const [incomingProposal, setIncomingProposal] = useState(null);
@@ -205,6 +218,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
   // TASK 2: Telegram Burst Generator
   const handleSendReaction = (rawTextOrEmoji) => {
     if (reactionCooldown > 0 || !session?.id) return;
+    playReactionBurst();
     const currentName = formatPlayerName(playerName || user?.displayName || 'Moi');
 
     // Extract pure emoji & generate 8 full-screen particles
@@ -232,6 +246,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
   const handleSendChatMessage = (textToSend) => {
     const content = (typeof textToSend === 'string' ? textToSend : chatInput).trim();
     if (!content || !session?.id) return;
+    playMessageSent();
     const currentName = formatPlayerName(playerName || user?.displayName || (currentPlayers[socket.id]?.name) || 'Moi');
     
     // If it's a quick reaction phrase with an emoji (e.g. "GG! 🏆"), also trigger burst

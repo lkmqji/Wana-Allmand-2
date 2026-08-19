@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { formatPlayerName, extractEmoji, generateBurstParticles } from '../utils/formatters';
+import { useSoundEffects } from '../context/AudioContext';
 
 const PRESET_PHRASES = [
   "💥 Ouch!",
@@ -20,6 +21,17 @@ const PAUSE_PRESET_PHRASES = [
 ];
 
 export default function Game({ socket, session, playerName = '', avatar = '🦊', chatMessages = [], setChatMessages }) {
+  const {
+    playMessageSent,
+    playReactionBurst,
+    playCountdownTick,
+    playCountdownGo,
+    playTimeWarning,
+    playOpponentAnswered,
+    playFreeze,
+    playSuccess,
+    playError
+  } = useSoundEffects();
   const [question, setQuestion] = useState('');
   const [questionIndex, setQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(session?.settings?.rounds || 0);
@@ -207,9 +219,18 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     }
   }, [reactionCooldown]);
 
+  // Time warning (< 3 seconds) sound ticker
+  const roundedTime = Math.ceil(timeRemaining);
+  useEffect(() => {
+    if (roundedTime <= 3 && roundedTime > 0 && !hasAnswered && !roundResult && !isGameFrozenOrPaused) {
+      playTimeWarning();
+    }
+  }, [roundedTime, hasAnswered, roundResult, isGameFrozenOrPaused, playTimeWarning]);
+
   // Socket Events
   useEffect(() => {
     const onNewQuestion = (data) => {
+      playCountdownGo();
       setQuestion(data.question);
       setQuestionIndex(data.questionIndex);
       setTotalQuestions(data.totalQuestions);
@@ -239,7 +260,11 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           if (myAns) {
             const isSuccess = myAns.score >= 50;
             setFlashEffect(isSuccess ? 'success' : 'error');
-            playFeedbackSound(isSuccess);
+            if (isSuccess) {
+              playSuccess();
+            } else {
+              playError();
+            }
             setTimeout(() => setFlashEffect(null), 1000);
           }
           return prevIndex;
@@ -254,8 +279,15 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     const onJokerResult = (hint) => setJokerHint(hint);
 
     const onPowerupFrozen = (durationSeconds) => {
+      playFreeze();
       setIsFrozen(true);
       setTimeout(() => setIsFrozen(false), durationSeconds * 1000);
+    };
+
+    const onOpponentAnswered = (data) => {
+      if (data?.playerId !== socket.id && !hasAnswered) {
+        playOpponentAnswered();
+      }
     };
 
     const onGamePaused = (data) => {
@@ -311,7 +343,12 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       showToast(`⚡ ${formatPlayerName(data.playerName) || 'Adversaire'} s'est reconnecté ! La partie reprend.`, 'success');
     };
 
-    const onReadyCount = (data) => setReadyCount(data);
+    const onReadyCount = (data) => {
+      if (data && data.ready > 0) {
+        playCountdownTick();
+      }
+      setReadyCount(data);
+    };
 
     const onGameChatMessage = (msg) => {
       if (setChatMessages) {
@@ -327,6 +364,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     };
 
     const handleReactionBurst = (data) => {
+      playReactionBurst();
       if (data?.particles && Array.isArray(data.particles)) {
         setFloatingReactions(prev => [...prev, ...data.particles]);
         setTimeout(() => {
@@ -347,6 +385,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     socket.on('round_results', onRoundResults);
     socket.on('joker_result', onJokerResult);
     socket.on('powerup_frozen', onPowerupFrozen);
+    socket.on('opponent_answered', onOpponentAnswered);
     socket.on('game_paused', onGamePaused);
     socket.on('game_resumed', onGameResumed);
     socket.on('pause_disabled', onPauseDisabled);
@@ -366,6 +405,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       socket.off('round_results', onRoundResults);
       socket.off('joker_result', onJokerResult);
       socket.off('powerup_frozen', onPowerupFrozen);
+      socket.off('opponent_answered', onOpponentAnswered);
       socket.off('game_paused', onGamePaused);
       socket.off('game_resumed', onGameResumed);
       socket.off('pause_disabled', onPauseDisabled);
@@ -380,7 +420,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       socket.off('floating_reaction_burst', handleReactionBurst);
       socket.off('floating_reaction', handleReactionBurst);
     };
-  }, [socket]);
+  }, [socket, hasAnswered, playCountdownGo, playSuccess, playError, playFreeze, playOpponentAnswered, playCountdownTick, playReactionBurst]);
 
   const submitAnswer = (ans = answer) => {
     if (hasAnswered || isGameFrozenOrPaused) return;
@@ -412,6 +452,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const handleReadyForNext = () => {
     if (iAmReady || isGameFrozenOrPaused) return;
     setIAmReady(true);
+    playCountdownTick();
     socket.emit('ready_for_next', session?.id);
   };
 
@@ -448,15 +489,15 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     socket.emit('resume_game', session?.id);
   };
 
-  // Chat Actions
-  const handleSendQuickMessage = (text) => {
-    if (!text || !text.trim() || reactionCooldown > 0) return;
+  const handleSendReaction = (text) => {
+    if (reactionCooldown > 0 || !session?.id) return;
     
-    // Extract pure emoji (e.g. "💥 Ouch!" -> "💥")
+    playReactionBurst();
+    // Extract pure emoji & generate 8 full-screen particles
     const cleanEmoji = extractEmoji(text);
     const { particles } = generateBurstParticles(cleanEmoji);
 
-    // Instant local explosion feedback for Player A
+    // Instant local feedback for sender
     setFloatingReactions(prev => [...prev, ...particles]);
     setTimeout(() => {
       const idsToRemove = new Set(particles.map(p => p.id));
@@ -483,6 +524,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const handleSendCustomQuickChat = (e) => {
     e.preventDefault();
     if (!quickChatInput.trim()) return;
+    playMessageSent();
     socket.emit('game_chat_message', {
       sessionId: session?.id,
       text: quickChatInput.trim(),
@@ -494,6 +536,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const handleSendPauseChat = (e) => {
     e.preventDefault();
     if (!pauseChatInput.trim()) return;
+    playMessageSent();
     socket.emit('game_chat_message', {
       sessionId: session?.id,
       text: pauseChatInput.trim(),

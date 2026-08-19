@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { formatPlayerName } from '../utils/formatters';
+import { useSoundEffects } from '../context/AudioContext';
 
 export default function RightPanel({
   view,
@@ -10,6 +11,24 @@ export default function RightPanel({
   avatar,
   onQuickSolo
 }) {
+  const { playLevelUp } = useSoundEffects();
+
+  const userRankIndex = leaderboard.findIndex(p => 
+    (user?.uid && p.firebaseId === user.uid) || 
+    (playerName && p.name && p.name.toLowerCase().includes(playerName.toLowerCase()))
+  );
+  const userRank = userRankIndex >= 0 ? userRankIndex + 1 : '—';
+  const userXP = userRankIndex >= 0 ? (leaderboard[userRankIndex].xp || 0) : (user ? 120 : 0);
+  const currentLevel = Math.max(1, Math.floor(userXP / 100) + 1);
+
+  const prevLevelRef = useRef(currentLevel);
+  useEffect(() => {
+    if (currentLevel > prevLevelRef.current) {
+      playLevelUp();
+    }
+    prevLevelRef.current = currentLevel;
+  }, [currentLevel, playLevelUp]);
+
   if (view === 'lobby') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -28,13 +47,6 @@ export default function RightPanel({
 
   // Context 1: ROUTE CLASSEMENT (activeTab === 'stats') -> "Ta Carte Joueur"
   if (activeTab === 'stats') {
-    const userRankIndex = leaderboard.findIndex(p => 
-      (user?.uid && p.firebaseId === user.uid) || 
-      (playerName && p.name && p.name.toLowerCase().includes(playerName.toLowerCase()))
-    );
-    const userRank = userRankIndex >= 0 ? userRankIndex + 1 : '—';
-    const userXP = userRankIndex >= 0 ? (leaderboard[userRankIndex].xp || 0) : (user ? 120 : 0);
-    const currentLevel = Math.max(1, Math.floor(userXP / 100) + 1);
     const xpInCurrentLevel = userXP % 100;
     const xpNeededNext = 100 - xpInCurrentLevel;
     const progressPercent = Math.min(100, Math.max(5, (xpInCurrentLevel / 100) * 100));

@@ -4,7 +4,7 @@ import { formatPlayerName, extractEmoji, generateBurstParticles } from '../utils
 import { useSoundEffects } from '../context/AudioContext';
 
 export default function Lobby({ socket, session, players, isHost, setView, onlineUsers = [], playerName, avatar, user, chatMessages = [], setChatMessages }) {
-  const { playAlert } = useSoundEffects();
+  const { playAlert, playMessageSent, playReactionBurst } = useSoundEffects();
   // Tabs: 'chat', 'online', 'words', 'settings'
   const [activeTab, setActiveTab] = useState('chat');
   const [searchQuery, setSearchQuery] = useState('');
@@ -139,10 +139,11 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
   ]);
   const maxAvailableWordsCount = Math.max(words.length, totalAvailablePool.length);
 
-  // Floating reactions & 5s cooldown
-  const [reactionCooldown, setReactionCooldown] = useState(0);
+  // Floating reactions burst state & 5s cooldown
   const [floatingReactions, setFloatingReactions] = useState([]);
+  const [reactionCooldown, setReactionCooldown] = useState(0);
 
+  // Cooldown countdown ticker
   useEffect(() => {
     if (reactionCooldown > 0) {
       const timer = setInterval(() => {
@@ -154,6 +155,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
 
   useEffect(() => {
     const handleReactionBurst = (data) => {
+      playReactionBurst();
       if (data?.particles && Array.isArray(data.particles)) {
         setFloatingReactions(prev => [...prev, ...data.particles]);
         setTimeout(() => {
@@ -176,15 +178,18 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
       socket.off('floating_reaction_burst', handleReactionBurst);
       socket.off('floating_reaction', handleReactionBurst);
     };
-  }, [socket]);
+  }, [socket, playReactionBurst]);
 
   const handleSendReaction = (rawTextOrEmoji) => {
     if (reactionCooldown > 0 || !session?.id) return;
     const currentName = formatPlayerName(playerName || user?.displayName || 'Moi');
     
+    // Play sound on local reaction send
+    playReactionBurst();
+
     // Extract pure emoji & generate 8 full-screen particles
     const cleanEmoji = extractEmoji(rawTextOrEmoji);
-    const { particles } = generateBurstParticles(cleanEmoji);
+    const { particles } = generateBurstParticles(cleanEmoji);;
 
     // Instant local feedback for sender
     setFloatingReactions(prev => [...prev, ...particles]);
@@ -289,6 +294,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
     e?.preventDefault();
     if (!inputMsg.trim()) return;
 
+    playMessageSent();
     const displayName = formatPlayerName(playerName || user?.displayName || 'Moi');
     socket.emit('send_lobby_chat', {
       sessionId: session?.id,
