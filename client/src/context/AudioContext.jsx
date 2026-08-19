@@ -55,27 +55,6 @@ export function AudioProvider({ children }) {
     }
   }, [isSoundEnabled]);
 
-  // Fetch server audio default configs on initial startup if user has no custom stored volumes
-  useEffect(() => {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-    fetch(`${API_URL}/api/config`)
-      .then(res => res.json())
-      .then(cfg => {
-        if (cfg) {
-          if (localStorage.getItem('wana_master_volume') === null && typeof cfg.defaultMasterVol === 'number') {
-            setMasterVolumeState(cfg.defaultMasterVol);
-          }
-          if (localStorage.getItem('wana_sfx_volume') === null && typeof cfg.defaultSfxVol === 'number') {
-            setSfxVolumeState(cfg.defaultSfxVol);
-          }
-          if (localStorage.getItem('wana_bgm_volume') === null && typeof cfg.defaultBgmVol === 'number') {
-            setBgmVolumeState(cfg.defaultBgmVol);
-          }
-        }
-      })
-      .catch(() => {});
-  }, []);
-
   // Synchronize Master & SFX volumes to sfxManager GainNodes
   useEffect(() => {
     try {

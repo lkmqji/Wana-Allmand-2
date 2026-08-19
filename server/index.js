@@ -49,10 +49,7 @@ app.get('/api/config', async (req, res) => {
         res.json({ 
             guestMode: config.guestMode ?? true,
             maintenanceMode: config.maintenanceMode ?? false,
-            announcement: config.announcement || '',
-            defaultMasterVol: config.defaultMasterVol ?? 0.5,
-            defaultSfxVol: config.defaultSfxVol ?? 0.5,
-            defaultBgmVol: config.defaultBgmVol ?? 0.5
+            announcement: config.announcement || ''
         });
     } catch (err) {
         res.status(500).json({ error: 'Config error' });
