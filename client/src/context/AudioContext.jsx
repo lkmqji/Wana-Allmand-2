@@ -116,7 +116,7 @@ export function AudioProvider({ children }) {
     if (!bgm) return;
 
     if (isSoundEnabled) {
-      if (hasInteractedRef.current) {
+      if (hasInteractedRef.current && !document.hidden) {
         bgm.play().catch(err => {
           console.debug('BGM play waiting for user action or file presence:', err);
         });
@@ -125,6 +125,37 @@ export function AudioProvider({ children }) {
       bgm.pause();
     }
   }, [isSoundEnabled]);
+
+  // 📱 Page Visibility API: Pause audio & suspend Web Audio on tab switch/minimize, resume on focus
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isHidden = document.hidden || document.visibilityState === 'hidden';
+
+      if (isHidden) {
+        // Background: Pause BGM & suspend Web Audio Context to save CPU/battery
+        if (bgmRef.current) {
+          bgmRef.current.pause();
+        }
+        sfx.suspend();
+      } else {
+        // Foreground: Resume BGM & Web Audio Context if sound is enabled
+        if (isSoundEnabledRef.current) {
+          sfx.resume();
+          if (bgmRef.current && hasInteractedRef.current) {
+            bgmRef.current.play().catch(err => {
+              console.debug('BGM resume on visibility change notice:', err);
+            });
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   const toggleSound = useCallback(() => {
     setIsSoundEnabled(prev => !prev);

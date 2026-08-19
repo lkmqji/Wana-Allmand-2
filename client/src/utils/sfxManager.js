@@ -140,6 +140,24 @@ class SFXManager {
     }
   }
 
+  suspend() {
+    if (this.ctx && this.ctx.state === 'running') {
+      return this.ctx.suspend().catch((e) => {
+        console.debug('SFX AudioContext suspend notice:', e);
+      });
+    }
+    return Promise.resolve();
+  }
+
+  resume() {
+    if (this.ctx && this.ctx.state === 'suspended') {
+      return this.ctx.resume().catch((e) => {
+        console.debug('SFX AudioContext resume notice:', e);
+      });
+    }
+    return Promise.resolve();
+  }
+
   // ==========================================
   // 1. BASE UI SOUNDS
   // ==========================================
