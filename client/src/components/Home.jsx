@@ -298,36 +298,6 @@ export default function Home({
     setShowWordEditor(true);
   };
 
-  const handleUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      const res = await fetch(`${API_URL}/api/extract`, {
-        method: 'POST',
-        body: formData
-      });
-      const data = await res.json();
-      if (data.vocabList && data.vocabList.length > 0) {
-        handleStartDirectSession(data.vocabList);
-        if (autoSaveEnabled) {
-          await saveList(data.vocabList, file.name.replace('.pdf', '') || `PDF - ${new Date().toLocaleDateString()}`);
-        }
-      } else {
-        alert(data.error || "Aucun mot extrait du PDF.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Erreur lors de l'analyse du PDF.");
-    } finally {
-      setIsUploading(false);
-      e.target.value = null;
-    }
-  };
-
   const handleExtractAI = async (e) => {
     const fileInput = e?.target;
     const file = fileInput?.files?.[0];
