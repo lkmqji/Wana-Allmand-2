@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { formatPlayerName, extractEmoji, generateBurstParticles } from '../utils/formatters';
 import { useSoundEffects } from '../context/AudioContext';
+import { useSocketEvent } from '../utils/useSocketEvent';
 
 const PRESET_PHRASES = [
   "💥 Ouch!",
@@ -236,199 +237,166 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     }
   }, [roundedTime, hasAnswered, roundResult, isGameFrozenOrPaused, playTimeWarning]);
 
-  // Socket Events
-  useEffect(() => {
-    const onNewQuestion = (data) => {
-      setQuestion(data.question);
-      setQuestionIndex(data.questionIndex);
-      setTotalQuestions(data.totalQuestions);
-      setTimeRemaining(data.duration);
-      setAnswer('');
-      setHasAnswered(false);
-      setJokerHint('');
-      setRoundResult(null);
-      setIAmReady(false);
-      setReadyCount({ ready: 0, total: 0 });
-      setIsPaused(false);
-      setPauseData(null);
-      setLeaveRequestState('none');
-      setDisconnectGrace({ disconnected: false, playerName: '', secondsRemaining: 30 });
-      setTimeout(() => inputRef.current?.focus(), 100);
-    };
+  // --- Socket Events (Protected against Stale Closures via Ref-Trampolining) ---
+  useSocketEvent(socket, 'new_question', (data) => {
+    setQuestion(data.question);
+    setQuestionIndex(data.questionIndex);
+    setTotalQuestions(data.totalQuestions);
+    setTimeRemaining(data.duration);
+    setAnswer('');
+    setHasAnswered(false);
+    setJokerHint('');
+    setRoundResult(null);
+    setIAmReady(false);
+    setReadyCount({ ready: 0, total: 0 });
+    setIsPaused(false);
+    setPauseData(null);
+    setLeaveRequestState('none');
+    setDisconnectGrace({ disconnected: false, playerName: '', secondsRemaining: 30 });
+    setTimeout(() => inputRef.current?.focus(), 100);
+  });
 
-    const onRoundResults = (result) => {
-      setHasAnswered(true);
-      setRoundResult(result);
-      setPlayers(result.players);
-      
-      const myPlayer = result.players[socket.id];
-      if (myPlayer) {
-        setQuestionIndex(prevIndex => {
-          const myAns = myPlayer.answers[prevIndex];
-          if (myAns) {
-            const isSuccess = myAns.score >= 50;
-            setFlashEffect(isSuccess ? 'success' : 'error');
-            if (isSuccess) {
-              playSuccess();
-            } else {
-              playError();
-            }
-            setTimeout(() => setFlashEffect(null), 1000);
+  useSocketEvent(socket, 'round_results', (result) => {
+    setHasAnswered(true);
+    setRoundResult(result);
+    setPlayers(result.players);
+    
+    const myPlayer = result.players[socket?.id];
+    if (myPlayer) {
+      setQuestionIndex(prevIndex => {
+        const myAns = myPlayer.answers[prevIndex];
+        if (myAns) {
+          const isSuccess = myAns.score >= 50;
+          setFlashEffect(isSuccess ? 'success' : 'error');
+          if (isSuccess) {
+            playSuccess();
+          } else {
+            playError();
           }
-          return prevIndex;
-        });
-      }
+          setTimeout(() => setFlashEffect(null), 1000);
+        }
+        return prevIndex;
+      });
+    }
 
-      if (result.correctAnswer) {
-        setTimeout(() => playAudio(result.correctAnswer), 500);
-      }
-    };
+    if (result.correctAnswer) {
+      setTimeout(() => playAudio(result.correctAnswer), 500);
+    }
+  });
 
-    const onJokerResult = (hint) => setJokerHint(hint);
+  useSocketEvent(socket, 'joker_result', (hint) => {
+    setJokerHint(hint);
+  });
 
-    const onPowerupFrozen = (durationSeconds) => {
-      playFreeze();
-      setIsFrozen(true);
-      setTimeout(() => setIsFrozen(false), durationSeconds * 1000);
-    };
+  useSocketEvent(socket, 'powerup_frozen', (durationSeconds) => {
+    playFreeze();
+    setIsFrozen(true);
+    setTimeout(() => setIsFrozen(false), durationSeconds * 1000);
+  });
 
-    const onOpponentAnswered = (data) => {
-      if (data?.playerId !== socket.id && !hasAnswered) {
-        playOpponentAnswered();
-      }
-    };
+  useSocketEvent(socket, 'opponent_answered', (data) => {
+    if (data?.playerId !== socket?.id && !hasAnswered) {
+      playOpponentAnswered();
+    }
+  });
 
-    const onGamePaused = (data) => {
-      setIsPaused(true);
-      setPauseData(data);
-      if (typeof data.timeRemaining === 'number') {
-        setTimeRemaining(data.timeRemaining);
-      }
-    };
+  useSocketEvent(socket, 'game_paused', (data) => {
+    setIsPaused(true);
+    setPauseData(data);
+    if (typeof data.timeRemaining === 'number') {
+      setTimeRemaining(data.timeRemaining);
+    }
+  });
 
-    const onGameResumed = (data) => {
-      setIsPaused(false);
-      setPauseData(null);
-      setLeaveRequestState('none');
-      setDisconnectGrace({ disconnected: false, playerName: '', secondsRemaining: 30 });
-      if (typeof data?.timeRemaining === 'number') {
-        setTimeRemaining(data.timeRemaining);
-      }
-    };
+  useSocketEvent(socket, 'game_resumed', (data) => {
+    setIsPaused(false);
+    setPauseData(null);
+    setLeaveRequestState('none');
+    setDisconnectGrace({ disconnected: false, playerName: '', secondsRemaining: 30 });
+    if (typeof data?.timeRemaining === 'number') {
+      setTimeRemaining(data.timeRemaining);
+    }
+  });
 
-    const onPauseDisabled = () => showToast("L'hôte a désactivé la mise en pause pour cette partie.", 'error');
+  useSocketEvent(socket, 'pause_disabled', () => {
+    showToast("L'hôte a désactivé la mise en pause pour cette partie.", 'error');
+  });
 
-    const onTerminateRequested = (data) => {
-      setLeaveRequestState('received');
-      setLeaveRequesterName(data?.requesterName || "L'adversaire");
-    };
+  useSocketEvent(socket, 'terminate_requested', (data) => {
+    setLeaveRequestState('received');
+    setLeaveRequesterName(data?.requesterName || "L'adversaire");
+  });
 
-    const onTerminatePending = () => setLeaveRequestState('pending');
+  useSocketEvent(socket, 'terminate_pending', () => {
+    setLeaveRequestState('pending');
+  });
 
-    const onTerminateCancelled = () => {
-      setLeaveRequestState('none');
-      showToast("La demande d'arrêt a été annulée. La partie reprend !", 'info');
-    };
+  useSocketEvent(socket, 'terminate_cancelled', () => {
+    setLeaveRequestState('none');
+    showToast("La demande d'arrêt a été annulée. La partie reprend !", 'info');
+  });
 
-    const onTerminateRefused = () => {
-      setLeaveRequestState('none');
-      showToast("L'adversaire a refusé l'arrêt de la partie. La partie continue !", 'warning');
-    };
+  useSocketEvent(socket, 'terminate_refused', () => {
+    setLeaveRequestState('none');
+    showToast("L'adversaire a refusé l'arrêt de la partie. La partie continue !", 'warning');
+  });
 
-    const onPlayerDisconnectedGrace = (data) => {
-      if (data.playerId !== socket.id) {
-        setDisconnectGrace({
-          disconnected: true,
-          playerName: data.playerName || "L'adversaire",
-          secondsRemaining: data.graceSeconds || 30
-        });
-      }
-    };
+  useSocketEvent(socket, 'player_disconnected_grace', (data) => {
+    if (data.playerId !== socket?.id) {
+      setDisconnectGrace({
+        disconnected: true,
+        playerName: data.playerName || "L'adversaire",
+        secondsRemaining: data.graceSeconds || 30
+      });
+    }
+  });
 
-    const onPlayerReconnected = (data) => {
-      setDisconnectGrace({ disconnected: false, playerName: '', secondsRemaining: 30 });
-      setIsPaused(false);
-      showToast(`⚡ ${formatPlayerName(data.playerName) || 'Adversaire'} s'est reconnecté ! La partie reprend.`, 'success');
-    };
+  useSocketEvent(socket, 'player_reconnected', (data) => {
+    setDisconnectGrace({ disconnected: false, playerName: '', secondsRemaining: 30 });
+    setIsPaused(false);
+    showToast(`⚡ ${formatPlayerName(data.playerName) || 'Adversaire'} s'est reconnecté ! La partie reprend.`, 'success');
+  });
 
-    const onReadyCount = (data) => {
-      if (data && data.ready > 0) {
-        playCountdownTick();
-      }
-      setReadyCount(data);
-    };
+  useSocketEvent(socket, 'ready_count', (data) => {
+    if (data && data.ready > 0) {
+      playCountdownTick();
+    }
+    setReadyCount(data);
+  });
 
-    const onGameChatMessage = (msg) => {
-      if (setChatMessages) {
-        setChatMessages(prev => {
-          if (msg.id && prev.some(m => m.id === msg.id)) return prev;
-          return [...prev, msg];
-        });
-      }
-      setFloatingBubbles(prev => [...prev.slice(-3), msg]);
+  useSocketEvent(socket, 'game_chat_message', (msg) => {
+    if (setChatMessages) {
+      setChatMessages(prev => {
+        if (msg.id && prev.some(m => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+    }
+    setFloatingBubbles(prev => [...prev.slice(-3), msg]);
+    setTimeout(() => {
+      setFloatingBubbles(prev => prev.filter(b => b.id !== msg.id));
+    }, 3500);
+  });
+
+  const handleReactionBurst = (data) => {
+    playReactionBurst();
+    if (data?.particles && Array.isArray(data.particles)) {
+      setFloatingReactions(prev => [...prev, ...data.particles]);
       setTimeout(() => {
-        setFloatingBubbles(prev => prev.filter(b => b.id !== msg.id));
-      }, 3500);
-    };
+        const idsToRemove = new Set(data.particles.map(p => p.id));
+        setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
+      }, 2500);
+    } else if (data?.emoji) {
+      const { particles } = generateBurstParticles(data.emoji);
+      setFloatingReactions(prev => [...prev, ...particles]);
+      setTimeout(() => {
+        const idsToRemove = new Set(particles.map(p => p.id));
+        setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
+      }, 2500);
+    }
+  };
 
-    const handleReactionBurst = (data) => {
-      playReactionBurst();
-      if (data?.particles && Array.isArray(data.particles)) {
-        setFloatingReactions(prev => [...prev, ...data.particles]);
-        setTimeout(() => {
-          const idsToRemove = new Set(data.particles.map(p => p.id));
-          setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
-        }, 2500);
-      } else if (data?.emoji) {
-        const { particles } = generateBurstParticles(data.emoji);
-        setFloatingReactions(prev => [...prev, ...particles]);
-        setTimeout(() => {
-          const idsToRemove = new Set(particles.map(p => p.id));
-          setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
-        }, 2500);
-      }
-    };
-
-    socket.on('new_question', onNewQuestion);
-    socket.on('round_results', onRoundResults);
-    socket.on('joker_result', onJokerResult);
-    socket.on('powerup_frozen', onPowerupFrozen);
-    socket.on('opponent_answered', onOpponentAnswered);
-    socket.on('game_paused', onGamePaused);
-    socket.on('game_resumed', onGameResumed);
-    socket.on('pause_disabled', onPauseDisabled);
-    socket.on('terminate_requested', onTerminateRequested);
-    socket.on('terminate_pending', onTerminatePending);
-    socket.on('terminate_cancelled', onTerminateCancelled);
-    socket.on('terminate_refused', onTerminateRefused);
-    socket.on('player_disconnected_grace', onPlayerDisconnectedGrace);
-    socket.on('player_reconnected', onPlayerReconnected);
-    socket.on('ready_count', onReadyCount);
-    socket.on('game_chat_message', onGameChatMessage);
-    socket.on('floating_reaction_burst', handleReactionBurst);
-    socket.on('floating_reaction', handleReactionBurst);
-
-    return () => {
-      socket.off('new_question', onNewQuestion);
-      socket.off('round_results', onRoundResults);
-      socket.off('joker_result', onJokerResult);
-      socket.off('powerup_frozen', onPowerupFrozen);
-      socket.off('opponent_answered', onOpponentAnswered);
-      socket.off('game_paused', onGamePaused);
-      socket.off('game_resumed', onGameResumed);
-      socket.off('pause_disabled', onPauseDisabled);
-      socket.off('terminate_requested', onTerminateRequested);
-      socket.off('terminate_pending', onTerminatePending);
-      socket.off('terminate_cancelled', onTerminateCancelled);
-      socket.off('terminate_refused', onTerminateRefused);
-      socket.off('player_disconnected_grace', onPlayerDisconnectedGrace);
-      socket.off('player_reconnected', onPlayerReconnected);
-      socket.off('ready_count', onReadyCount);
-      socket.off('game_chat_message', onGameChatMessage);
-      socket.off('floating_reaction_burst', handleReactionBurst);
-      socket.off('floating_reaction', handleReactionBurst);
-    };
-  }, [socket, hasAnswered, playCountdownGo, playSuccess, playError, playFreeze, playOpponentAnswered, playCountdownTick, playReactionBurst]);
+  useSocketEvent(socket, 'floating_reaction_burst', handleReactionBurst);
+  useSocketEvent(socket, 'floating_reaction', handleReactionBurst);
 
   const submitAnswer = (ans = answer) => {
     if (hasAnswered || isGameFrozenOrPaused) return;

@@ -33,6 +33,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { formatPlayerName, getClientPlayerKey } from './utils/formatters';
 import { useSoundEffects, useAudio } from './context/AudioContext';
 import { sfx } from './utils/sfxManager';
+import { useSocketEvent } from './utils/useSocketEvent';
 
 // Strict Standalone PWA detection helper with Desktop (PC/Mac) bypass
 const evaluateStandalone = () => {
@@ -86,12 +87,18 @@ const evaluateStandalone = () => {
   };
 };
 
-// Connect to server (uses env variable or fallback to localhost)
+// Connect to server with Resilient Reconnection (Exponential Backoff + Jitter)
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const ADMIN_UID = import.meta.env.VITE_ADMIN_UID;
 const socket = io(API_URL, {
   transports: ['websocket'],
-  upgrade: false
+  upgrade: false,
+  reconnection: true,
+  reconnectionAttempts: 15,
+  reconnectionDelay: 500,        // d_base = 500ms
+  reconnectionDelayMax: 10000,   // d_max = 10s
+  randomizationFactor: 0.5,      // Jitter
+  timeout: 20000
 });
 
 function App() {
@@ -109,7 +116,7 @@ function App() {
     return { requirePwaInstall: false, guestMode: true, maintenanceMode: false, announcement: '' };
   });
 
-  // Load global config & listen for real-time admin changes (Kill Switch)
+  // Load initial global config
   useEffect(() => {
     const fetchConfig = async () => {
       try {
@@ -130,24 +137,20 @@ function App() {
     };
 
     fetchConfig();
-
-    const handleConfigUpdate = (newConfig) => {
-      if (newConfig && typeof newConfig === 'object') {
-        setConfig(prev => {
-          const next = { ...prev, ...newConfig };
-          try {
-            localStorage.setItem('wana_app_config', JSON.stringify(next));
-          } catch {}
-          return next;
-        });
-      }
-    };
-
-    socket.on('config_updated', handleConfigUpdate);
-    return () => {
-      socket.off('config_updated', handleConfigUpdate);
-    };
   }, []);
+
+  // Real-time admin config sync via Ref-Trampolining hook (Kill Switch)
+  useSocketEvent(socket, 'config_updated', (newConfig) => {
+    if (newConfig && typeof newConfig === 'object') {
+      setConfig(prev => {
+        const next = { ...prev, ...newConfig };
+        try {
+          localStorage.setItem('wana_app_config', JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+    }
+  });
 
   const [view, setView] = useState('home'); // home, lobby, game, results
 
@@ -405,25 +408,23 @@ function App() {
       .catch(() => {});
   }, []);
 
-  // Sync user profile with online users registry on server and on socket connect/reconnect
+  const registerUserOnline = () => {
+    const currentName = formatPlayerName(playerName || user?.displayName || (isGuest ? 'Invité' : ''));
+    socket.emit('register_online_user', {
+      firebaseId: user?.uid || null,
+      name: currentName ? `${avatar} ${currentName}` : `${avatar} Joueur`,
+      avatar: avatar || '🦊'
+    });
+    socket.emit('get_online_users');
+  };
+
+  // Sync user profile with online users registry on server when identity changes
   useEffect(() => {
-    const registerUserOnline = () => {
-      const currentName = formatPlayerName(playerName || user?.displayName || (isGuest ? 'Invité' : ''));
-      socket.emit('register_online_user', {
-        firebaseId: user?.uid || null,
-        name: currentName ? `${avatar} ${currentName}` : `${avatar} Joueur`,
-        avatar: avatar || '🦊'
-      });
-      socket.emit('get_online_users');
-    };
-
     registerUserOnline();
-    socket.on('connect', registerUserOnline);
-
-    return () => {
-      socket.off('connect', registerUserOnline);
-    };
   }, [user, playerName, avatar, isGuest]);
+
+  // Re-register upon socket connect/reconnect
+  useSocketEvent(socket, 'connect', registerUserOnline);
 
   const handleSaveProfile = async (newName, newAvatar) => {
     const formatted = formatPlayerName(newName);
@@ -544,205 +545,177 @@ function App() {
       .catch(console.error);
   }, []);
 
-  useEffect(() => {
-    socket.on('session_created', (sess) => {
-      const fullSession = typeof sess === 'object' ? sess : { id: sess };
-      setSession(fullSession);
-      setPlayers(fullSession.players || {});
-      setIsHost(true);
-      setChatMessages([
-        {
-          id: 'welcome',
-          isSystem: true,
-          text: `🎮 Salle #${fullSession.id} ouverte. Chattez, personnalisez vos mots & invitez vos amis !`,
-          timestamp: Date.now()
-        }
-      ]);
-      setView('lobby');
-    });
-
-    socket.on('session_joined', (sess) => {
-      setSession(sess);
-      setPlayers(sess.players);
-      setIsHost(sess.hostId === socket.id);
-      setView('lobby');
-    });
-
-    socket.on('kicked', () => {
-      alert("Vous avez été exclu de la session par l'hôte.");
-      setSession(null);
-      setPlayers({});
-      setIsHost(false);
-      setChatMessages([]);
-      setView('home');
-    });
-
-    socket.on('player_joined', (updatedPlayers) => {
-      setPlayers(updatedPlayers);
-    });
-
-    socket.on('online_users_update', (users) => {
-      if (Array.isArray(users)) {
-        setOnlineUsers(users);
+  // Game & Session Socket Handlers (Ref-Trampolining to prevent stale closures)
+  useSocketEvent(socket, 'session_created', (sess) => {
+    const fullSession = typeof sess === 'object' ? sess : { id: sess };
+    setSession(fullSession);
+    setPlayers(fullSession.players || {});
+    setIsHost(true);
+    setChatMessages([
+      {
+        id: 'welcome',
+        isSystem: true,
+        text: `🎮 Salle #${fullSession.id} ouverte. Chattez, personnalisez vos mots & invitez vos amis !`,
+        timestamp: Date.now()
       }
-    });
+    ]);
+    setView('lobby');
+  });
 
-    socket.on('game_invite_received', (inviteData) => {
-      // Never show invite if we are the host or if it's our own session
-      if (!inviteData || inviteData.hostSocketId === socket.id) return;
-      setIncomingInvite(inviteData);
-    });
+  useSocketEvent(socket, 'session_joined', (sess) => {
+    setSession(sess);
+    setPlayers(sess.players);
+    setIsHost(sess.hostId === socket.id);
+    setView('lobby');
+  });
 
-    socket.on('invite_response', (resp) => {
-      playNotification();
-      if (resp.accepted) {
-        setToastNotif({
-          icon: '⚔️',
-          title: 'Invitation acceptée !',
-          message: `${formatPlayerName(resp.playerName)} a accepté votre invitation et rejoint la salle !`
-        });
-      } else {
-        setToastNotif({
-          icon: 'ℹ️',
-          title: 'Invitation déclinée',
-          message: `${formatPlayerName(resp.playerName)} a décliné votre invitation.`
-        });
-      }
-      setTimeout(() => setToastNotif(null), 5000);
-    });
+  useSocketEvent(socket, 'kicked', () => {
+    alert("Vous avez été exclu de la session par l'hôte.");
+    setSession(null);
+    setPlayers({});
+    setIsHost(false);
+    setChatMessages([]);
+    setView('home');
+  });
 
-    socket.on('game_started', () => {
+  useSocketEvent(socket, 'player_joined', (updatedPlayers) => {
+    setPlayers(updatedPlayers);
+  });
+
+  useSocketEvent(socket, 'online_users_update', (users) => {
+    if (Array.isArray(users)) {
+      setOnlineUsers(users);
+    }
+  });
+
+  useSocketEvent(socket, 'game_invite_received', (inviteData) => {
+    // Never show invite if we are the host or if it's our own session
+    if (!inviteData || inviteData.hostSocketId === socket.id) return;
+    setIncomingInvite(inviteData);
+  });
+
+  useSocketEvent(socket, 'invite_response', (resp) => {
+    playNotification();
+    if (resp.accepted) {
+      setToastNotif({
+        icon: '⚔️',
+        title: 'Invitation acceptée !',
+        message: `${formatPlayerName(resp.playerName)} a accepté votre invitation et rejoint la salle !`
+      });
+    } else {
+      setToastNotif({
+        icon: 'ℹ️',
+        title: 'Invitation déclinée',
+        message: `${formatPlayerName(resp.playerName)} a décliné votre invitation.`
+      });
+    }
+    setTimeout(() => setToastNotif(null), 5000);
+  });
+
+  useSocketEvent(socket, 'game_started', () => {
+    setView('game');
+  });
+
+  useSocketEvent(socket, 'game_over', (data) => {
+    sessionStorage.removeItem('active_game_session');
+    setPlayers(data.players);
+    setSession(prev => ({ ...prev, vocabList: data.vocabList }));
+    setView('results');
+  });
+
+  useSocketEvent(socket, 'forfeit_game_over', (data) => {
+    localStorage.removeItem('wana_active_session');
+    setPlayers(data.players);
+    setSession(prev => ({ ...prev, vocabList: data.vocabList }));
+    setView('results');
+    playNotification();
+    setToastNotif({
+      icon: '🏆',
+      title: 'Victoire par forfait !',
+      message: `${data.forfeitedName} ne s'est pas reconnecté à temps.`
+    });
+    setTimeout(() => setToastNotif(null), 6000);
+  });
+
+  useSocketEvent(socket, 'rejoin_success', (data) => {
+    setSession(data.session);
+    setPlayers(data.session.players || {});
+    setIsHost(Boolean(data.isHost));
+
+    const sessStatus = data.session.status || data.status;
+    if (sessStatus === 'playing' || sessStatus === 'showing_results') {
       setView('game');
-    });
-
-    socket.on('game_over', (data) => {
-      sessionStorage.removeItem('active_game_session');
-      setPlayers(data.players);
-      setSession(prev => ({ ...prev, vocabList: data.vocabList }));
+    } else if (sessStatus === 'waiting') {
+      setView('lobby');
+    } else if (sessStatus === 'finished') {
       setView('results');
+    }
+
+    playNotification();
+    setToastNotif({
+      icon: '⚡',
+      title: 'Session réintégrée',
+      message: 'Vous êtes de retour dans votre session !'
     });
+    setTimeout(() => setToastNotif(null), 4000);
+  });
 
-    socket.on('forfeit_game_over', (data) => {
-      localStorage.removeItem('wana_active_session');
-      setPlayers(data.players);
-      setSession(prev => ({ ...prev, vocabList: data.vocabList }));
-      setView('results');
-      playNotification();
-      setToastNotif({
-        icon: '🏆',
-        title: 'Victoire par forfait !',
-        message: `${data.forfeitedName} ne s'est pas reconnecté à temps.`
-      });
-      setTimeout(() => setToastNotif(null), 6000);
-    });
+  useSocketEvent(socket, 'rejoin_failed', () => {
+    localStorage.removeItem('wana_active_session');
+  });
 
-    socket.on('rejoin_success', (data) => {
-      setSession(data.session);
-      setPlayers(data.session.players || {});
-      setIsHost(Boolean(data.isHost));
+  useSocketEvent(socket, 'admin_announcement', (msg) => {
+    playNotification();
+    setAnnouncement(msg);
+  });
 
-      const sessStatus = data.session.status || data.status;
-      if (sessStatus === 'playing' || sessStatus === 'showing_results') {
-        setView('game');
-      } else if (sessStatus === 'waiting') {
-        setView('lobby');
-      } else if (sessStatus === 'finished') {
-        setView('results');
-      }
+  useSocketEvent(socket, 'new_notification', (notif) => {
+    playNotification();
+    setNotifications(prev => [notif, ...prev]);
+    setUnreadCount(prev => prev + 1);
+    setToastNotif(notif);
+    setTimeout(() => setToastNotif(null), 6000);
+  });
 
-      playNotification();
-      setToastNotif({
-        icon: '⚡',
-        title: 'Session réintégrée',
-        message: 'Vous êtes de retour dans votre session !'
-      });
-      setTimeout(() => setToastNotif(null), 4000);
-    });
+  useSocketEvent(socket, 'session_updated', (sess) => {
+    setSession(sess);
+    if (sess.players) setPlayers(sess.players);
+    setIsHost(sess.hostId === socket.id);
+  });
 
-    socket.on('rejoin_failed', () => {
-      localStorage.removeItem('wana_active_session');
-    });
-
-    socket.on('admin_announcement', (msg) => {
-      playNotification();
-      setAnnouncement(msg);
-    });
-
-    socket.on('new_notification', (notif) => {
-      playNotification();
-      setNotifications(prev => [notif, ...prev]);
-      setUnreadCount(prev => prev + 1);
-      setToastNotif(notif);
-      setTimeout(() => setToastNotif(null), 6000);
-    });
-
-    socket.on('session_updated', (sess) => {
-      setSession(sess);
-      if (sess.players) setPlayers(sess.players);
-      setIsHost(sess.hostId === socket.id);
-    });
-
-    socket.on('error', (msg) => {
-      setError(msg);
-    });
-
-    return () => {
-      socket.off('session_created');
-      socket.off('session_joined');
-      socket.off('session_updated');
-      socket.off('player_joined');
-      socket.off('online_users_update');
-      socket.off('game_invite_received');
-      socket.off('invite_response');
-      socket.off('game_started');
-      socket.off('game_over');
-      socket.off('forfeit_game_over');
-      socket.off('rejoin_success');
-      socket.off('rejoin_failed');
-      socket.off('admin_announcement');
-      socket.off('new_notification');
-      socket.off('error');
-      socket.off('kicked');
-    };
-  }, [playNotification]);
+  useSocketEvent(socket, 'error', (msg) => {
+    setError(msg);
+  });
 
   // Global Chat Listener & Discord-like Floating Toast (Task 2 & Task 5)
-  useEffect(() => {
-    const handleIncomingChatMessage = (msg) => {
-      if (!msg) return;
-      
-      const isFromOtherPlayer = msg.senderId && msg.senderId !== socket.id;
-      if (isFromOtherPlayer && !msg.isSystem) {
-        playMessageReceived();
-      }
+  const handleIncomingChatMessage = (msg) => {
+    if (!msg) return;
+    
+    const isFromOtherPlayer = msg.senderId && msg.senderId !== socket.id;
+    if (isFromOtherPlayer && !msg.isSystem) {
+      playMessageReceived();
+    }
 
-      setChatMessages(prev => {
-        if (msg.id && prev.some(m => m.id === msg.id)) return prev;
-        return [...prev, msg];
+    setChatMessages(prev => {
+      if (msg.id && prev.some(m => m.id === msg.id)) return prev;
+      return [...prev, msg];
+    });
+
+    // If user is outside active chat view, trigger floating Discord-like toast
+    const isChatVisibleDirectly = ['lobby', 'game', 'results'].includes(view) && activeTab === 'learn';
+    if (!isChatVisibleDirectly && isFromOtherPlayer && !msg.isSystem) {
+      setDiscordToast({
+        id: msg.id || Date.now(),
+        senderAvatar: msg.senderAvatar || '💬',
+        senderName: formatPlayerName(msg.senderName || 'Joueur'),
+        text: msg.text
       });
+    }
+  };
 
-      // If user is outside active chat view, trigger floating Discord-like toast
-      const isChatVisibleDirectly = ['lobby', 'game', 'results'].includes(view) && activeTab === 'learn';
-      if (!isChatVisibleDirectly && isFromOtherPlayer && !msg.isSystem) {
-        setDiscordToast({
-          id: msg.id || Date.now(),
-          senderAvatar: msg.senderAvatar || '💬',
-          senderName: formatPlayerName(msg.senderName || 'Joueur'),
-          text: msg.text
-        });
-      }
-    };
-
-    socket.on('lobby_chat_message', handleIncomingChatMessage);
-    socket.on('game_chat_message', handleIncomingChatMessage);
-    socket.on('receive_message', handleIncomingChatMessage);
-
-    return () => {
-      socket.off('lobby_chat_message', handleIncomingChatMessage);
-      socket.off('game_chat_message', handleIncomingChatMessage);
-      socket.off('receive_message', handleIncomingChatMessage);
-    };
-  }, [view, activeTab, playMessageReceived]);
+  useSocketEvent(socket, 'lobby_chat_message', handleIncomingChatMessage);
+  useSocketEvent(socket, 'game_chat_message', handleIncomingChatMessage);
+  useSocketEvent(socket, 'receive_message', handleIncomingChatMessage);
 
   // Save active session to localStorage so closing/reopening browser directly rejoins lobby or game
   useEffect(() => {
