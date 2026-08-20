@@ -43,22 +43,40 @@ class ErrorBoundary extends Component {
             {this.state.error?.message || "Impossible de charger l'application."}
           </p>
           <button
-            onClick={() => {
+            onClick={async () => {
+              try {
+                if ('serviceWorker' in navigator) {
+                  const registrations = await navigator.serviceWorker.getRegistrations();
+                  for (const reg of registrations) {
+                    await reg.unregister();
+                  }
+                }
+                if ('caches' in window) {
+                  const cacheKeys = await caches.keys();
+                  for (const key of cacheKeys) {
+                    await caches.delete(key);
+                  }
+                }
+              } catch (err) {
+                console.warn('Error clearing caches:', err);
+              }
               localStorage.clear();
-              window.location.reload();
+              sessionStorage.clear();
+              window.location.href = window.location.origin + window.location.pathname + '?nocache=' + Date.now();
             }}
             style={{
-              padding: '0.8rem 1.5rem',
+              padding: '0.85rem 1.6rem',
               borderRadius: '12px',
               border: 'none',
-              background: '#6366f1',
+              background: 'linear-gradient(135deg, #6366f1, #ec4899)',
               color: 'white',
               fontWeight: 'bold',
               cursor: 'pointer',
-              fontSize: '1rem'
+              fontSize: '1rem',
+              boxShadow: '0 4px 15px rgba(99, 102, 241, 0.4)'
             }}
           >
-            🔄 Recharger l'application
+            🔄 Recharger l'application (Vider le cache)
           </button>
         </div>
       );
