@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { formatPlayerName, extractEmoji, generateBurstParticles } from '../utils/formatters';
 import { useSoundEffects } from '../context/AudioContext';
 import { useSocketEvent } from '../utils/useSocketEvent';
+import { useBufferedReactions } from '../utils/useBufferedReactions';
 
 const PRESET_PHRASES = [
   "💥 Ouch!",
@@ -61,7 +62,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const [leaveRequesterName, setLeaveRequesterName] = useState('');
   const [leaveRequestCountdown, setLeaveRequestCountdown] = useState(30);
 
-  const [floatingReactions, setFloatingReactions] = useState([]);
+  const [floatingReactions, handleReactionBurst, setFloatingReactions] = useBufferedReactions(playReactionBurst);
   const [reactionCooldown, setReactionCooldown] = useState(0);
   const [toastMessage, setToastMessage] = useState(null);
 
@@ -376,24 +377,6 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       setFloatingBubbles(prev => prev.filter(b => b.id !== msg.id));
     }, 3500);
   });
-
-  const handleReactionBurst = (data) => {
-    playReactionBurst();
-    if (data?.particles && Array.isArray(data.particles)) {
-      setFloatingReactions(prev => [...prev, ...data.particles]);
-      setTimeout(() => {
-        const idsToRemove = new Set(data.particles.map(p => p.id));
-        setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
-      }, 2500);
-    } else if (data?.emoji) {
-      const { particles } = generateBurstParticles(data.emoji);
-      setFloatingReactions(prev => [...prev, ...particles]);
-      setTimeout(() => {
-        const idsToRemove = new Set(particles.map(p => p.id));
-        setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
-      }, 2500);
-    }
-  };
 
   useSocketEvent(socket, 'floating_reaction_burst', handleReactionBurst);
   useSocketEvent(socket, 'floating_reaction', handleReactionBurst);

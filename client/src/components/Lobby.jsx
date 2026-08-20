@@ -3,6 +3,8 @@ import { exampleLists, getAllDefaultWords } from '../data/exampleLists';
 import { formatPlayerName, extractEmoji, generateBurstParticles } from '../utils/formatters';
 import { useSoundEffects } from '../context/AudioContext';
 import ListPreviewModal from './ListPreviewModal';
+import { useSocketEvent } from '../utils/useSocketEvent';
+import { useBufferedReactions } from '../utils/useBufferedReactions';
 
 export default function Lobby({ 
   socket, 
@@ -44,15 +46,9 @@ export default function Lobby({
     prevPlayerCountRef.current = currentCount;
   }, [players, playAlert]);
 
-  useEffect(() => {
-    const handlePlayerJoined = () => {
-      playAlert();
-    };
-    socket.on('player_joined', handlePlayerJoined);
-    return () => {
-      socket.off('player_joined', handlePlayerJoined);
-    };
-  }, [socket, playAlert]);
+  useSocketEvent(socket, 'player_joined', () => {
+    playAlert();
+  });
 
   // Auto-dismiss Lobby chat toast after 4s
   useEffect(() => {
@@ -156,8 +152,8 @@ export default function Lobby({
   ]);
   const maxAvailableWordsCount = Math.max(words.length, totalAvailablePool.length);
 
-  // Floating reactions burst state & 5s cooldown
-  const [floatingReactions, setFloatingReactions] = useState([]);
+  // Floating reactions burst state & 5s cooldown (Micro-buffered via requestAnimationFrame)
+  const [floatingReactions, handleReactionBurst, setFloatingReactions] = useBufferedReactions(playReactionBurst);
   const [reactionCooldown, setReactionCooldown] = useState(0);
 
   // Cooldown countdown ticker
@@ -170,32 +166,8 @@ export default function Lobby({
     }
   }, [reactionCooldown]);
 
-  useEffect(() => {
-    const handleReactionBurst = (data) => {
-      playReactionBurst();
-      if (data?.particles && Array.isArray(data.particles)) {
-        setFloatingReactions(prev => [...prev, ...data.particles]);
-        setTimeout(() => {
-          const idsToRemove = new Set(data.particles.map(p => p.id));
-          setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
-        }, 2500);
-      } else if (data?.emoji) {
-        const { particles } = generateBurstParticles(data.emoji);
-        setFloatingReactions(prev => [...prev, ...particles]);
-        setTimeout(() => {
-          const idsToRemove = new Set(particles.map(p => p.id));
-          setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
-        }, 2500);
-      }
-    };
-
-    socket.on('floating_reaction_burst', handleReactionBurst);
-    socket.on('floating_reaction', handleReactionBurst);
-    return () => {
-      socket.off('floating_reaction_burst', handleReactionBurst);
-      socket.off('floating_reaction', handleReactionBurst);
-    };
-  }, [socket, playReactionBurst]);
+  useSocketEvent(socket, 'floating_reaction_burst', handleReactionBurst);
+  useSocketEvent(socket, 'floating_reaction', handleReactionBurst);
 
   const handleSendReaction = (rawTextOrEmoji) => {
     if (reactionCooldown > 0 || !session?.id) return;
@@ -232,49 +204,39 @@ export default function Lobby({
   }, [messages]);
 
   // Listen to lobby chat messages & invite confirmations
-  useEffect(() => {
-    const handleLobbyMessage = (msg) => {
-      if (!msg) return;
-      if (setChatMessages) {
-        setChatMessages((prev) => {
-          if (msg.id && prev.some(m => m.id === msg.id)) return prev;
-          return [...prev, msg];
+  useSocketEvent(socket, 'lobby_chat_message', (msg) => {
+    if (!msg) return;
+    if (setChatMessages) {
+      setChatMessages((prev) => {
+        if (msg.id && prev.some((m) => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+    }
+
+    // If player is on 'words', 'online', or 'settings' and message is from another player, show toast & update badge
+    if (activeTab !== 'chat' && msg.senderId && msg.senderId !== socket?.id && !msg.isSystem) {
+      setUnreadChatCount((prev) => prev + 1);
+      setLobbyChatToast({
+        id: msg.id || Date.now(),
+        senderAvatar: msg.senderAvatar || '💬',
+        senderName: formatPlayerName(msg.senderName || 'Joueur'),
+        text: msg.text
+      });
+    }
+  });
+
+  useSocketEvent(socket, 'invite_sent_success', ({ targetSocketId }) => {
+    if (targetSocketId) {
+      setInvitedSockets((prev) => ({ ...prev, [targetSocketId]: true }));
+      setTimeout(() => {
+        setInvitedSockets((prev) => {
+          const next = { ...prev };
+          delete next[targetSocketId];
+          return next;
         });
-      }
-
-      // If player is on 'words', 'online', or 'settings' and message is from another player, show toast & update badge
-      if (activeTab !== 'chat' && msg.senderId && msg.senderId !== socket.id && !msg.isSystem) {
-        setUnreadChatCount((prev) => prev + 1);
-        setLobbyChatToast({
-          id: msg.id || Date.now(),
-          senderAvatar: msg.senderAvatar || '💬',
-          senderName: formatPlayerName(msg.senderName || 'Joueur'),
-          text: msg.text
-        });
-      }
-    };
-
-    const handleInviteSent = ({ targetSocketId }) => {
-      if (targetSocketId) {
-        setInvitedSockets((prev) => ({ ...prev, [targetSocketId]: true }));
-        setTimeout(() => {
-          setInvitedSockets((prev) => {
-            const next = { ...prev };
-            delete next[targetSocketId];
-            return next;
-          });
-        }, 8000);
-      }
-    };
-
-    socket.on('lobby_chat_message', handleLobbyMessage);
-    socket.on('invite_sent_success', handleInviteSent);
-
-    return () => {
-      socket.off('lobby_chat_message', handleLobbyMessage);
-      socket.off('invite_sent_success', handleInviteSent);
-    };
-  }, [socket, session?.id, setChatMessages, activeTab]);
+      }, 8000);
+    }
+  });
 
   const handleLeave = () => {
     socket.emit('leave_session', session?.id);

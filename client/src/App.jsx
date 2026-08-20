@@ -34,6 +34,19 @@ import { formatPlayerName, getClientPlayerKey } from './utils/formatters';
 import { useSoundEffects, useAudio } from './context/AudioContext';
 import { sfx } from './utils/sfxManager';
 import { useSocketEvent } from './utils/useSocketEvent';
+import { 
+  realtimeStore, 
+  useSession, 
+  usePlayers, 
+  useIsHost, 
+  useOnlineUsers, 
+  useNotifications, 
+  useUnreadCount, 
+  useToastNotif, 
+  useIncomingInvite, 
+  useChatMessages, 
+  useAnnouncement 
+} from './stores/realtimeStore';
 
 // Strict Standalone PWA detection helper with Desktop (PC/Mac) bypass
 const evaluateStandalone = () => {
@@ -160,9 +173,28 @@ function App() {
     setIsInGame(inGame);
   }, [view, setIsInGame]);
   const [activeTab, setActiveTab] = useState('learn'); // learn, lists, community, stats, profile
-  const [session, setSession] = useState(null);
-  const [players, setPlayers] = useState({});
-  const [isHost, setIsHost] = useState(false);
+
+  // --- Real-time External Store Subscriptions (uSES) ---
+  const session = useSession();
+  const players = usePlayers();
+  const isHost = useIsHost();
+  const onlineUsers = useOnlineUsers();
+  const notifications = useNotifications();
+  const unreadCount = useUnreadCount();
+  const toastNotif = useToastNotif();
+  const incomingInvite = useIncomingInvite();
+  const chatMessages = useChatMessages();
+  const announcement = useAnnouncement();
+
+  const setSession = realtimeStore.setSession;
+  const setPlayers = realtimeStore.setPlayers;
+  const setIsHost = realtimeStore.setIsHost;
+  const setChatMessages = realtimeStore.setChatMessages;
+  const setNotifications = realtimeStore.setNotifications;
+  const setUnreadCount = realtimeStore.setUnreadCount;
+  const setToastNotif = realtimeStore.setToastNotif;
+  const setAnnouncement = realtimeStore.setAnnouncement;
+
   const [error, setError] = useState('');
   const [playerName, setPlayerName] = useState(() => {
     return localStorage.getItem('wana_player_name') || '';
@@ -175,17 +207,11 @@ function App() {
   const [isGuest, setIsGuest] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [toastNotif, setToastNotif] = useState(null);
   const [serverGuestMode, setServerGuestMode] = useState(true); // from server config
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('wana_theme') || 'midnight';
   });
   const [leaderboard, setLeaderboard] = useState([]);
-  const [onlineUsers, setOnlineUsers] = useState([]);
-  const [incomingInvite, setIncomingInvite] = useState(null);
-  const [chatMessages, setChatMessages] = useState([]);
   const [discordToast, setDiscordToast] = useState(null);
   const [failedWords, setFailedWords] = useState(() => {
     try {
@@ -395,8 +421,6 @@ function App() {
   }, [isAdmin]);
 
 
-  const [announcement, setAnnouncement] = useState('');
-
   // Fetch server config (guest mode etc.)
   useEffect(() => {
     fetch(`${API_URL}/api/config`)
@@ -406,7 +430,7 @@ function App() {
         if (data.announcement) setAnnouncement(data.announcement);
       })
       .catch(() => {});
-  }, []);
+  }, [setAnnouncement]);
 
   const registerUserOnline = () => {
     const currentName = formatPlayerName(playerName || user?.displayName || (isGuest ? 'Invité' : ''));
@@ -733,35 +757,32 @@ function App() {
     }
   }, [view, session?.id, user?.uid, playerName, avatar]);
 
-  // Attempt auto-rejoin on socket connect/reconnect and initial mount
-  useEffect(() => {
-    const handleRejoinCheck = () => {
-      try {
-        const saved = localStorage.getItem('wana_active_session');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed?.sessionId) {
-            socket.emit('rejoin_session', {
-              sessionId: parsed.sessionId,
-              clientPlayerKey: getClientPlayerKey(),
-              firebaseId: user?.uid || parsed.firebaseId || null,
-              playerName: playerName || parsed.playerName || '',
-              avatar: avatar || parsed.avatar || '🦊'
-            });
-          }
+  const handleRejoinCheck = () => {
+    try {
+      const saved = localStorage.getItem('wana_active_session');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.sessionId && !session?.id) {
+          socket.emit('rejoin_session', {
+            sessionId: parsed.sessionId,
+            clientPlayerKey: getClientPlayerKey(),
+            firebaseId: user?.uid || parsed.firebaseId || null,
+            playerName: playerName || parsed.playerName || '',
+            avatar: avatar || parsed.avatar || '🦊'
+          });
         }
-      } catch (e) {
-        console.error(e);
       }
-    };
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
-    socket.on('connect', handleRejoinCheck);
+  // Re-check rejoin status when user attributes change
+  useEffect(() => {
     handleRejoinCheck();
-
-    return () => {
-      socket.off('connect', handleRejoinCheck);
-    };
   }, [user, playerName, avatar]);
+
+  useSocketEvent(socket, 'connect', handleRejoinCheck);
 
   const handleAcceptInvite = () => {
     if (!incomingInvite) return;
