@@ -11,12 +11,24 @@ import NotificationCenter from './components/NotificationCenter';
 import InviteModal from './components/InviteModal';
 import RightPanel from './components/RightPanel';
 import TitleScreen from './components/TitleScreen';
+import InstallGate from './components/InstallGate';
 import { exampleLists } from './data/exampleLists';
 import { auth, loginWithGoogle, logout, deleteAccount } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { formatPlayerName, getClientPlayerKey } from './utils/formatters';
 import { useSoundEffects, useAudio } from './context/AudioContext';
 import { sfx } from './utils/sfxManager';
+
+// Standalone PWA detection helper (iOS Safari + Chromium/Android/Desktop PWA)
+const checkIsStandalone = () => {
+  if (typeof window === 'undefined') return false;
+  return Boolean(
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true ||
+    document.referrer.includes('android-app://') ||
+    window.matchMedia('(display-mode: fullscreen)').matches
+  );
+};
 
 // Connect to server (uses env variable or fallback to localhost)
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -27,8 +39,10 @@ const socket = io(API_URL, {
 });
 
 function App() {
+  const [isStandalone, setIsStandalone] = useState(() => checkIsStandalone());
   const { playMessageReceived, playNotification } = useSoundEffects();
   const [hasEnteredApp, setHasEnteredApp] = useState(false);
+
   const [view, setView] = useState('home'); // home, lobby, game, results
   const [activeTab, setActiveTab] = useState('learn'); // learn, lists, community, stats, profile
   const [session, setSession] = useState(null);
@@ -198,12 +212,37 @@ function App() {
     localStorage.setItem('wana_theme', theme);
   }, [theme]);
 
+  // Listen for standalone display-mode changes (e.g. installed and opened in PWA mode)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const mediaQuery = window.matchMedia('(display-mode: standalone)');
+    const handleModeChange = (e) => {
+      setIsStandalone(e.matches || checkIsStandalone());
+    };
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleModeChange);
+    } else if (mediaQuery.addListener) {
+      mediaQuery.addListener(handleModeChange);
+    }
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleModeChange);
+      } else if (mediaQuery.removeListener) {
+        mediaQuery.removeListener(handleModeChange);
+      }
+    };
+  }, []);
+
   // Detect ?admin in URL - ONLY for the admin user
   useEffect(() => {
     if (isAdmin && window.location.search.includes('admin')) {
       setShowAdmin(true);
     }
   }, [isAdmin]);
+
 
   const [announcement, setAnnouncement] = useState('');
 
@@ -635,6 +674,11 @@ function App() {
     setHasEnteredApp(true);
   };
 
+  // 🛑 HARD GATE: Stricte interdiction d'utiliser l'application dans un navigateur classique
+  if (!isStandalone) {
+    return <InstallGate />;
+  }
+
   if (isAuthLoading) {
     return (
       <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -642,6 +686,7 @@ function App() {
       </div>
     );
   }
+
 
   // 1. Unauthenticated users see Login Screen
   if (!user && !isGuest) {
