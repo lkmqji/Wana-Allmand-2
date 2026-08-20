@@ -31,8 +31,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     playFreeze,
     playSuccess,
     playError,
-    isMusicMuted,
-    toggleMusicMute
+    isGameMusicMuted,
+    toggleGameMusicMute
   } = useSoundEffects();
   const [question, setQuestion] = useState('');
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -1178,17 +1178,17 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           </button>
         )}
 
-        {/* 3. Bouton Muet Rapide Musique (Garde les effets sonores / bruitages actifs) */}
+        {/* 3. Bouton Muet Rapide Musique en Partie (Garde les effets sonores / bruitages actifs) */}
         <button 
           type="button"
           onClick={(e) => {
             e.preventDefault();
-            toggleMusicMute();
+            toggleGameMusicMute();
           }}
           style={{ 
-            background: isMusicMuted ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-main)', 
-            border: `2px solid ${isMusicMuted ? 'var(--danger)' : 'var(--border-color)'}`, 
-            color: isMusicMuted ? 'var(--danger)' : 'var(--primary)', 
+            background: isGameMusicMuted ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-main)', 
+            border: `2px solid ${isGameMusicMuted ? 'var(--danger)' : 'var(--border-color)'}`, 
+            color: isGameMusicMuted ? 'var(--danger)' : 'var(--primary)', 
             cursor: 'pointer', 
             width: '38px',
             height: '38px',
@@ -1197,12 +1197,12 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             justifyContent: 'center',
             alignItems: 'center',
             transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
-            boxShadow: isMusicMuted ? '0 2px 10px rgba(239, 68, 68, 0.25)' : '0 2px 8px rgba(0,0,0,0.2)',
+            boxShadow: isGameMusicMuted ? '0 2px 10px rgba(239, 68, 68, 0.25)' : '0 2px 8px rgba(0,0,0,0.2)',
             position: 'relative'
           }}
-          title={isMusicMuted ? "Réactiver la musique de fond" : "Couper la musique de fond (muet rapide - bruitages restent actifs)"}
+          title={isGameMusicMuted ? "Réactiver la musique en partie" : "Couper la musique en partie (les bruitages restent actifs)"}
         >
-          {isMusicMuted ? (
+          {isGameMusicMuted ? (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 18V5l12-2v13"></path>
               <circle cx="6" cy="18" r="3"></circle>

@@ -82,11 +82,16 @@ const socket = io(API_URL, {
 function App() {
   const [standaloneDebug, setStandaloneDebug] = useState(() => evaluateStandalone());
   const isStandalone = standaloneDebug.isStandalone;
-  const { playMessageReceived, playNotification } = useSoundEffects();
+  const { playMessageReceived, playNotification, setIsInGame } = useAudio();
   const [hasEnteredApp, setHasEnteredApp] = useState(false);
 
-
   const [view, setView] = useState('home'); // home, lobby, game, results
+
+  // Automatically sync in-game state to AudioContext (mutes in-game if preferred, restores menu music when match ends)
+  useEffect(() => {
+    const inGame = view === 'game' || view === 'vengeance';
+    setIsInGame(inGame);
+  }, [view, setIsInGame]);
   const [activeTab, setActiveTab] = useState('learn'); // learn, lists, community, stats, profile
   const [session, setSession] = useState(null);
   const [players, setPlayers] = useState({});

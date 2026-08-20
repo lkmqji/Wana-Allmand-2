@@ -171,7 +171,7 @@ export default function VengeanceMode({
   isSurvivalMode = false,
   modeTitle = 'Mode Vengeance'
 }) {
-  const { isSoundEnabled, isMusicMuted, toggleMusicMute } = useAudio();
+  const { isSoundEnabled, isGameMusicMuted, toggleGameMusicMute } = useAudio();
   const { playSuccess, playError, playExplosion, playCountdownGo, playTimeWarning } = useSoundEffects();
 
   const maxAvailable = (failedWords || []).length || 1;
@@ -730,14 +730,14 @@ export default function VengeanceMode({
               ← Quitter
             </button>
 
-            {/* Quick Music Mute Button */}
+            {/* Quick In-Game Music Mute Button */}
             <button
               type="button"
-              onClick={toggleMusicMute}
+              onClick={toggleGameMusicMute}
               style={{
-                background: isMusicMuted ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-                border: `1px solid ${isMusicMuted ? 'var(--danger)' : 'rgba(255, 255, 255, 0.15)'}`,
-                color: isMusicMuted ? 'var(--danger)' : '#f8fafc',
+                background: isGameMusicMuted ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                border: `1px solid ${isGameMusicMuted ? 'var(--danger)' : 'rgba(255, 255, 255, 0.15)'}`,
+                color: isGameMusicMuted ? 'var(--danger)' : '#f8fafc',
                 borderRadius: '12px',
                 width: '38px',
                 height: '38px',
@@ -746,11 +746,11 @@ export default function VengeanceMode({
                 alignItems: 'center',
                 justifyContent: 'center',
                 transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                boxShadow: isMusicMuted ? '0 0 12px rgba(239, 68, 68, 0.3)' : '0 2px 6px rgba(0,0,0,0.2)'
+                boxShadow: isGameMusicMuted ? '0 0 12px rgba(239, 68, 68, 0.3)' : '0 2px 6px rgba(0,0,0,0.2)'
               }}
-              title={isMusicMuted ? "Réactiver la musique de fond" : "Couper la musique de fond (muet rapide - bruitages restent actifs)"}
+              title={isGameMusicMuted ? "Réactiver la musique en partie" : "Couper la musique en partie (les bruitages restent actifs)"}
             >
-              {isMusicMuted ? (
+              {isGameMusicMuted ? (
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9 18V5l12-2v13"></path>
                   <circle cx="6" cy="18" r="3"></circle>
@@ -1043,14 +1043,14 @@ export default function VengeanceMode({
             ← Quitter
           </button>
 
-          {/* Quick Music Mute Button */}
+          {/* Quick In-Game Music Mute Button */}
           <button
             type="button"
-            onClick={toggleMusicMute}
+            onClick={toggleGameMusicMute}
             style={{
-              background: isMusicMuted ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-              border: `1px solid ${isMusicMuted ? 'var(--danger)' : 'rgba(255, 255, 255, 0.15)'}`,
-              color: isMusicMuted ? 'var(--danger)' : '#f8fafc',
+              background: isGameMusicMuted ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+              border: `1px solid ${isGameMusicMuted ? 'var(--danger)' : 'rgba(255, 255, 255, 0.15)'}`,
+              color: isGameMusicMuted ? 'var(--danger)' : '#f8fafc',
               borderRadius: '12px',
               width: '38px',
               height: '38px',
@@ -1059,11 +1059,11 @@ export default function VengeanceMode({
               alignItems: 'center',
               justifyContent: 'center',
               transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
-              boxShadow: isMusicMuted ? '0 0 12px rgba(239, 68, 68, 0.3)' : '0 2px 6px rgba(0,0,0,0.2)'
+              boxShadow: isGameMusicMuted ? '0 0 12px rgba(239, 68, 68, 0.3)' : '0 2px 6px rgba(0,0,0,0.2)'
             }}
-            title={isMusicMuted ? "Réactiver la musique de fond" : "Couper la musique de fond (muet rapide - bruitages restent actifs)"}
+            title={isGameMusicMuted ? "Réactiver la musique en partie" : "Couper la musique en partie (les bruitages restent actifs)"}
           >
-            {isMusicMuted ? (
+            {isGameMusicMuted ? (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 18V5l12-2v13"></path>
                 <circle cx="6" cy="18" r="3"></circle>

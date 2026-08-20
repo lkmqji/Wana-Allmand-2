@@ -50,8 +50,21 @@ export function AudioProvider({ children }) {
     }
   });
 
+  // Dedicated In-Game Music Mute state (Mutes music during matches, restores when match ends, persists across all matches)
+  const [isInGame, setIsInGame] = useState(false);
+  const [isGameMusicMuted, setIsGameMusicMuted] = useState(() => {
+    try {
+      const saved = localStorage.getItem('wana_game_music_muted');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
   const isSoundEnabledRef = useRef(isSoundEnabled);
   const isMusicMutedRef = useRef(isMusicMuted);
+  const isInGameRef = useRef(isInGame);
+  const isGameMusicMutedRef = useRef(isGameMusicMuted);
   const hasInteractedRef = useRef(false);
   const bgmRef = useRef(null);
 
@@ -75,6 +88,20 @@ export function AudioProvider({ children }) {
     }
   }, [isMusicMuted]);
 
+  // Sync isGameMusicMuted & isInGame states
+  useEffect(() => {
+    isGameMusicMutedRef.current = isGameMusicMuted;
+    try {
+      localStorage.setItem('wana_game_music_muted', String(isGameMusicMuted));
+    } catch (e) {
+      console.warn('LocalStorage error:', e);
+    }
+  }, [isGameMusicMuted]);
+
+  useEffect(() => {
+    isInGameRef.current = isInGame;
+  }, [isInGame]);
+
   // Synchronize Master & SFX volumes to sfxManager GainNodes
   useEffect(() => {
     try {
@@ -90,14 +117,18 @@ export function AudioProvider({ children }) {
     sfx.setSfxVolume(isSoundEnabled ? sfxVolume : 0);
   }, [sfxVolume, isSoundEnabled]);
 
-  // Synchronize BGM volume & mute state: volumeFinal = bgmVolume * masterVolume * 0.10 (harmonious background soundscape)
+  // Synchronize BGM volume & mute state:
+  // - If sound is disabled or globally muted: BGM is paused
+  // - If currently in a match (isInGame === true) AND isGameMusicMuted === true: BGM is paused
+  // - As soon as match ends (isInGame === false), BGM automatically plays again!
   useEffect(() => {
     try {
       localStorage.setItem('wana_bgm_volume', String(bgmVolume));
     } catch {}
     const bgm = bgmRef.current;
     if (bgm) {
-      if (isSoundEnabled && !isMusicMuted) {
+      const isMutedInCurrentContext = !isSoundEnabled || isMusicMuted || (isInGame && isGameMusicMuted);
+      if (!isMutedInCurrentContext) {
         const finalBgmVol = Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.10));
         bgm.volume = finalBgmVol;
         if (hasInteractedRef.current && !document.hidden) {
@@ -109,7 +140,7 @@ export function AudioProvider({ children }) {
         bgm.pause();
       }
     }
-  }, [bgmVolume, masterVolume, isSoundEnabled, isMusicMuted]);
+  }, [bgmVolume, masterVolume, isSoundEnabled, isMusicMuted, isInGame, isGameMusicMuted]);
 
   // =========================================================================
   // 🎵 BGM (Background Music) HTML5 Audio Engine
@@ -119,7 +150,8 @@ export function AudioProvider({ children }) {
     try {
       bgmAudio = new Audio('/sounds/bgm-main.mp3');
       bgmAudio.loop = true;
-      const initialVol = (isSoundEnabledRef.current && !isMusicMutedRef.current)
+      const initialMuted = !isSoundEnabledRef.current || isMusicMutedRef.current || (isInGameRef.current && isGameMusicMutedRef.current);
+      const initialVol = !initialMuted
         ? Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.10))
         : 0;
       bgmAudio.volume = initialVol;
@@ -137,12 +169,13 @@ export function AudioProvider({ children }) {
     };
   }, []);
 
-  // 🔄 Sync BGM playback with isSoundEnabled & isMusicMuted state
+  // 🔄 Sync BGM playback with visibility & state
   useEffect(() => {
     const bgm = bgmRef.current;
     if (!bgm) return;
 
-    if (isSoundEnabled && !isMusicMuted) {
+    const isMutedInCurrentContext = !isSoundEnabled || isMusicMuted || (isInGame && isGameMusicMuted);
+    if (!isMutedInCurrentContext) {
       if (hasInteractedRef.current && !document.hidden) {
         bgm.play().catch(err => {
           console.debug('BGM play waiting for user action or file presence:', err);
@@ -151,7 +184,7 @@ export function AudioProvider({ children }) {
     } else {
       bgm.pause();
     }
-  }, [isSoundEnabled, isMusicMuted]);
+  }, [isSoundEnabled, isMusicMuted, isInGame, isGameMusicMuted]);
 
   // 📱 Page Visibility API: Pause audio & suspend Web Audio on tab switch/minimize, resume on focus
   useEffect(() => {
@@ -168,7 +201,8 @@ export function AudioProvider({ children }) {
         // Foreground: Resume BGM & Web Audio Context if sound is enabled
         if (isSoundEnabledRef.current) {
           sfx.resume();
-          if (bgmRef.current && hasInteractedRef.current && !isMusicMutedRef.current) {
+          const isMuted = isMusicMutedRef.current || (isInGameRef.current && isGameMusicMutedRef.current);
+          if (bgmRef.current && hasInteractedRef.current && !isMuted) {
             bgmRef.current.play().catch(err => {
               console.debug('BGM resume on visibility change notice:', err);
             });
@@ -193,7 +227,19 @@ export function AudioProvider({ children }) {
   }, []);
 
   const toggleMusicMute = useCallback(() => {
-    setIsMusicMuted(prev => !prev);
+    if (isInGameRef.current) {
+      setIsGameMusicMuted(prev => !prev);
+    } else {
+      setIsMusicMuted(prev => !prev);
+    }
+  }, []);
+
+  const toggleGameMusicMute = useCallback(() => {
+    setIsGameMusicMuted(prev => !prev);
+  }, []);
+
+  const setGameMusicMuted = useCallback((val) => {
+    setIsGameMusicMuted(Boolean(val));
   }, []);
 
   const setMusicMuted = useCallback((val) => {
@@ -382,6 +428,11 @@ export function AudioProvider({ children }) {
     isMusicMuted,
     toggleMusicMute,
     setMusicMuted,
+    isInGame,
+    setIsInGame,
+    isGameMusicMuted,
+    toggleGameMusicMute,
+    setGameMusicMuted,
     masterVolume,
     setMasterVolume,
     sfxVolume,
@@ -429,6 +480,11 @@ export function useAudio() {
       isMusicMuted: false,
       toggleMusicMute: () => {},
       setMusicMuted: () => {},
+      isInGame: false,
+      setIsInGame: () => {},
+      isGameMusicMuted: true,
+      toggleGameMusicMute: () => {},
+      setGameMusicMuted: () => {},
       masterVolume: 0.5,
       setMasterVolume: () => {},
       sfxVolume: 0.5,
