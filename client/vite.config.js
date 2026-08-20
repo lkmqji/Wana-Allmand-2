@@ -8,10 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      devOptions: {
-        enabled: true
-      },
-      includeAssets: ['favicon.svg', 'icons.svg', 'sounds/**/*'],
+      includeAssets: ['favicon.svg', 'icons.svg'],
       manifest: {
         name: 'Wana Allmand',
         short_name: 'Wana Allmand',
@@ -35,9 +32,22 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
-        maximumFileSizeToCacheInBytes: 25 * 1024 * 1024,
-        globPatterns: ['**/*.{js,css,html,svg,png,mp3,wav,woff2}']
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.destination === 'audio',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'audio-cache',
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 30 * 24 * 60 * 60
+              }
+            }
+          }
+        ]
       }
     })
   ],
 })
+
