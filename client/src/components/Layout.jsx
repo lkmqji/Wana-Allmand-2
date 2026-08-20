@@ -59,12 +59,33 @@ export default function Layout({
 
           {/* Profile Avatar Mobile */}
           {user ? (
-            <img 
-              src={user.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.uid}`} 
-              alt="Profil" 
-              onClick={() => onNavigate('profile')} 
-              style={{ width: '34px', height: '34px', borderRadius: '50%', cursor: 'pointer', border: '2px solid var(--primary)', objectFit: 'cover' }} 
-            />
+            user.photoURL ? (
+              <img 
+                src={user.photoURL} 
+                alt="Profil" 
+                onClick={() => onNavigate('profile')} 
+                style={{ width: '34px', height: '34px', borderRadius: '50%', cursor: 'pointer', border: '2px solid var(--primary)', objectFit: 'cover' }} 
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div 
+                onClick={() => onNavigate('profile')} 
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  border: '2px solid var(--primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.2rem',
+                  background: 'var(--bg-surface)'
+                }}
+              >
+                {avatar || '🦊'}
+              </div>
+            )
           ) : (
             <button onClick={loginWithGoogle} className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '10px' }}>Connexion</button>
           )}

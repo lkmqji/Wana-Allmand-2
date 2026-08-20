@@ -76,9 +76,19 @@ export default function RightPanel({
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '2rem',
+              overflow: 'hidden',
               flexShrink: 0
             }}>
-              {avatar || '🦊'}
+              {user?.photoURL ? (
+                <img 
+                  src={user.photoURL} 
+                  alt={formatPlayerName(playerName || user?.displayName || 'Joueur')} 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  referrerPolicy="no-referrer" 
+                />
+              ) : (
+                avatar || '🦊'
+              )}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

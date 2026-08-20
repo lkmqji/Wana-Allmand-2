@@ -37,6 +37,8 @@ export default function Home({
   theme,
   setTheme,
   failedWords = [],
+  standaloneDebug,
+  onClearPwaCache,
   onStartVengeance,
   onStartSurvival,
   onDeleteFailedWord,
@@ -50,14 +52,12 @@ export default function Home({
   const [editingMistakeModalIdx, setEditingMistakeModalIdx] = useState(null);
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
   const [prepTab, setPrepTab] = useState('pdf'); // 'pdf', 'text', 'examples', 'settings'
-  const [joinCode, setJoinCode] = useState('');
-  const [rawText, setRawText] = useState('la table = der Tisch\nla chaise = der Stuhl\nla maison = das Haus');
-  const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [archivedLists, setArchivedLists] = useState(() => user && listsCache.archived[user.uid] ? listsCache.archived[user.uid] : []);
   const [publicLists, setPublicLists] = useState(() => listsCache.public || []);
   const [isConnected, setIsConnected] = useState(true);
   const [soloWordCount, setSoloWordCount] = useState(10);
+  const [themeInput, setThemeInput] = useState('');
   const [showWordEditor, setShowWordEditor] = useState(false);
   const [manualWords, setManualWords] = useState([{ id: 1, question: '', answer: '' }]);
   const [selectedListIds, setSelectedListIds] = useState(new Set());
@@ -460,6 +460,68 @@ export default function Home({
   return (
     <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       
+      {/* 🩺 DÉBOGUEUR VISUEL HARD GATE & PWA CACHE (TÂCHE 1 & 2) */}
+      {standaloneDebug && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(185, 28, 28, 0.95) 0%, rgba(127, 29, 29, 0.98) 100%)',
+          border: '2px solid #ef4444',
+          borderRadius: '16px',
+          padding: '1rem 1.2rem',
+          color: '#ffffff',
+          boxShadow: '0 10px 25px rgba(239, 68, 68, 0.35)',
+          fontSize: '0.88rem',
+          fontFamily: 'monospace',
+          backdropFilter: 'blur(10px)',
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.6rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold', fontSize: '0.95rem' }}>
+              <span>🩺</span>
+              <span>DÉBOGUEUR PWA HARD GATE</span>
+            </div>
+            {onClearPwaCache && (
+              <button 
+                type="button"
+                onClick={onClearPwaCache}
+                style={{
+                  background: '#ffffff',
+                  color: '#991b1b',
+                  border: 'none',
+                  padding: '0.45rem 0.9rem',
+                  borderRadius: '10px',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  fontSize: '0.78rem',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                  transition: 'transform 0.15s ease'
+                }}
+              >
+                🧹 Vider le cache PWA & Recharger
+              </button>
+            )}
+          </div>
+          
+          <div style={{ 
+            background: 'rgba(0, 0, 0, 0.45)', 
+            padding: '0.6rem 0.8rem', 
+            borderRadius: '10px', 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', 
+            gap: '0.4rem',
+            lineHeight: 1.4
+          }}>
+            <div><strong>isLocalDev :</strong> <span style={{ color: standaloneDebug.isLocalDev ? '#86efac' : '#fca5a5' }}>{String(standaloneDebug.isLocalDev)}</span></div>
+            <div><strong>isStandaloneMode :</strong> <span style={{ color: standaloneDebug.isStandaloneMode ? '#86efac' : '#fca5a5' }}>{String(standaloneDebug.isStandaloneMode)}</span></div>
+            <div><strong>isIOSStandalone :</strong> <span style={{ color: standaloneDebug.isIOSStandalone ? '#86efac' : '#fca5a5' }}>{String(standaloneDebug.isIOSStandalone)}</span></div>
+            <div><strong>Host :</strong> <span style={{ color: '#93c5fd' }}>{standaloneDebug.hostname || 'inconnu'}</span></div>
+          </div>
+
+          <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#fca5a5', opacity: 0.9 }}>
+            ℹ️ Si vous voyez cette boîte sur votre navigateur mobile sans avoir installé l'app, vérifiez la valeur ci-dessus qui est à <code>true</code>.
+          </div>
+        </div>
+      )}
+
       {/* ------------------- LEARN TAB ------------------- */}
       {activeTab === 'learn' && (
         <>

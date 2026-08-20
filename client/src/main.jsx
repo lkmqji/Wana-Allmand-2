@@ -3,6 +3,11 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import { AudioProvider } from './context/AudioContext'
+import { registerSW } from 'virtual:pwa-register'
+
+// Force PWA Service Worker auto-update immediately
+registerSW({ immediate: true })
+
 
 class ErrorBoundary extends Component {
   constructor(props) {

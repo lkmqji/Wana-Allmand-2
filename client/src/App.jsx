@@ -19,27 +19,42 @@ import { formatPlayerName, getClientPlayerKey } from './utils/formatters';
 import { useSoundEffects, useAudio } from './context/AudioContext';
 import { sfx } from './utils/sfxManager';
 
-// Strict Standalone PWA detection helper
-const checkIsStandalone = () => {
-  if (typeof window === 'undefined') return false;
-
-  // Accès web direct autorisé UNIQUEMENT sur localhost / 127.0.0.1 en développement
-  const hostname = window.location.hostname;
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return true;
+// Strict Standalone PWA detection helper with full diagnostic data
+const evaluateStandalone = () => {
+  if (typeof window === 'undefined') {
+    return {
+      isStandalone: false,
+      isLocalDev: false,
+      isStandaloneMode: false,
+      isIOSStandalone: false,
+      hostname: ''
+    };
   }
 
-  // Détection stricte : display-mode standalone (Android / Chrome / Desktop) ou navigator.standalone (iOS Safari)
-  const isMatchMediaStandalone = Boolean(
+  const hostname = window.location.hostname || '';
+  // Accès web direct autorisé UNIQUEMENT sur localhost / 127.0.0.1 en développement
+  const isLocalDev = Boolean(hostname === 'localhost' || hostname === '127.0.0.1');
+
+  // Détection stricte : display-mode standalone (Android / Chrome / Desktop)
+  const isStandaloneMode = Boolean(
     window.matchMedia && window.matchMedia('(display-mode: standalone)').matches
   );
-  const isNavigatorStandalone = Boolean(
+
+  // Détection stricte : navigator.standalone (iOS Safari)
+  const isIOSStandalone = Boolean(
     window.navigator && window.navigator.standalone === true
   );
 
-  return isMatchMediaStandalone || isNavigatorStandalone;
-};
+  const isStandalone = isLocalDev || isStandaloneMode || isIOSStandalone;
 
+  return {
+    isStandalone,
+    isLocalDev,
+    isStandaloneMode,
+    isIOSStandalone,
+    hostname
+  };
+};
 
 // Connect to server (uses env variable or fallback to localhost)
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -50,9 +65,11 @@ const socket = io(API_URL, {
 });
 
 function App() {
-  const [isStandalone, setIsStandalone] = useState(() => checkIsStandalone());
+  const [standaloneDebug, setStandaloneDebug] = useState(() => evaluateStandalone());
+  const isStandalone = standaloneDebug.isStandalone;
   const { playMessageReceived, playNotification } = useSoundEffects();
   const [hasEnteredApp, setHasEnteredApp] = useState(false);
+
 
   const [view, setView] = useState('home'); // home, lobby, game, results
   const [activeTab, setActiveTab] = useState('learn'); // learn, lists, community, stats, profile
@@ -227,15 +244,47 @@ function App() {
     localStorage.setItem('wana_theme', theme);
   }, [theme]);
 
+  // Standalone PWA Cache Buster helper
+  const handleClearPwaCache = async () => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) {
+          await reg.unregister();
+        }
+      }
+      if ('caches' in window) {
+        const cacheKeys = await caches.keys();
+        for (const key of cacheKeys) {
+          await caches.delete(key);
+        }
+      }
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = window.location.origin + window.location.pathname + '?pwa_clear=' + Date.now();
+    } catch (err) {
+      console.error('Error clearing PWA cache:', err);
+      window.location.reload();
+    }
+  };
+
+  // Expose global debug helper
+  useEffect(() => {
+    window.clearPwaCache = handleClearPwaCache;
+    window.evaluateStandalone = evaluateStandalone;
+  }, []);
+
   // Listen for standalone display-mode changes (e.g. installed and opened in PWA mode)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const mediaQuery = window.matchMedia('(display-mode: standalone)');
-    const handleModeChange = (e) => {
-      setIsStandalone(e.matches || checkIsStandalone());
+    const handleModeChange = () => {
+      setStandaloneDebug(evaluateStandalone());
     };
 
+    handleModeChange();
+
+    const mediaQuery = window.matchMedia('(display-mode: standalone)');
     if (mediaQuery.addEventListener) {
       mediaQuery.addEventListener('change', handleModeChange);
     } else if (mediaQuery.addListener) {
@@ -1090,6 +1139,8 @@ function App() {
             theme={theme}
             setTheme={setTheme}
             failedWords={failedWords}
+            standaloneDebug={standaloneDebug}
+            onClearPwaCache={handleClearPwaCache}
             onDeleteFailedWord={handleDeleteFailedWord}
             onEditFailedWord={handleEditFailedWord}
             onClearAllFailedWords={handleClearAllFailedWords}

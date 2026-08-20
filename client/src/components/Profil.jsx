@@ -23,9 +23,13 @@ export default function Profil({
   const [nameInput, setNameInput] = useState(playerName || '');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const isInitialMount = React.useRef(true);
 
   useEffect(() => {
-    setNameInput(playerName || '');
+    if (isInitialMount.current) {
+      setNameInput(playerName || '');
+      isInitialMount.current = false;
+    }
   }, [playerName]);
 
   const handleSave = async (customName = nameInput, customAvatar = avatar) => {
@@ -212,25 +216,50 @@ export default function Profil({
               )}
             </div>
             
-            <div className="mobile-stack" style={{ alignItems: 'center', gap: '0.8rem' }}>
-              <select 
-                className="input-field" 
-                value={avatar} 
-                onChange={(e) => handleAvatarChange(e.target.value)}
-                style={{ padding: '0.5rem', fontSize: '1.6rem', flex: '0 0 90px', textAlign: 'center', cursor: 'pointer' }}
-                title="Choisir votre avatar"
-              >
-                <option value="🦊">🦊 Renard</option>
-                <option value="🐼">🐼 Panda</option>
-                <option value="🦁">🦁 Lion</option>
-                <option value="🐸">🐸 Grenouille</option>
-                <option value="🦄">🦄 Licorne</option>
-                <option value="😎">😎 Cool</option>
-                <option value="👻">👻 Fantôme</option>
-                <option value="👑">👑 Roi</option>
-                <option value="⚡">⚡ Éclair</option>
-                <option value="🔥">🔥 Flamme</option>
-              </select>
+            <div className="mobile-stack" style={{ alignItems: 'center', gap: '0.9rem' }}>
+              {user?.photoURL ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }} title="Photo de votre compte Google">
+                  <div style={{
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '50%',
+                    border: '3px solid var(--primary)',
+                    boxShadow: '0 0 15px rgba(99, 102, 241, 0.4)',
+                    overflow: 'hidden',
+                    background: '#1e293b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <img 
+                      src={user.photoURL} 
+                      alt="Photo Google" 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <select 
+                  className="input-field" 
+                  value={avatar} 
+                  onChange={(e) => handleAvatarChange(e.target.value)}
+                  style={{ padding: '0.5rem', fontSize: '1.6rem', flex: '0 0 90px', textAlign: 'center', cursor: 'pointer' }}
+                  title="Choisir votre avatar de jeu"
+                >
+                  <option value="🦊">🦊 Renard</option>
+                  <option value="🐼">🐼 Panda</option>
+                  <option value="🦁">🦁 Lion</option>
+                  <option value="🐸">🐸 Grenouille</option>
+                  <option value="🦄">🦄 Licorne</option>
+                  <option value="😎">😎 Cool</option>
+                  <option value="👻">👻 Fantôme</option>
+                  <option value="👑">👑 Roi</option>
+                  <option value="⚡">⚡ Éclair</option>
+                  <option value="🔥">🔥 Flamme</option>
+                </select>
+              )}
+
               <div style={{ flex: 1, width: '100%' }}>
                 <input 
                   type="text" 
@@ -238,15 +267,7 @@ export default function Profil({
                   placeholder="Votre pseudo (ex: Wail...)" 
                   maxLength={32}
                   value={nameInput}
-                  onChange={(e) => {
-                    setNameInput(e.target.value);
-                    if (setPlayerName) setPlayerName(e.target.value);
-                  }}
-                  onBlur={() => {
-                    if (nameInput.trim() && nameInput.trim() !== playerName) {
-                      handleSave(nameInput.trim(), avatar);
-                    }
-                  }}
+                  onChange={(e) => setNameInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
