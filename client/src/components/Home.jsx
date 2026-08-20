@@ -52,6 +52,7 @@ export default function Home({
   const [editingMistakeModalIdx, setEditingMistakeModalIdx] = useState(null);
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
   const [prepTab, setPrepTab] = useState('pdf'); // 'pdf', 'text', 'examples', 'settings'
+  const [joinCode, setJoinCode] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
   const [archivedLists, setArchivedLists] = useState(() => user && listsCache.archived[user.uid] ? listsCache.archived[user.uid] : []);
   const [publicLists, setPublicLists] = useState(() => listsCache.public || []);
