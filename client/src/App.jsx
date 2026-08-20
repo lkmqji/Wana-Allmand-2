@@ -62,6 +62,17 @@ function App() {
       return [];
     }
   });
+  const [survivalSession, setSurvivalSession] = useState(null); // { words: [...], title: '...' }
+
+  const handleStartSurvival = (wordsList, title = 'Mode Survie') => {
+    const valid = (wordsList || []).filter(w => (w.question?.trim() || w.germanWord || w.word) && (w.answer?.trim() || w.frenchPrompt || w.question));
+    if (valid.length === 0) {
+      alert("Aucun mot valide dans cette liste !");
+      return;
+    }
+    setSurvivalSession({ words: valid, title });
+    setView('vengeance');
+  };
 
   const handlePurifySuccess = (word, apiData) => {
     setFailedWords(prev => {
@@ -730,10 +741,15 @@ function App() {
           </div>
         )}
         <VengeanceMode 
-          failedWords={failedWords}
+          failedWords={survivalSession ? survivalSession.words : failedWords}
+          isSurvivalMode={Boolean(survivalSession)}
+          modeTitle={survivalSession?.title || 'Mode Vengeance'}
           user={user}
-          onPurify={handlePurifySuccess}
-          onBackHome={() => setView('home')}
+          onPurify={survivalSession ? null : handlePurifySuccess}
+          onBackHome={() => {
+            setSurvivalSession(null);
+            setView('home');
+          }}
           playerName={playerName}
           avatar={avatar}
         />
@@ -947,7 +963,11 @@ function App() {
             onDeleteFailedWord={handleDeleteFailedWord}
             onEditFailedWord={handleEditFailedWord}
             onClearAllFailedWords={handleClearAllFailedWords}
-            onStartVengeance={() => setView('vengeance')}
+            onStartVengeance={() => {
+              setSurvivalSession(null);
+              setView('vengeance');
+            }}
+            onStartSurvival={handleStartSurvival}
           />
         )}
         {view === 'lobby' && (
@@ -963,6 +983,7 @@ function App() {
             user={user}
             chatMessages={chatMessages}
             setChatMessages={setChatMessages}
+            onStartSurvival={handleStartSurvival}
           />
         )}
         {view === 'results' && (

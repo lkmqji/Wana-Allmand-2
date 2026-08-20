@@ -24,6 +24,7 @@ export default function ListCard({
   isSelected,
   onToggleSelect,
   onPlay,
+  onPlaySurvival,
   onEdit,
   onPreview,
   onTogglePublic,
@@ -164,25 +165,53 @@ export default function ListCard({
         )}
       </div>
 
-      {/* Primary Action Button (100% Width on Bottom) */}
-      <button
-        onClick={onPlay}
-        className="btn btn-success"
-        style={{
-          width: '100%',
-          padding: '0.75rem 1rem',
-          fontSize: '0.95rem',
-          fontWeight: 800,
-          borderRadius: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '0.5rem',
-          letterSpacing: '0.5px'
-        }}
-      >
-        <span>⚔️</span> JOUER
-      </button>
+      {/* Primary Action Buttons (JOUER + MODE SURVIE) */}
+      <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+        <button
+          onClick={onPlay}
+          className="btn btn-success"
+          style={{
+            flex: 1,
+            padding: '0.7rem 0.5rem',
+            fontSize: '0.9rem',
+            fontWeight: 800,
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.4rem',
+            letterSpacing: '0.5px'
+          }}
+          title="Lancer une partie classique"
+        >
+          <span>⚔️</span> JOUER
+        </button>
+
+        {onPlaySurvival && (
+          <button
+            onClick={onPlaySurvival}
+            className="btn btn-primary"
+            style={{
+              flex: 1,
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              borderColor: '#b91c1c',
+              boxShadow: '0 4px 0 #991b1b, 0 0 16px rgba(239, 68, 68, 0.35)',
+              padding: '0.7rem 0.5rem',
+              fontSize: '0.9rem',
+              fontWeight: 800,
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.4rem',
+              letterSpacing: '0.5px'
+            }}
+            title="Jouer cette liste en Mode Survie (3 vies, chrono rapide)"
+          >
+            <span>🔥</span> SURVIE
+          </button>
+        )}
+      </div>
     </div>
   );
 }

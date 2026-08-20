@@ -4,7 +4,20 @@ import { formatPlayerName, extractEmoji, generateBurstParticles } from '../utils
 import { useSoundEffects } from '../context/AudioContext';
 import ListPreviewModal from './ListPreviewModal';
 
-export default function Lobby({ socket, session, players, isHost, setView, onlineUsers = [], playerName, avatar, user, chatMessages = [], setChatMessages }) {
+export default function Lobby({ 
+  socket, 
+  session, 
+  players, 
+  isHost, 
+  setView, 
+  onlineUsers = [], 
+  playerName, 
+  avatar, 
+  user, 
+  chatMessages = [], 
+  setChatMessages,
+  onStartSurvival 
+}) {
   const { playAlert, playMessageSent, playReactionBurst } = useSoundEffects();
   // Tabs: 'chat', 'online', 'words', 'settings'
   const [activeTab, setActiveTab] = useState('chat');
@@ -12,6 +25,7 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
   const [invitedSockets, setInvitedSockets] = useState({});
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [isSurvivalSolo, setIsSurvivalSolo] = useState(false);
   const messages = chatMessages;
   const [inputMsg, setInputMsg] = useState('');
   const chatBottomRef = useRef(null);
@@ -274,6 +288,12 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
       alert("Ajoutez au moins 1 mot valide avant de lancer la partie !");
       return;
     }
+
+    if (playerCount === 1 && isSurvivalSolo && onStartSurvival) {
+      onStartSurvival(validWords, session?.name || 'Session Solo');
+      return;
+    }
+
     socket.emit('start_game', session?.id);
   };
 
@@ -805,6 +825,46 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
          ========================================================= */}
       <div className="card card-secondary-elevated" style={{ padding: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
         
+        {/* Solo Mode Option: Survival Mode Toggle */}
+        {playerCount === 1 && isHost && (
+          <div 
+            onClick={() => setIsSurvivalSolo(!isSurvivalSolo)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: isSurvivalSolo ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.04)',
+              border: `1.5px solid ${isSurvivalSolo ? '#ef4444' : 'var(--border-color)'}`,
+              borderRadius: '12px',
+              padding: '0.65rem 0.9rem',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: isSurvivalSolo ? '0 0 15px rgba(239, 68, 68, 0.25)' : 'none'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <span style={{ fontSize: '1.3rem' }}>🔥</span>
+              <div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: isSurvivalSolo ? '#fca5a5' : 'var(--text-main)' }}>
+                  Jouer en Mode Survie (3 Vies, Chrono rapide)
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  Mécanique des 3 cœurs ❤️❤️❤️, rythme soutenu & correction active
+                </div>
+              </div>
+            </div>
+            <input 
+              type="checkbox"
+              checked={isSurvivalSolo}
+              onChange={(e) => {
+                e.stopPropagation();
+                setIsSurvivalSolo(e.target.checked);
+              }}
+              style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ef4444' }}
+            />
+          </div>
+        )}
+
         {/* Action Controls Bar */}
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <button
@@ -817,11 +877,22 @@ export default function Lobby({ socket, session, players, isHost, setView, onlin
 
           {isHost ? (
             <button
-              className="btn btn-success"
+              className={isSurvivalSolo && playerCount === 1 ? "btn btn-primary" : "btn btn-success"}
               onClick={handleStart}
-              style={{ flex: 1, padding: '0.7rem 1.2rem', fontSize: '0.95rem', fontWeight: 900, letterSpacing: '0.5px' }}
+              style={{
+                flex: 1,
+                padding: '0.7rem 1.2rem',
+                fontSize: '0.95rem',
+                fontWeight: 900,
+                letterSpacing: '0.5px',
+                background: isSurvivalSolo && playerCount === 1 ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : undefined,
+                borderColor: isSurvivalSolo && playerCount === 1 ? '#b91c1c' : undefined,
+                boxShadow: isSurvivalSolo && playerCount === 1 ? '0 4px 0 #991b1b, 0 0 16px rgba(239, 68, 68, 0.4)' : undefined
+              }}
             >
-              {playerCount === 1 ? '🚀 Jouer en Solo' : '⚔️ DÉMARRER LE DUEL !'}
+              {playerCount === 1 
+                ? (isSurvivalSolo ? '🔥 Lancer en Mode Survie !' : '🚀 Jouer en Solo') 
+                : '⚔️ DÉMARRER LE DUEL !'}
             </button>
           ) : (
             <div style={{

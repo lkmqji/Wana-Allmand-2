@@ -76,6 +76,42 @@ function checkVengeanceAnswer(expected, actual) {
   return articleMatched && (dist === 0 || (dist <= maxTypos && expNoun.length >= 4));
 }
 
+/**
+ * Compares user wrong attempt against expected answer and highlights errors (Task 2)
+ */
+function renderFaultComparison(wrongAttempt, expected) {
+  if (!wrongAttempt || !wrongAttempt.trim()) {
+    return <span style={{ color: '#ef4444', fontStyle: 'italic', fontSize: '1.1rem' }}>(vide / timeout)</span>;
+  }
+  const wrong = wrongAttempt.trim();
+  const exp = (expected || '').trim();
+
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontFamily: 'monospace', fontSize: '1.25rem', verticalAlign: 'middle' }}>
+      {wrong.split('').map((char, idx) => {
+        const expectedChar = exp[idx];
+        const isCorrectChar = expectedChar && char.toLowerCase() === expectedChar.toLowerCase();
+        return (
+          <span
+            key={idx}
+            style={{
+              color: isCorrectChar ? '#94a3b8' : '#ef4444',
+              backgroundColor: isCorrectChar ? 'rgba(255, 255, 255, 0.05)' : 'rgba(239, 68, 68, 0.25)',
+              textDecoration: isCorrectChar ? 'none' : 'line-through',
+              fontWeight: isCorrectChar ? 600 : 900,
+              padding: '1px 3px',
+              borderRadius: '4px',
+              border: isCorrectChar ? 'none' : '1px solid rgba(239, 68, 68, 0.5)'
+            }}
+          >
+            {char}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function VengeanceMode({
   failedWords = [],
   user,
@@ -83,18 +119,18 @@ export default function VengeanceMode({
   onBackHome,
   playerName = 'Guerrier',
   avatar = '🔥',
-  allLists = []
+  allLists = [],
+  isSurvivalMode = false,
+  modeTitle = 'Mode Vengeance'
 }) {
-  const BATCH_SIZE = 15;
+  // Task 3: Batch choice selector (10, 15, 20, 'TOUT')
+  const [batchSizeChoice, setBatchSizeChoice] = useState(10);
+  const [batchOffset, setBatchOffset] = useState(0);
 
-  // Task 1: Intro / Sas de préparation state
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  // Task 3: Initialize queue with max 15 words
-  const [queue, setQueue] = useState(() => {
+  // Helper to extract a batch of resolved word pairs
+  const getBatchData = (choice, offset = 0) => {
     const extraLists = [exampleLists, ...(allLists || [])];
-    const sliced = (failedWords || []).slice(0, BATCH_SIZE);
-    const initial = sliced.map((w, idx) => {
+    const all = (failedWords || []).map((w, idx) => {
       const pair = resolveWordPair(w, extraLists);
       return {
         id: idx + 1,
@@ -104,19 +140,35 @@ export default function VengeanceMode({
         hearts: 0
       };
     }).filter(w => Boolean(w.word));
-    return initial;
-  });
 
-  const [batchTotal] = useState(() => Math.min((failedWords || []).length, BATCH_SIZE) || 0);
+    const count = choice === 'TOUT' ? all.length : Number(choice);
+    const sliced = all.slice(offset, offset + count);
+    const finalWords = sliced.length > 0 ? sliced : all.slice(0, count);
+    return {
+      allWords: all,
+      batchWords: finalWords,
+      totalCount: finalWords.length,
+      remainingCount: Math.max(0, all.length - (offset + finalWords.length))
+    };
+  };
+
+  // Task 1: Intro Sas state
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  // Initial queue initialization with batch choice
+  const [queue, setQueue] = useState(() => getBatchData(10, 0).batchWords);
+  const [batchTotal, setBatchTotal] = useState(() => getBatchData(10, 0).totalCount);
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [inputVal, setInputVal] = useState('');
   const [timeLeft, setTimeLeft] = useState(ROUND_DURATION);
   const [isAnswering, setIsAnswering] = useState(false);
-  const [feedback, setFeedback] = useState(null); // { type: 'success'|'wrong'|'purify', message: '', expected: '' }
+  const [feedback, setFeedback] = useState(null);
   
-  // Task 2: Active Correction states
+  // Task 2: Active Correction & Error Pedagogy states
   const [mustTypeCorrection, setMustTypeCorrection] = useState(false);
   const [correctionText, setCorrectionText] = useState('');
+  const [wrongAttempt, setWrongAttempt] = useState('');
 
   const [isShaking, setIsShaking] = useState(false);
   const [isExploding, setIsExploding] = useState(false);
@@ -130,14 +182,14 @@ export default function VengeanceMode({
 
   const currentWord = queue[currentIndex] || null;
 
-  // Synchronized Sound on Word Appearance (DOM Render)
+  // Sound on Word Appearance
   useEffect(() => {
     if (isPlaying && currentWord && !isCompleted && !feedback && !mustTypeCorrection) {
       playCountdownGo();
     }
   }, [isPlaying, currentIndex, currentWord?.id, isCompleted, mustTypeCorrection]);
 
-  // Time warning (<= 5 seconds) tension sound ticker in Vengeance Mode
+  // Time warning ticker in Vengeance Mode
   const roundedVengeanceTime = Math.ceil(timeLeft);
   useEffect(() => {
     if (
@@ -154,7 +206,7 @@ export default function VengeanceMode({
     }
   }, [isPlaying, roundedVengeanceTime, isAnswering, feedback, isCompleted, mustTypeCorrection, currentWord, playTimeWarning]);
 
-  // Auto-focus input on new word/round or after correction trigger
+  // Auto-focus input on active screen
   useEffect(() => {
     if (isPlaying && !isAnswering && !isCompleted) {
       inputRef.current?.focus();
@@ -163,10 +215,9 @@ export default function VengeanceMode({
     }
   }, [isPlaying, currentIndex, isAnswering, isCompleted, feedback, mustTypeCorrection, currentWord]);
 
-  // Trigger triumph confetti on complete
+  // Confetti on triumph
   useEffect(() => {
     if (isCompleted) {
-      // Fire red & gold triumph confetti burst
       try {
         confetti({
           particleCount: 160,
@@ -196,7 +247,7 @@ export default function VengeanceMode({
     }
   }, [isCompleted]);
 
-  // Countdown timer with 30% faster duration and strict cleanup
+  // Countdown timer
   useEffect(() => {
     if (!isPlaying || isCompleted || !currentWord || isAnswering || mustTypeCorrection) return;
 
@@ -223,12 +274,11 @@ export default function VengeanceMode({
   const handleTimeout = () => {
     if (isAnswering || !currentWord || mustTypeCorrection) return;
     
-    // SFX: Play heavy error buzzer on timeout & reset
     playError();
     setIsShaking(true);
     setTimeout(() => setIsShaking(false), 500);
 
-    // Punishment: Reset hearts to 0
+    // Reset hearts to 0
     const updatedQueue = [...queue];
     updatedQueue[currentIndex] = {
       ...updatedQueue[currentIndex],
@@ -236,7 +286,8 @@ export default function VengeanceMode({
     };
     setQueue(updatedQueue);
 
-    // Task 2: Trigger Active Correction mode
+    // Trigger Active Correction mode with empty/timeout notice
+    setWrongAttempt(inputVal || '');
     setMustTypeCorrection(true);
     setCorrectionText(currentWord.word);
     setInputVal('');
@@ -253,14 +304,14 @@ export default function VengeanceMode({
         checkVengeanceAnswer(correctionText, inputVal);
 
       if (isExactCorrection) {
-        // Player correctly typed the correction -> proceed to next word
+        // Player correctly typed the correction -> advance
         setInputVal('');
         setMustTypeCorrection(false);
         setCorrectionText('');
+        setWrongAttempt('');
         setFeedback(null);
         setIsShaking(false);
         setIsAnswering(false);
-        // Advance to next word in queue
         setCurrentIndex(prev => (prev + 1) % queue.length);
       } else {
         // Retype mistake
@@ -282,7 +333,7 @@ export default function VengeanceMode({
       const newHearts = (currentWord.hearts || 0) + 1;
       
       if (newHearts >= 3) {
-        // 3 HEARTS REACHED: PURIFICATION! Heavy impact explosion sound
+        // 3 HEARTS REACHED: PURIFICATION / SURVIVAL SUCCESS
         setIsExploding(true);
         playExplosion();
 
@@ -292,12 +343,12 @@ export default function VengeanceMode({
 
         setFeedback({
           type: 'purify',
-          message: '💥 ÂME PURIFIÉE ! +50 XP 💥',
+          message: isSurvivalMode ? '💥 MOT MAÎTRISÉ ! +50 XP 💥' : '💥 ÂME PURIFIÉE ! +50 XP 💥',
           expected: currentWord.word
         });
 
-        // Trigger backend purification API
-        if (user?.uid) {
+        // Task 4: Only call backend purification API if playing actual failedWords purge mode
+        if (!isSurvivalMode && user?.uid) {
           fetch(`${API_URL}/api/users/${user.uid}/purify`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -310,8 +361,7 @@ export default function VengeanceMode({
             }
           })
           .catch(err => console.error("Error purifying word API:", err));
-        } else if (onPurify) {
-          // Guest mode fallback
+        } else if (!isSurvivalMode && onPurify) {
           onPurify(wordToPurify, { xpBonus: 50 });
         }
 
@@ -321,7 +371,6 @@ export default function VengeanceMode({
           setInputVal('');
           setIsAnswering(false);
 
-          // Remove word from queue
           const remainingQueue = queue.filter((_, idx) => idx !== currentIndex);
           if (remainingQueue.length === 0) {
             setIsCompleted(true);
@@ -329,10 +378,10 @@ export default function VengeanceMode({
             setQueue(remainingQueue);
             setCurrentIndex(prev => prev >= remainingQueue.length ? 0 : prev);
           }
-        }, 1500);
+        }, 1400);
 
       } else {
-        // Progress toward 3 hearts (1 or 2 hearts): Gain heart positive Ding
+        // Progress toward 3 hearts (1 or 2 hearts)
         playSuccess();
 
         const updatedQueue = [...queue];
@@ -352,12 +401,11 @@ export default function VengeanceMode({
           setFeedback(null);
           setInputVal('');
           setIsAnswering(false);
-          // Advance to next word in queue to vary practice
           setCurrentIndex(prev => (prev + 1) % updatedQueue.length);
-        }, 1100);
+        }, 1000);
       }
     } else {
-      // WRONG ANSWER: PUNISHMENT + MUSCLE MEMORY CORRECTION (Task 2)
+      // WRONG ANSWER: Store attempt + Muscle Memory Correction (Task 2)
       setIsAnswering(false);
       setIsShaking(true);
       playError();
@@ -370,10 +418,32 @@ export default function VengeanceMode({
       };
       setQueue(updatedQueue);
 
+      setWrongAttempt(inputVal || '');
       setMustTypeCorrection(true);
       setCorrectionText(currentWord.word);
       setInputVal('');
     }
+  };
+
+  // Task 3: Continuous chaining of remaining batches
+  const totalAvailableWords = (failedWords || []).length;
+  const remainingWordsCount = Math.max(0, totalAvailableWords - (batchOffset + batchTotal));
+
+  const handleChainNextBatch = () => {
+    const nextOffset = batchOffset + batchTotal;
+    const nextData = getBatchData(batchSizeChoice, nextOffset);
+    setBatchOffset(nextOffset);
+    setQueue(nextData.batchWords);
+    setBatchTotal(nextData.totalCount);
+    setCurrentIndex(0);
+    setInputVal('');
+    setPurifiedCount(0);
+    setIsCompleted(false);
+    setIsPlaying(true);
+    setFeedback(null);
+    setMustTypeCorrection(false);
+    setCorrectionText('');
+    setWrongAttempt('');
   };
 
   // 🏆 Écran de Triomphe
@@ -381,12 +451,12 @@ export default function VengeanceMode({
     const totalXp = purifiedCount * 50;
     return (
       <div className="vengeance-arena">
-        <div className="vengeance-game-box" style={{ textAlign: 'center', borderColor: '#ffd700', boxShadow: '0 0 60px rgba(255, 215, 0, 0.4)' }}>
+        <div className="vengeance-game-box" style={{ textAlign: 'center', borderColor: '#ffd700', boxShadow: '0 0 60px rgba(255, 215, 0, 0.4)', marginTop: '-8vh' }}>
           <div style={{ fontSize: '4rem', marginBottom: '0.8rem', animation: 'heartPop 0.6s ease-out' }}>
             🔥👑🔥
           </div>
           <h1 style={{ 
-            fontSize: '2.4rem', 
+            fontSize: '2.3rem', 
             fontWeight: 900, 
             background: 'linear-gradient(135deg, #ef4444, #f97316, #ffd700)', 
             WebkitBackgroundClip: 'text', 
@@ -394,10 +464,12 @@ export default function VengeanceMode({
             margin: '0 0 0.5rem 0',
             letterSpacing: '1px'
           }}>
-            🔥 ÂME PURIFIÉE ! 🔥
+            {isSurvivalMode ? '🔥 SURVIE TRIOMPHALE ! 🔥' : '🔥 ÂME PURIFIÉE ! 🔥'}
           </h1>
           <p style={{ color: '#fed7aa', fontSize: '1.05rem', fontWeight: 600, marginBottom: '2rem' }}>
-            Toutes vos fautes de la session ont été consumées par les flammes de la rédemption !
+            {isSurvivalMode 
+              ? 'Tous les mots de cette session ont été maîtrisés avec brio !' 
+              : 'Toutes vos fautes de la session ont été consumées par les flammes de la rédemption !'}
           </p>
 
           <div style={{
@@ -415,7 +487,7 @@ export default function VengeanceMode({
                 {purifiedCount}
               </div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                Mots détruits ⚔️
+                {isSurvivalMode ? 'Mots maîtrisés ⚔️' : 'Mots détruits ⚔️'}
               </div>
             </div>
             <div style={{ width: '1px', height: '45px', background: 'rgba(255,255,255,0.15)' }} />
@@ -429,19 +501,40 @@ export default function VengeanceMode({
             </div>
           </div>
 
-          <button
-            onClick={onBackHome}
-            className="vengeance-action-btn"
-            style={{ width: '100%', fontSize: '1.15rem', padding: '1rem' }}
-          >
-            🏠 Retour à l'Accueil
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+            {/* Task 3: Continuous Chaining Button if more words remain */}
+            {remainingWordsCount > 0 && (
+              <button
+                onClick={handleChainNextBatch}
+                className="btn btn-primary"
+                style={{
+                  width: '100%',
+                  fontSize: '1.15rem',
+                  padding: '1rem',
+                  fontWeight: 900,
+                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                  borderRadius: '14px',
+                  boxShadow: '0 6px 20px rgba(99, 102, 241, 0.4)'
+                }}
+              >
+                ⚡ Enchaîner ({remainingWordsCount} mot{remainingWordsCount > 1 ? 's' : ''} restant{remainingWordsCount > 1 ? 's' : ''})
+              </button>
+            )}
+
+            <button
+              onClick={onBackHome}
+              className="vengeance-action-btn"
+              style={{ width: '100%', fontSize: '1.1rem', padding: '0.95rem' }}
+            >
+              🏠 Retour à l'Accueil
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Task 1: Sas de Préparation (Intro Screen)
+  // Task 1 & 3: Sas de Préparation (Intro Screen with Batch Selector)
   if (!isPlaying) {
     return (
       <div className="vengeance-arena">
@@ -476,26 +569,26 @@ export default function VengeanceMode({
           </button>
 
           <div className="vengeance-flame-badge">
-            🔥 Session : {queue.length} mot{queue.length > 1 ? 's' : ''}
+            🔥 {modeTitle} • {totalAvailableWords} mot{totalAvailableWords > 1 ? 's' : ''} au total
           </div>
         </div>
 
         {/* Intro Presentation Box */}
-        <div className="vengeance-game-box" style={{ textAlign: 'center', padding: '2.5rem 2rem' }}>
-          <div style={{ fontSize: '3.8rem', marginBottom: '0.8rem', animation: 'heartPop 0.6s ease-out' }}>
+        <div className="vengeance-game-box" style={{ textAlign: 'center', padding: '2.2rem 2rem', marginTop: '-8vh' }}>
+          <div style={{ fontSize: '3.6rem', marginBottom: '0.6rem', animation: 'heartPop 0.6s ease-out' }}>
             🔥⚔️🔥
           </div>
           
           <h1 style={{
-            fontSize: '2.4rem',
+            fontSize: '2.3rem',
             fontWeight: 900,
             background: 'linear-gradient(135deg, #ef4444, #f97316, #fbbf24)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
-            margin: '0 0 1rem 0',
+            margin: '0 0 0.8rem 0',
             letterSpacing: '0.5px'
           }}>
-            Prépare-toi à la Purge 🔥
+            {isSurvivalMode ? 'Prépare-toi au Mode Survie 🔥' : 'Prépare-toi à la Purge 🔥'}
           </h1>
 
           {/* Rule Reminder */}
@@ -503,19 +596,58 @@ export default function VengeanceMode({
             background: 'rgba(239, 68, 68, 0.12)',
             border: '1px solid rgba(239, 68, 68, 0.35)',
             borderRadius: '16px',
-            padding: '1.2rem 1.4rem',
-            marginBottom: '1.8rem',
-            fontSize: '1rem',
+            padding: '1.1rem 1.3rem',
+            marginBottom: '1.5rem',
+            fontSize: '0.95rem',
             color: '#fca5a5',
             lineHeight: 1.5,
             textAlign: 'left'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem', fontWeight: 800, color: '#fed7aa', fontSize: '1.05rem' }}>
-              <span>📜</span> Règle de la Purge
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem', fontWeight: 800, color: '#fed7aa', fontSize: '1rem' }}>
+              <span>📜</span> Règle du Mode
             </div>
             <p style={{ margin: 0, color: '#f8fafc' }}>
-              1 bonne réponse = <strong>+1 ❤️</strong>. 1 erreur = <strong>Retour à Zéro !</strong> Remplis les <strong>3 cœurs</strong> pour purifier le mot.
+              1 bonne réponse = <strong>+1 ❤️</strong>. 1 erreur = <strong>Retour à Zéro !</strong> Remplis les <strong>3 cœurs</strong> pour {isSurvivalMode ? 'maîtriser le mot' : 'purifier le mot'}.
             </p>
+          </div>
+
+          {/* Task 3: Quick Batch Selector (10, 15, 20, TOUT) */}
+          <div style={{ marginBottom: '1.6rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.6rem', letterSpacing: '0.5px' }}>
+              🎯 Choisis la taille du lot pour cette session :
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              {[10, 15, 20, 'TOUT'].map(opt => {
+                const isSelected = batchSizeChoice === opt;
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => {
+                      setBatchSizeChoice(opt);
+                      const data = getBatchData(opt, 0);
+                      setQueue(data.batchWords);
+                      setBatchTotal(data.totalCount);
+                      setBatchOffset(0);
+                    }}
+                    style={{
+                      padding: '0.45rem 0.9rem',
+                      borderRadius: '999px',
+                      border: isSelected ? '1.5px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.15)',
+                      background: isSelected ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.4), rgba(220, 38, 38, 0.2))' : 'rgba(255, 255, 255, 0.05)',
+                      color: isSelected ? '#ffffff' : 'var(--text-muted)',
+                      fontWeight: isSelected ? 900 : 600,
+                      fontSize: '0.88rem',
+                      cursor: 'pointer',
+                      boxShadow: isSelected ? '0 0 14px rgba(239, 68, 68, 0.4)' : 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {opt === 'TOUT' ? `TOUT (${totalAvailableWords})` : `${opt} mots`}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div style={{
@@ -523,18 +655,18 @@ export default function VengeanceMode({
             justifyContent: 'space-around',
             background: 'rgba(0, 0, 0, 0.4)',
             borderRadius: '14px',
-            padding: '1rem',
-            marginBottom: '2rem',
+            padding: '0.9rem',
+            marginBottom: '1.8rem',
             border: '1px solid rgba(255, 255, 255, 0.08)'
           }}>
             <div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#f97316' }}>{queue.length}</div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Mots du lot</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#f97316' }}>{queue.length}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Mots du lot</div>
             </div>
             <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)' }} />
             <div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#22c55e' }}>+50 XP</div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Par mot purifié</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#22c55e' }}>+50 XP</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Par mot maîtrisé</div>
             </div>
           </div>
 
@@ -545,7 +677,7 @@ export default function VengeanceMode({
             style={{
               width: '100%',
               fontSize: '1.3rem',
-              padding: '1.15rem 2rem',
+              padding: '1.1rem 2rem',
               fontWeight: 900,
               letterSpacing: '1px',
               borderRadius: '16px',
@@ -562,7 +694,7 @@ export default function VengeanceMode({
   if (!currentWord) {
     return (
       <div className="vengeance-arena">
-        <div className="vengeance-game-box text-center">
+        <div className="vengeance-game-box text-center" style={{ marginTop: '-8vh' }}>
           <h2>Aucun mot à purifier</h2>
           <button onClick={onBackHome} className="vengeance-action-btn" style={{ marginTop: '1.5rem' }}>
             Retour à l'Accueil
@@ -608,14 +740,17 @@ export default function VengeanceMode({
         </button>
 
         <div className="vengeance-flame-badge">
-          🔥 Mode Vengeance • {queue.length} mot{queue.length > 1 ? 's' : ''} restant{queue.length > 1 ? 's' : ''}
+          🔥 {modeTitle} • {queue.length} mot{queue.length > 1 ? 's' : ''} restant{queue.length > 1 ? 's' : ''}
         </div>
       </div>
 
-      {/* Main Game Box */}
-      <div className={`vengeance-game-box ${feedback?.type === 'success' || feedback?.type === 'purify' ? 'correct-flash' : ''} ${feedback?.type === 'wrong' || mustTypeCorrection ? 'wrong-flash' : ''} ${isExploding ? 'heart-icon-active' : ''}`}>
+      {/* Main Game Box (Task 1: marginTop -8vh) */}
+      <div 
+        className={`vengeance-game-box ${feedback?.type === 'success' || feedback?.type === 'purify' ? 'correct-flash' : ''} ${feedback?.type === 'wrong' || mustTypeCorrection ? 'wrong-flash' : ''} ${isExploding ? 'heart-icon-active' : ''}`}
+        style={{ marginTop: '-8vh' }}
+      >
         
-        {/* Visual Timer Bar (paused or hidden during active correction) */}
+        {/* Visual Timer Bar */}
         <div className="vengeance-timer-track">
           <div
             className="vengeance-timer-bar"
@@ -626,7 +761,7 @@ export default function VengeanceMode({
           />
         </div>
 
-        {/* Task 4: 3 Hearts Meter with clear empty heart contrast */}
+        {/* 3 Hearts Meter */}
         <div className="vengeance-hearts-row" title={`Cœurs : ${heartsCount}/3`}>
           {[1, 2, 3].map(heartNum => {
             const isFilled = heartsCount >= heartNum;
@@ -649,12 +784,12 @@ export default function VengeanceMode({
         </div>
 
         {/* Prompt Word / French Question */}
-        <div style={{ textAlign: 'center', marginBottom: '1.8rem' }}>
-          <div style={{ fontSize: '0.95rem', color: '#f97316', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.6rem' }}>
+          <div style={{ fontSize: '0.9rem', color: '#f97316', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.4rem' }}>
             Traduire en allemand :
           </div>
           <h1 style={{
-            fontSize: '2.6rem',
+            fontSize: '2.5rem',
             fontWeight: 900,
             color: '#ffffff',
             margin: '0',
@@ -665,35 +800,51 @@ export default function VengeanceMode({
             {currentWord.question || currentWord.word}
           </h1>
           {currentWord.count > 1 && (
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
               Raté {currentWord.count} fois par le passé
             </div>
           )}
         </div>
 
-        {/* Task 2: Active Correction Notification / Feedback */}
+        {/* Task 2: Active Correction & Pedagogical Error Box */}
         {mustTypeCorrection ? (
           <div style={{
-            background: 'rgba(239, 68, 68, 0.15)',
-            border: '2px solid #ef4444',
-            borderRadius: '14px',
-            padding: '1rem 1.2rem',
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '2px solid rgba(239, 68, 68, 0.6)',
+            borderRadius: '16px',
+            padding: '1.1rem 1.3rem',
             textAlign: 'center',
-            marginBottom: '1.2rem',
-            boxShadow: '0 0 25px rgba(239, 68, 68, 0.3)',
-            animation: 'fadeIn 0.2s ease-out'
+            marginBottom: '1.3rem',
+            boxShadow: '0 0 30px rgba(239, 68, 68, 0.25)',
+            animation: 'fadeIn 0.25s ease-out'
           }}>
-            <div style={{ fontSize: '0.92rem', fontWeight: 700, color: '#fca5a5', marginBottom: '0.4rem' }}>
-              ❌ Réponse incorrecte ! Tape la bonne réponse pour continuer :
+            {/* Wrong typing diff comparison */}
+            <div style={{ marginBottom: '0.5rem' }}>
+              <span style={{ fontSize: '0.85rem', color: '#fca5a5', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                ❌ Ta frappe :{' '}
+              </span>
+              {renderFaultComparison(wrongAttempt, correctionText)}
             </div>
-            <div style={{
-              fontSize: '1.75rem',
-              fontWeight: 900,
-              color: '#4ade80',
-              textShadow: '0 0 16px rgba(74, 222, 128, 0.5)',
-              letterSpacing: '0.5px'
-            }}>
-              {correctionText}
+
+            {/* Expected correct answer in large H2 and green */}
+            <div style={{ margin: '0.3rem 0 0.5rem 0' }}>
+              <div style={{ fontSize: '0.78rem', color: '#86efac', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                ✓ Réponse attendue :
+              </div>
+              <h2 style={{
+                fontSize: '2.1rem',
+                fontWeight: 900,
+                color: 'var(--success-color, #4ade80)',
+                textShadow: '0 0 20px rgba(74, 222, 128, 0.5)',
+                margin: '0.2rem 0 0 0',
+                letterSpacing: '0.5px'
+              }}>
+                {correctionText}
+              </h2>
+            </div>
+
+            <div style={{ fontSize: '0.85rem', color: '#fed7aa', fontWeight: 600 }}>
+              ⌨️ Tape la bonne réponse pour continuer :
             </div>
           </div>
         ) : feedback ? (
@@ -703,7 +854,7 @@ export default function VengeanceMode({
             borderRadius: '12px',
             padding: '0.8rem 1rem',
             textAlign: 'center',
-            marginBottom: '1.5rem',
+            marginBottom: '1.4rem',
             animation: 'fadeIn 0.2s ease-out'
           }}>
             <div style={{ fontWeight: 800, fontSize: '1rem', color: feedback.type === 'wrong' ? '#fca5a5' : '#86efac' }}>
@@ -717,47 +868,74 @@ export default function VengeanceMode({
           </div>
         ) : null}
 
-        {/* Submission Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-          <input
-            ref={inputRef}
-            autoFocus
-            type="text"
-            className="input-field"
-            placeholder={mustTypeCorrection ? "Tape exactement la correction ci-dessus..." : "Écris la traduction en allemand..."}
-            value={inputVal}
-            onChange={(e) => setInputVal(e.target.value)}
-            disabled={isAnswering}
-            autoComplete="off"
-            autoCorrect="off"
-            spellCheck="false"
-            style={{
-              padding: '1.1rem',
-              fontSize: '1.25rem',
-              textAlign: 'center',
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              borderColor: mustTypeCorrection ? '#ef4444' : (isShaking ? '#ef4444' : 'rgba(239, 68, 68, 0.4)'),
-              boxShadow: mustTypeCorrection ? '0 0 20px rgba(239, 68, 68, 0.4)' : 'none',
-              borderWidth: mustTypeCorrection ? '2px' : '1px',
-              color: '#ffffff',
-              borderRadius: '14px'
-            }}
-          />
+        {/* Submission Form (Task 1: Inline Submit Arrow inside Input) */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+          <div style={{ position: 'relative', width: '100%' }}>
+            <input
+              ref={inputRef}
+              autoFocus
+              type="text"
+              className="input-field"
+              placeholder={mustTypeCorrection ? "Tape exactement la correction ci-dessus..." : "Écris la traduction en allemand..."}
+              value={inputVal}
+              onChange={(e) => setInputVal(e.target.value)}
+              disabled={isAnswering}
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck="false"
+              style={{
+                width: '100%',
+                padding: '1.1rem 3.6rem 1.1rem 1.2rem',
+                fontSize: '1.25rem',
+                textAlign: 'left',
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                borderColor: mustTypeCorrection ? '#ef4444' : (isShaking ? '#ef4444' : 'rgba(239, 68, 68, 0.4)'),
+                boxShadow: mustTypeCorrection ? '0 0 20px rgba(239, 68, 68, 0.4)' : 'none',
+                borderWidth: mustTypeCorrection ? '2px' : '1px',
+                color: '#ffffff',
+                borderRadius: '16px'
+              }}
+            />
 
-          <button
-            type="submit"
-            className={mustTypeCorrection ? "btn btn-success" : "vengeance-action-btn"}
-            disabled={isAnswering || !inputVal.trim()}
-            style={mustTypeCorrection ? { padding: '1rem 1.6rem', fontSize: '1.05rem', fontWeight: 800 } : {}}
-          >
-            {mustTypeCorrection ? '⚡ VALIDER LA CORRECTION (ENTRÉE)' : '⚡ PURIFIER LE MOT (ENTRÉE)'}
-          </button>
+            {/* Inline Arrow Submit Button */}
+            <button
+              type="submit"
+              disabled={isAnswering || !inputVal.trim()}
+              style={{
+                position: 'absolute',
+                right: '8px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                border: 'none',
+                background: mustTypeCorrection
+                  ? 'linear-gradient(135deg, #10b981, #059669)'
+                  : (inputVal.trim() ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'rgba(255, 255, 255, 0.08)'),
+                color: '#ffffff',
+                fontSize: '1.2rem',
+                fontWeight: 900,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: (isAnswering || !inputVal.trim()) ? 'not-allowed' : 'pointer',
+                boxShadow: inputVal.trim() 
+                  ? (mustTypeCorrection ? '0 0 14px rgba(16, 185, 129, 0.4)' : '0 0 14px rgba(239, 68, 68, 0.4)') 
+                  : 'none',
+                transition: 'all 0.15s ease',
+                opacity: inputVal.trim() ? 1 : 0.45
+              }}
+              title="Valider la réponse (Entrée)"
+            >
+              ➔
+            </button>
+          </div>
         </form>
 
-        {/* Task 3: Session progress footer */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-          <span>Progression de la session : {purifiedCount} / {batchTotal}</span>
-          <span>Gain : +50 XP / mot</span>
+        {/* Task 1: Clean, Single Centered Footer Text */}
+        <div style={{ textAlign: 'center', marginTop: '1.3rem', fontSize: '0.88rem', color: 'var(--text-secondary, #94a3b8)', fontWeight: 600 }}>
+          {purifiedCount} / {batchTotal} {isSurvivalMode ? 'mots maîtrisés' : 'mots purifiés'}
         </div>
       </div>
     </div>

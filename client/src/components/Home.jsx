@@ -37,6 +37,7 @@ export default function Home({
   setTheme,
   failedWords = [],
   onStartVengeance,
+  onStartSurvival,
   onDeleteFailedWord,
   onEditFailedWord,
   onClearAllFailedWords
@@ -792,6 +793,7 @@ export default function Home({
                       isSelected={selectedListIds.has(list._id)}
                       onToggleSelect={() => toggleListSelection(list._id)}
                       onPlay={() => handleStartDirectSession(list.words)}
+                      onPlaySurvival={onStartSurvival ? () => onStartSurvival(list.words, list.name) : null}
                       onEdit={() => handleEditList(list)}
                       onPreview={() => setPreviewList({ ...list, isEditable: true })}
                       onTogglePublic={() => togglePublicList(list._id, list.isPublic)}
