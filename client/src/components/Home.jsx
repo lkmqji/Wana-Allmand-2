@@ -505,10 +505,11 @@ export default function Home({
             padding: '0.6rem 0.8rem', 
             borderRadius: '10px', 
             display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', 
             gap: '0.4rem',
             lineHeight: 1.4
           }}>
+            <div><strong>isDesktop (PC/Mac) :</strong> <span style={{ color: standaloneDebug.isDesktop ? '#86efac' : '#fca5a5' }}>{String(standaloneDebug.isDesktop)}</span></div>
             <div><strong>isLocalDev :</strong> <span style={{ color: standaloneDebug.isLocalDev ? '#86efac' : '#fca5a5' }}>{String(standaloneDebug.isLocalDev)}</span></div>
             <div><strong>isStandaloneMode :</strong> <span style={{ color: standaloneDebug.isStandaloneMode ? '#86efac' : '#fca5a5' }}>{String(standaloneDebug.isStandaloneMode)}</span></div>
             <div><strong>isIOSStandalone :</strong> <span style={{ color: standaloneDebug.isIOSStandalone ? '#86efac' : '#fca5a5' }}>{String(standaloneDebug.isIOSStandalone)}</span></div>

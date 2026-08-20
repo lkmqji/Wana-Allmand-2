@@ -19,12 +19,13 @@ import { formatPlayerName, getClientPlayerKey } from './utils/formatters';
 import { useSoundEffects, useAudio } from './context/AudioContext';
 import { sfx } from './utils/sfxManager';
 
-// Strict Standalone PWA detection helper with full diagnostic data
+// Strict Standalone PWA detection helper with Desktop (PC/Mac) bypass
 const evaluateStandalone = () => {
   if (typeof window === 'undefined') {
     return {
       isStandalone: false,
       isLocalDev: false,
+      isDesktop: false,
       isStandaloneMode: false,
       isIOSStandalone: false,
       hostname: ''
@@ -32,24 +33,38 @@ const evaluateStandalone = () => {
   }
 
   const hostname = window.location.hostname || '';
-  // Accès web direct autorisé UNIQUEMENT sur localhost / 127.0.0.1 en développement
+  const ua = (window.navigator.userAgent || '').toLowerCase();
+  const platform = (window.navigator.platform || '').toLowerCase();
+  const maxTouchPoints = window.navigator.maxTouchPoints || 0;
+
+  // Accès web direct autorisé sur localhost / 127.0.0.1
   const isLocalDev = Boolean(hostname === 'localhost' || hostname === '127.0.0.1');
 
-  // Détection stricte : display-mode standalone (Android / Chrome / Desktop)
+  // Détection Mobile / Tablette (iOS, Android, iPadOS)
+  const isMobileDevice = /android|iphone|ipod|windows phone|iemobile|mobile/i.test(ua) || 
+                         /ipad/i.test(ua) || 
+                         (platform.includes('macintel') && maxTouchPoints > 1);
+
+  // Ordinateurs de bureau (PC Windows, macOS, Linux)
+  const isDesktop = !isMobileDevice;
+
+  // Détection PWA Standalone (Android / Chrome)
   const isStandaloneMode = Boolean(
     window.matchMedia && window.matchMedia('(display-mode: standalone)').matches
   );
 
-  // Détection stricte : navigator.standalone (iOS Safari)
+  // Détection PWA Standalone (iOS Safari)
   const isIOSStandalone = Boolean(
     window.navigator && window.navigator.standalone === true
   );
 
-  const isStandalone = isLocalDev || isStandaloneMode || isIOSStandalone;
+  // Accès autorisé si : Dev Local OU Ordinateur Bureau (PC/Mac) OU Mobile installé en Standalone
+  const isStandalone = isLocalDev || isDesktop || isStandaloneMode || isIOSStandalone;
 
   return {
     isStandalone,
     isLocalDev,
+    isDesktop,
     isStandaloneMode,
     isIOSStandalone,
     hostname
