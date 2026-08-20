@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAudio } from '../context/AudioContext';
 
 export default function Profil({
@@ -9,6 +9,7 @@ export default function Profil({
   setAvatar,
   playerName,
   setPlayerName,
+  onSaveProfile,
   theme,
   setTheme,
   autoSaveEnabled,
@@ -19,6 +20,41 @@ export default function Profil({
   handleDeleteAccount
 }) {
   const [subTab, setSubTab] = useState('account'); // 'account', 'themes', 'audio'
+  const [nameInput, setNameInput] = useState(playerName || '');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    setNameInput(playerName || '');
+  }, [playerName]);
+
+  const handleSave = async (customName = nameInput, customAvatar = avatar) => {
+    const trimmed = (customName || '').trim();
+    if (!trimmed) return;
+    setIsSaving(true);
+    try {
+      if (onSaveProfile) {
+        await onSaveProfile(trimmed, customAvatar);
+      } else {
+        if (setPlayerName) setPlayerName(trimmed);
+        if (setAvatar) setAvatar(customAvatar);
+        localStorage.setItem('wana_player_name', trimmed);
+        localStorage.setItem('wana_avatar', customAvatar);
+      }
+      playSuccess();
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
+    } catch (err) {
+      console.error('Error saving profile:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAvatarChange = (newAv) => {
+    if (setAvatar) setAvatar(newAv);
+    handleSave(nameInput, newAv);
+  };
 
   const {
     isSoundEnabled,
@@ -146,18 +182,42 @@ export default function Profil({
           )}
 
           {/* Identity Card */}
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <span style={{ fontSize: '1.4rem' }}>🪪</span>
-              <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Votre Identité</h3>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <span style={{ fontSize: '1.4rem' }}>🪪</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Votre Identité en Jeu</h3>
+                  <div className="text-muted" style={{ fontSize: '0.8rem', marginTop: '2px' }}>
+                    Modifiez votre pseudo et avatar affichés en duel et dans le classement
+                  </div>
+                </div>
+              </div>
+              {saveSuccess && (
+                <span style={{
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  border: '1px solid #10b981',
+                  color: '#10b981',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  padding: '0.25rem 0.75rem',
+                  borderRadius: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  animation: 'fadeIn 0.2s ease-in-out'
+                }}>
+                  ✓ Modifié &amp; Sauvegardé
+                </span>
+              )}
             </div>
             
             <div className="mobile-stack" style={{ alignItems: 'center', gap: '0.8rem' }}>
               <select 
                 className="input-field" 
                 value={avatar} 
-                onChange={(e) => setAvatar(e.target.value)}
-                style={{ padding: '0.5rem', fontSize: '1.6rem', flex: '0 0 85px', textAlign: 'center', cursor: 'pointer' }}
+                onChange={(e) => handleAvatarChange(e.target.value)}
+                style={{ padding: '0.5rem', fontSize: '1.6rem', flex: '0 0 90px', textAlign: 'center', cursor: 'pointer' }}
                 title="Choisir votre avatar"
               >
                 <option value="🦊">🦊 Renard</option>
@@ -168,18 +228,65 @@ export default function Profil({
                 <option value="😎">😎 Cool</option>
                 <option value="👻">👻 Fantôme</option>
                 <option value="👑">👑 Roi</option>
+                <option value="⚡">⚡ Éclair</option>
+                <option value="🔥">🔥 Flamme</option>
               </select>
               <div style={{ flex: 1, width: '100%' }}>
                 <input 
                   type="text" 
                   className="input-field" 
-                  placeholder="Pseudo (ex: Wail...)" 
+                  placeholder="Votre pseudo (ex: Wail...)" 
                   maxLength={32}
-                  value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
-                  style={{ margin: 0, width: '100%', fontSize: '1rem' }}
+                  value={nameInput}
+                  onChange={(e) => {
+                    setNameInput(e.target.value);
+                    if (setPlayerName) setPlayerName(e.target.value);
+                  }}
+                  onBlur={() => {
+                    if (nameInput.trim() && nameInput.trim() !== playerName) {
+                      handleSave(nameInput.trim(), avatar);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSave(nameInput.trim(), avatar);
+                    }
+                  }}
+                  style={{ margin: 0, width: '100%', fontSize: '1.05rem', fontWeight: 600 }}
                 />
               </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.8rem', paddingTop: '0.4rem', borderTop: '1px solid var(--border-color)' }}>
+              <div className="text-muted" style={{ fontSize: '0.82rem' }}>
+                {user ? (
+                  <span>Compte lié : <strong style={{ color: 'var(--text-main)' }}>{user.displayName || user.email}</strong></span>
+                ) : (
+                  <span>Mode Invité : Enregistré localement sur votre appareil.</span>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleSave(nameInput.trim(), avatar)}
+                disabled={isSaving || !nameInput.trim()}
+                className="btn btn-primary"
+                style={{
+                  padding: '0.55rem 1.4rem',
+                  fontWeight: 'bold',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  width: 'auto',
+                  minWidth: '150px',
+                  justifyContent: 'center',
+                  background: saveSuccess ? '#10b981' : undefined,
+                  borderColor: saveSuccess ? '#10b981' : undefined
+                }}
+              >
+                {isSaving ? '⏳ Enregistrement...' : saveSuccess ? '✓ Enregistré !' : '💾 Sauvegarder'}
+              </button>
             </div>
           </div>
 

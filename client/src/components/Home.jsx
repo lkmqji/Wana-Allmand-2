@@ -21,6 +21,7 @@ export default function Home({
   setPlayerName, 
   avatar, 
   setAvatar, 
+  onSaveProfile,
   user, 
   loginWithGoogle, 
   logout, 
@@ -1169,6 +1170,7 @@ export default function Home({
           setAvatar={setAvatar}
           playerName={playerName}
           setPlayerName={setPlayerName}
+          onSaveProfile={onSaveProfile}
           theme={theme}
           setTheme={setTheme}
           autoSaveEnabled={autoSaveEnabled}

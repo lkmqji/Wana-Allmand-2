@@ -497,17 +497,65 @@ async function enrichUserFailedWords(user) {
 
 app.post('/api/users/sync', async (req, res) => {
     try {
-        const { firebaseId, name } = req.body;
+        const { firebaseId, name, avatar } = req.body;
         let user = await User.findOne({ firebaseId });
         if (!user) {
-            user = await User.create({ firebaseId, name });
-        } else if (user.name !== name) {
-            user.name = name;
+            user = await User.create({ 
+                firebaseId, 
+                name: name ? formatPlayerName(name) : 'Joueur',
+                avatar: avatar || '🦊'
+            });
+        } else {
+            // Keep existing custom user name if already set, or update if provided and user has no custom name
+            if (name && (!user.name || user.name === 'Joueur')) {
+                user.name = formatPlayerName(name);
+            }
+            if (avatar && !user.avatar) {
+                user.avatar = avatar;
+            }
             await user.save();
         }
         await enrichUserFailedWords(user);
         res.json(user);
     } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Endpoint to update user profile (name and/or avatar)
+app.put('/api/users/:firebaseId/profile', async (req, res) => {
+    try {
+        const { firebaseId } = req.params;
+        const { name, avatar } = req.body;
+        let user = await User.findOne({ firebaseId });
+        if (!user) {
+            user = await User.create({ 
+                firebaseId, 
+                name: name ? formatPlayerName(name) : 'Joueur',
+                avatar: avatar || '🦊'
+            });
+        } else {
+            if (name && typeof name === 'string' && name.trim()) {
+                user.name = formatPlayerName(name.trim());
+            }
+            if (avatar && typeof avatar === 'string') {
+                user.avatar = avatar;
+            }
+            await user.save();
+        }
+
+        // Update in-memory online users if connected
+        for (const [sId, onlineUser] of onlineUsers.entries()) {
+            if (onlineUser.firebaseId === firebaseId) {
+                onlineUser.name = `${user.avatar || '🦊'} ${formatPlayerName(user.name)}`;
+                onlineUser.avatar = user.avatar || '🦊';
+            }
+        }
+        broadcastOnlineUsers();
+
+        res.json({ success: true, user });
+    } catch (err) {
+        console.error('Error updating user profile:', err);
         res.status(500).json({ error: err.message });
     }
 });

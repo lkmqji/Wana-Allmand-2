@@ -13,22 +13,33 @@ import RightPanel from './components/RightPanel';
 import TitleScreen from './components/TitleScreen';
 import InstallGate from './components/InstallGate';
 import { exampleLists } from './data/exampleLists';
-import { auth, loginWithGoogle, logout, deleteAccount } from './firebase';
+import { auth, loginWithGoogle, logout, deleteAccount, updateUserProfile } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { formatPlayerName, getClientPlayerKey } from './utils/formatters';
 import { useSoundEffects, useAudio } from './context/AudioContext';
 import { sfx } from './utils/sfxManager';
 
-// Standalone PWA detection helper (iOS Safari + Chromium/Android/Desktop PWA)
+// Strict Standalone PWA detection helper
 const checkIsStandalone = () => {
   if (typeof window === 'undefined') return false;
-  return Boolean(
-    window.matchMedia('(display-mode: standalone)').matches ||
-    window.navigator.standalone === true ||
-    document.referrer.includes('android-app://') ||
-    window.matchMedia('(display-mode: fullscreen)').matches
+
+  // Accès web direct autorisé UNIQUEMENT sur localhost / 127.0.0.1 en développement
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return true;
+  }
+
+  // Détection stricte : display-mode standalone (Android / Chrome / Desktop) ou navigator.standalone (iOS Safari)
+  const isMatchMediaStandalone = Boolean(
+    window.matchMedia && window.matchMedia('(display-mode: standalone)').matches
   );
+  const isNavigatorStandalone = Boolean(
+    window.navigator && window.navigator.standalone === true
+  );
+
+  return isMatchMediaStandalone || isNavigatorStandalone;
 };
+
 
 // Connect to server (uses env variable or fallback to localhost)
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -49,8 +60,12 @@ function App() {
   const [players, setPlayers] = useState({});
   const [isHost, setIsHost] = useState(false);
   const [error, setError] = useState('');
-  const [playerName, setPlayerName] = useState('');
-  const [avatar, setAvatar] = useState('🦊');
+  const [playerName, setPlayerName] = useState(() => {
+    return localStorage.getItem('wana_player_name') || '';
+  });
+  const [avatar, setAvatar] = useState(() => {
+    return localStorage.getItem('wana_avatar') || '🦊';
+  });
   const [user, setUser] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
@@ -277,32 +292,99 @@ function App() {
     };
   }, [user, playerName, avatar, isGuest]);
 
+  const handleSaveProfile = async (newName, newAvatar) => {
+    const formatted = formatPlayerName(newName);
+    const finalAvatar = newAvatar || avatar || '🦊';
+
+    setPlayerName(formatted);
+    if (newAvatar) setAvatar(newAvatar);
+
+    localStorage.setItem('wana_player_name', formatted);
+    localStorage.setItem('wana_avatar', finalAvatar);
+
+    if (user?.uid) {
+      // 1. Firebase Auth profile displayName update
+      try {
+        if (auth.currentUser) {
+          await updateUserProfile(auth.currentUser, { displayName: formatted });
+        }
+      } catch (err) {
+        console.warn('Firebase updateUserProfile error:', err);
+      }
+
+      // 2. Backend DB profile update
+      try {
+        const res = await fetch(`${API_URL}/api/users/${user.uid}/profile`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: formatted, avatar: finalAvatar })
+        });
+        const data = await res.json();
+        if (data?.user) {
+          setLeaderboard(prev => prev.map(u => u.firebaseId === user.uid ? { ...u, name: formatted, avatar: finalAvatar } : u));
+        }
+      } catch (err) {
+        console.error('Backend update profile error:', err);
+      }
+    }
+
+    // 3. Online users socket identity update
+    socket.emit('register_online_user', {
+      firebaseId: user?.uid || null,
+      name: formatted ? `${finalAvatar} ${formatted}` : `${finalAvatar} Joueur`,
+      avatar: finalAvatar
+    });
+    socket.emit('get_online_users');
+
+    return true;
+  };
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       setIsAuthLoading(false);
       if (currentUser) {
-        if (!playerName) setPlayerName(formatPlayerName(currentUser.displayName || ''));
         // Register personal user socket room for direct notifications
         socket.emit('register_user', currentUser.uid);
+
+        const savedLocalName = localStorage.getItem('wana_player_name');
+        const savedLocalAvatar = localStorage.getItem('wana_avatar');
+
         // Sync with backend
-        fetch(`${API_URL}/api/users/sync`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ firebaseId: currentUser.uid, name: currentUser.displayName })
-        })
-        .then(r => r.json())
-        .then(data => {
-          if (data && Array.isArray(data.failedWords)) {
-            setFailedWords(data.failedWords);
-            localStorage.setItem('wana_failed_words', JSON.stringify(data.failedWords));
+        try {
+          const syncRes = await fetch(`${API_URL}/api/users/sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              firebaseId: currentUser.uid, 
+              name: savedLocalName || currentUser.displayName || 'Joueur',
+              avatar: savedLocalAvatar || '🦊'
+            })
+          });
+          const data = await syncRes.json();
+          if (data) {
+            const finalName = formatPlayerName(savedLocalName || data.name || currentUser.displayName || '');
+            if (finalName) {
+              setPlayerName(finalName);
+              localStorage.setItem('wana_player_name', finalName);
+            }
+            const finalAvatar = savedLocalAvatar || data.avatar || '🦊';
+            if (finalAvatar) {
+              setAvatar(finalAvatar);
+              localStorage.setItem('wana_avatar', finalAvatar);
+            }
+            if (Array.isArray(data.failedWords)) {
+              setFailedWords(data.failedWords);
+              localStorage.setItem('wana_failed_words', JSON.stringify(data.failedWords));
+            }
           }
-        })
-        .catch(console.error);
+        } catch (err) {
+          console.error('Backend sync error:', err);
+        }
       }
     });
     return () => unsubscribe();
-  }, [playerName]);
+  }, []);
 
   // Fetch notifications for user or guest
   useEffect(() => {
@@ -848,6 +930,8 @@ function App() {
           }
         }}
         user={user}
+        playerName={playerName}
+        avatar={avatar}
         loginWithGoogle={loginWithGoogle}
         logout={logout}
         theme={theme}
@@ -989,6 +1073,7 @@ function App() {
             setPlayerName={setPlayerName}
             avatar={avatar}
             setAvatar={setAvatar}
+            onSaveProfile={handleSaveProfile}
             user={user}
             loginWithGoogle={loginWithGoogle}
             logout={() => { logout(); setIsGuest(false); setHasEnteredApp(false); }}

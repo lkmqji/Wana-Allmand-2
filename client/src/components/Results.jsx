@@ -14,7 +14,7 @@ const PRESET_RESULTS_CHAT = [
 const PRESET_REACTIONS = ['🔥', '⚡', '🏆', '⚔️', '💪', '👏'];
 
 export default function Results({ players = {}, setView, socket, session, isHost, playerName, avatar, user, chatMessages = [], setChatMessages }) {
-  const { playVictory, playDefeat, playMessageSent, playReactionBurst } = useSoundEffects();
+  const { playVictory, playDefeat, playMessageSent, playReactionBurst, isMusicMuted, toggleMusicMute } = useSoundEffects();
   const [currentPlayers, setCurrentPlayers] = useState(players || {});
   
   // Telegram Burst reactions state & 5s cooldown
@@ -562,19 +562,57 @@ export default function Results({ players = {}, setView, socket, session, isHost
             </span>
           </div>
 
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-            background: 'var(--bg-main)',
-            border: '1px solid var(--border-color)',
-            padding: '0.2rem 0.65rem',
-            borderRadius: '8px',
-            fontSize: '0.78rem',
-            fontWeight: 800,
-            color: isDraw ? '#f59e0b' : 'var(--primary)'
-          }}>
-            {isDraw ? '🤝 ÉGALITÉ' : isSolo ? '⭐ SOLO COMPLET' : `👑 VICTOIRE : ${formatPlayerName(winner?.name)}`}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              background: 'var(--bg-main)',
+              border: '1px solid var(--border-color)',
+              padding: '0.2rem 0.65rem',
+              borderRadius: '8px',
+              fontSize: '0.78rem',
+              fontWeight: 800,
+              color: isDraw ? '#f59e0b' : 'var(--primary)'
+            }}>
+              {isDraw ? '🤝 ÉGALITÉ' : isSolo ? '⭐ SOLO COMPLET' : `👑 VICTOIRE : ${formatPlayerName(winner?.name)}`}
+            </div>
+
+            {/* Quick Music Mute Button */}
+            <button
+              type="button"
+              onClick={toggleMusicMute}
+              style={{
+                background: isMusicMuted ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-main)',
+                border: `1.5px solid ${isMusicMuted ? 'var(--danger)' : 'var(--border-color)'}`,
+                color: isMusicMuted ? 'var(--danger)' : 'var(--primary)',
+                borderRadius: '8px',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                boxShadow: isMusicMuted ? '0 0 10px rgba(239, 68, 68, 0.25)' : 'none'
+              }}
+              title={isMusicMuted ? "Réactiver la musique de fond" : "Couper la musique de fond (muet rapide - bruitages restent actifs)"}
+            >
+              {isMusicMuted ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 18V5l12-2v13"></path>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="16" r="3"></circle>
+                  <line x1="2" y1="2" x2="22" y2="22" stroke="var(--danger)" strokeWidth="2.5"></line>
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 18V5l12-2v13"></path>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+              )}
+            </button>
           </div>
         </div>
 

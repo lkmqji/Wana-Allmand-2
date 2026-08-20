@@ -41,7 +41,17 @@ export function AudioProvider({ children }) {
     }
   });
 
+  const [isMusicMuted, setIsMusicMuted] = useState(() => {
+    try {
+      const saved = localStorage.getItem('wana_music_muted');
+      return saved !== null ? saved === 'true' : false;
+    } catch {
+      return false;
+    }
+  });
+
   const isSoundEnabledRef = useRef(isSoundEnabled);
+  const isMusicMutedRef = useRef(isMusicMuted);
   const hasInteractedRef = useRef(false);
   const bgmRef = useRef(null);
 
@@ -54,6 +64,16 @@ export function AudioProvider({ children }) {
       console.warn('LocalStorage error:', e);
     }
   }, [isSoundEnabled]);
+
+  // Sync isMusicMuted state to ref and localStorage
+  useEffect(() => {
+    isMusicMutedRef.current = isMusicMuted;
+    try {
+      localStorage.setItem('wana_music_muted', String(isMusicMuted));
+    } catch (e) {
+      console.warn('LocalStorage error:', e);
+    }
+  }, [isMusicMuted]);
 
   // Synchronize Master & SFX volumes to sfxManager GainNodes
   useEffect(() => {
@@ -70,21 +90,26 @@ export function AudioProvider({ children }) {
     sfx.setSfxVolume(isSoundEnabled ? sfxVolume : 0);
   }, [sfxVolume, isSoundEnabled]);
 
-  // Synchronize BGM volume: volumeFinal = bgmVolume * masterVolume * 0.10 (harmonious background soundscape)
+  // Synchronize BGM volume & mute state: volumeFinal = bgmVolume * masterVolume * 0.10 (harmonious background soundscape)
   useEffect(() => {
     try {
       localStorage.setItem('wana_bgm_volume', String(bgmVolume));
     } catch {}
     const bgm = bgmRef.current;
     if (bgm) {
-      if (isSoundEnabled) {
+      if (isSoundEnabled && !isMusicMuted) {
         const finalBgmVol = Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.10));
         bgm.volume = finalBgmVol;
+        if (hasInteractedRef.current && !document.hidden) {
+          bgm.play().catch(err => {
+            console.debug('BGM play waiting for user action or file presence:', err);
+          });
+        }
       } else {
-        bgm.volume = 0;
+        bgm.pause();
       }
     }
-  }, [bgmVolume, masterVolume, isSoundEnabled]);
+  }, [bgmVolume, masterVolume, isSoundEnabled, isMusicMuted]);
 
   // =========================================================================
   // 🎵 BGM (Background Music) HTML5 Audio Engine
@@ -94,7 +119,9 @@ export function AudioProvider({ children }) {
     try {
       bgmAudio = new Audio('/sounds/bgm-main.mp3');
       bgmAudio.loop = true;
-      const initialVol = isSoundEnabledRef.current ? Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.10)) : 0;
+      const initialVol = (isSoundEnabledRef.current && !isMusicMutedRef.current)
+        ? Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.10))
+        : 0;
       bgmAudio.volume = initialVol;
       bgmAudio.preload = 'auto';
       bgmRef.current = bgmAudio;
@@ -110,12 +137,12 @@ export function AudioProvider({ children }) {
     };
   }, []);
 
-  // 🔄 Sync BGM playback with isSoundEnabled state
+  // 🔄 Sync BGM playback with isSoundEnabled & isMusicMuted state
   useEffect(() => {
     const bgm = bgmRef.current;
     if (!bgm) return;
 
-    if (isSoundEnabled) {
+    if (isSoundEnabled && !isMusicMuted) {
       if (hasInteractedRef.current && !document.hidden) {
         bgm.play().catch(err => {
           console.debug('BGM play waiting for user action or file presence:', err);
@@ -124,7 +151,7 @@ export function AudioProvider({ children }) {
     } else {
       bgm.pause();
     }
-  }, [isSoundEnabled]);
+  }, [isSoundEnabled, isMusicMuted]);
 
   // 📱 Page Visibility API: Pause audio & suspend Web Audio on tab switch/minimize, resume on focus
   useEffect(() => {
@@ -141,7 +168,7 @@ export function AudioProvider({ children }) {
         // Foreground: Resume BGM & Web Audio Context if sound is enabled
         if (isSoundEnabledRef.current) {
           sfx.resume();
-          if (bgmRef.current && hasInteractedRef.current) {
+          if (bgmRef.current && hasInteractedRef.current && !isMusicMutedRef.current) {
             bgmRef.current.play().catch(err => {
               console.debug('BGM resume on visibility change notice:', err);
             });
@@ -165,6 +192,14 @@ export function AudioProvider({ children }) {
     setIsSoundEnabled(Boolean(val));
   }, []);
 
+  const toggleMusicMute = useCallback(() => {
+    setIsMusicMuted(prev => !prev);
+  }, []);
+
+  const setMusicMuted = useCallback((val) => {
+    setIsMusicMuted(Boolean(val));
+  }, []);
+
   const setMasterVolume = useCallback((vol) => {
     const val = Math.max(0, Math.min(1, Number(vol)));
     setMasterVolumeState(val);
@@ -182,13 +217,14 @@ export function AudioProvider({ children }) {
 
   const resetAudioSettings = useCallback(() => {
     setIsSoundEnabled(true);
+    setIsMusicMuted(false);
     setMasterVolumeState(0.5);
     setSfxVolumeState(0.5);
     setBgmVolumeState(0.5);
   }, []);
 
   const startBgm = useCallback(() => {
-    if (bgmRef.current && isSoundEnabledRef.current) {
+    if (bgmRef.current && isSoundEnabledRef.current && !isMusicMutedRef.current) {
       bgmRef.current.play().catch(() => {});
     }
   }, []);
@@ -343,6 +379,9 @@ export function AudioProvider({ children }) {
     isSoundEnabled,
     toggleSound,
     setSoundEnabled,
+    isMusicMuted,
+    toggleMusicMute,
+    setMusicMuted,
     masterVolume,
     setMasterVolume,
     sfxVolume,
@@ -387,6 +426,9 @@ export function useAudio() {
       isSoundEnabled: true,
       toggleSound: () => {},
       setSoundEnabled: () => {},
+      isMusicMuted: false,
+      toggleMusicMute: () => {},
+      setMusicMuted: () => {},
       masterVolume: 0.5,
       setMasterVolume: () => {},
       sfxVolume: 0.5,

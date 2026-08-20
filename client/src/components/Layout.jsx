@@ -6,7 +6,10 @@ export default function Layout({
   activeTab, 
   onNavigate, 
   user, 
+  playerName,
+  avatar,
   loginWithGoogle, 
+  logout,
   theme, 
   toggleTheme,
   rightPanelContent,
@@ -115,14 +118,19 @@ export default function Layout({
               onClick={() => onNavigate('profile')} 
               style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', padding: '0.6rem 0.8rem' }}
             >
-              <img 
-                src={user.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.uid}`} 
-                alt="Profil" 
-                style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover' }} 
-              />
+              {user.photoURL ? (
+                <img 
+                  src={user.photoURL} 
+                  alt="Profil" 
+                  style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover' }} 
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span style={{ fontSize: '1.8rem', lineHeight: '1' }}>{avatar || '🦊'}</span>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <span style={{ fontWeight: 'bold', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {formatPlayerName(user.displayName)}
+                  {formatPlayerName(playerName || user.displayName || 'Joueur')}
                 </span>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Mon Profil</span>
               </div>

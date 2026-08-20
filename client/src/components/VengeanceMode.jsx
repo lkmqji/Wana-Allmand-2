@@ -171,7 +171,7 @@ export default function VengeanceMode({
   isSurvivalMode = false,
   modeTitle = 'Mode Vengeance'
 }) {
-  const { isSoundEnabled } = useAudio();
+  const { isSoundEnabled, isMusicMuted, toggleMusicMute } = useAudio();
   const { playSuccess, playError, playExplosion, playCountdownGo, playTimeWarning } = useSoundEffects();
 
   const maxAvailable = (failedWords || []).length || 1;
@@ -710,24 +710,62 @@ export default function VengeanceMode({
           alignItems: 'center',
           zIndex: 20
         }}>
-          <button
-            onClick={onBackHome}
-            style={{
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              color: '#f8fafc',
-              borderRadius: '12px',
-              padding: '0.5rem 1rem',
-              cursor: 'pointer',
-              fontWeight: 700,
-              fontSize: '0.9rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem'
-            }}
-          >
-            ← Quitter
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <button
+              onClick={onBackHome}
+              style={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#f8fafc',
+                borderRadius: '12px',
+                padding: '0.5rem 1rem',
+                cursor: 'pointer',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem'
+              }}
+            >
+              ← Quitter
+            </button>
+
+            {/* Quick Music Mute Button */}
+            <button
+              type="button"
+              onClick={toggleMusicMute}
+              style={{
+                background: isMusicMuted ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                border: `1px solid ${isMusicMuted ? 'var(--danger)' : 'rgba(255, 255, 255, 0.15)'}`,
+                color: isMusicMuted ? 'var(--danger)' : '#f8fafc',
+                borderRadius: '12px',
+                width: '38px',
+                height: '38px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                boxShadow: isMusicMuted ? '0 0 12px rgba(239, 68, 68, 0.3)' : '0 2px 6px rgba(0,0,0,0.2)'
+              }}
+              title={isMusicMuted ? "Réactiver la musique de fond" : "Couper la musique de fond (muet rapide - bruitages restent actifs)"}
+            >
+              {isMusicMuted ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 18V5l12-2v13"></path>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="16" r="3"></circle>
+                  <line x1="2" y1="2" x2="22" y2="22" stroke="var(--danger)" strokeWidth="2.5"></line>
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 18V5l12-2v13"></path>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+              )}
+            </button>
+          </div>
 
           <div className="vengeance-flame-badge">
             🔥 {modeTitle} • {totalAvailableWords} mot{totalAvailableWords > 1 ? 's' : ''} au total
@@ -985,24 +1023,62 @@ export default function VengeanceMode({
         alignItems: 'center',
         zIndex: 20
       }}>
-        <button
-          onClick={onBackHome}
-          style={{
-            background: 'rgba(255, 255, 255, 0.08)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            color: '#f8fafc',
-            borderRadius: '12px',
-            padding: '0.5rem 1rem',
-            cursor: 'pointer',
-            fontWeight: 700,
-            fontSize: '0.9rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem'
-          }}
-        >
-          ← Quitter
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <button
+            onClick={onBackHome}
+            style={{
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              color: '#f8fafc',
+              borderRadius: '12px',
+              padding: '0.5rem 1rem',
+              cursor: 'pointer',
+              fontWeight: 700,
+              fontSize: '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem'
+            }}
+          >
+            ← Quitter
+          </button>
+
+          {/* Quick Music Mute Button */}
+          <button
+            type="button"
+            onClick={toggleMusicMute}
+            style={{
+              background: isMusicMuted ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+              border: `1px solid ${isMusicMuted ? 'var(--danger)' : 'rgba(255, 255, 255, 0.15)'}`,
+              color: isMusicMuted ? 'var(--danger)' : '#f8fafc',
+              borderRadius: '12px',
+              width: '38px',
+              height: '38px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              boxShadow: isMusicMuted ? '0 0 12px rgba(239, 68, 68, 0.3)' : '0 2px 6px rgba(0,0,0,0.2)'
+            }}
+            title={isMusicMuted ? "Réactiver la musique de fond" : "Couper la musique de fond (muet rapide - bruitages restent actifs)"}
+          >
+            {isMusicMuted ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+                <line x1="2" y1="2" x2="22" y2="22" stroke="var(--danger)" strokeWidth="2.5"></line>
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+              </svg>
+            )}
+          </button>
+        </div>
 
         <div className="vengeance-flame-badge">
           🔥 {modeTitle} • {queue.length} mot{queue.length > 1 ? 's' : ''} restant{queue.length > 1 ? 's' : ''}

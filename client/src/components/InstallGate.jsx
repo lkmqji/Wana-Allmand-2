@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 
 export default function InstallGate() {
+  console.log("Mur d'installation actif");
+
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isPromptReady, setIsPromptReady] = useState(false);
   const [isIOSDevice, setIsIOSDevice] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
 
   useEffect(() => {
+    console.log("Mur d'installation actif");
+
     // OS & Device Detection
     const ua = (window.navigator.userAgent || '').toLowerCase();
     const isIPadOS = window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1;
@@ -58,10 +62,12 @@ export default function InstallGate() {
     <div
       style={{
         position: 'fixed',
-        inset: 0,
+        top: 0,
+        left: 0,
         width: '100vw',
         height: '100dvh',
-        zIndex: 999999,
+        zIndex: 99999,
+        backgroundColor: 'var(--bg-color, #0b0f19)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',

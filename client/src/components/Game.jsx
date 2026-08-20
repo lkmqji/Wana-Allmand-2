@@ -30,7 +30,9 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     playOpponentAnswered,
     playFreeze,
     playSuccess,
-    playError
+    playError,
+    isMusicMuted,
+    toggleMusicMute
   } = useSoundEffects();
   const [question, setQuestion] = useState('');
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -1150,6 +1152,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
         {/* 2. Bouton Pause (si autorisé par l'hôte) */}
         {allowPause && (
           <button 
+            type="button"
             onClick={handleTogglePause}
             style={{ 
               background: isPaused ? 'var(--warning)' : 'var(--bg-main)', 
@@ -1174,6 +1177,46 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             )}
           </button>
         )}
+
+        {/* 3. Bouton Muet Rapide Musique (Garde les effets sonores / bruitages actifs) */}
+        <button 
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            toggleMusicMute();
+          }}
+          style={{ 
+            background: isMusicMuted ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-main)', 
+            border: `2px solid ${isMusicMuted ? 'var(--danger)' : 'var(--border-color)'}`, 
+            color: isMusicMuted ? 'var(--danger)' : 'var(--primary)', 
+            cursor: 'pointer', 
+            width: '38px',
+            height: '38px',
+            borderRadius: '50%',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            boxShadow: isMusicMuted ? '0 2px 10px rgba(239, 68, 68, 0.25)' : '0 2px 8px rgba(0,0,0,0.2)',
+            position: 'relative'
+          }}
+          title={isMusicMuted ? "Réactiver la musique de fond" : "Couper la musique de fond (muet rapide - bruitages restent actifs)"}
+        >
+          {isMusicMuted ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 18V5l12-2v13"></path>
+              <circle cx="6" cy="18" r="3"></circle>
+              <circle cx="18" cy="16" r="3"></circle>
+              <line x1="2" y1="2" x2="22" y2="22" stroke="var(--danger)" strokeWidth="2.5"></line>
+            </svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 18V5l12-2v13"></path>
+              <circle cx="6" cy="18" r="3"></circle>
+              <circle cx="18" cy="16" r="3"></circle>
+            </svg>
+          )}
+        </button>
       </div>
 
       {/* =========================================================

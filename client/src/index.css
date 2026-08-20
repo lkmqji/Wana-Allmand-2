@@ -1667,4 +1667,19 @@ h1, h2, h3, h4 {
   }
 }
 
+/* 🎵 Quick Music Mute In-Game Button Styles */
+.quick-music-btn {
+  position: relative;
+  overflow: visible;
+}
+
+.quick-music-btn:hover {
+  transform: scale(1.08);
+  filter: brightness(1.15);
+}
+
+.quick-music-btn:active {
+  transform: scale(0.94);
+}
+
 
