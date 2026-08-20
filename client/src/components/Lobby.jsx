@@ -36,9 +36,21 @@ export default function Lobby({
   // Refresh live online users on mount and whenever the online tab is opened
   useEffect(() => {
     if (socket) {
+      const currentName = formatPlayerName(playerName || user?.displayName || 'Joueur');
+      socket.emit('register_online_user', {
+        firebaseId: user?.uid || null,
+        name: currentName ? `${avatar || '🦊'} ${currentName}` : `${avatar || '🦊'} Joueur`,
+        avatar: avatar || '🦊'
+      });
       socket.emit('get_online_users');
     }
-  }, [socket, activeTab]);
+  }, [socket, activeTab, session?.id, playerName, avatar, user]);
+
+  useSocketEvent(socket, 'online_users_update', (users) => {
+    if (Array.isArray(users)) {
+      realtimeStore.setOnlineUsers(users);
+    }
+  });
   const messages = chatMessages;
   const [inputMsg, setInputMsg] = useState('');
   const chatBottomRef = useRef(null);

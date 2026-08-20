@@ -11,9 +11,9 @@ const Results = lazy(() => import('./components/Results'));
 const VengeanceMode = lazy(() => import('./components/VengeanceMode'));
 const Admin = lazy(() => import('./components/Admin'));
 const NotificationCenter = lazy(() => import('./components/NotificationCenter'));
-const InviteModal = lazy(() => import('./components/InviteModal'));
 const TitleScreen = lazy(() => import('./components/TitleScreen'));
 const InstallGate = lazy(() => import('./components/InstallGate'));
+import InviteModal from './components/InviteModal';
 
 // Sleek dark-mode loading spinner fallback
 function ViewLoadingFallback({ message = "Chargement de l'arène..." }) {
@@ -104,12 +104,11 @@ const evaluateStandalone = () => {
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const ADMIN_UID = import.meta.env.VITE_ADMIN_UID;
 const socket = io(API_URL, {
-  transports: ['websocket'],
-  upgrade: false,
+  transports: ['websocket', 'polling'],
   reconnection: true,
-  reconnectionAttempts: 15,
+  reconnectionAttempts: Infinity,
   reconnectionDelay: 500,        // d_base = 500ms
-  reconnectionDelayMax: 10000,   // d_max = 10s
+  reconnectionDelayMax: 5000,    // d_max = 5s
   randomizationFactor: 0.5,      // Jitter
   timeout: 20000
 });
@@ -617,6 +616,11 @@ function App() {
     if (!inviteData || (inviteData.hostSocketId && socket?.id && inviteData.hostSocketId === socket.id)) return;
     playNotification();
     realtimeStore.setIncomingInvite(inviteData);
+    setToastNotif({
+      icon: '⚔️',
+      title: 'Nouvelle invitation !',
+      message: `${formatPlayerName(inviteData.hostName || 'Un joueur')} vous invite à un duel #${inviteData.sessionId} !`
+    });
   });
 
   useSocketEvent(socket, 'invite_response', (resp) => {
@@ -1302,13 +1306,11 @@ function App() {
 
       {/* Real-time Game Invite Modal */}
       {incomingInvite && (
-        <Suspense fallback={null}>
-          <InviteModal 
-            invite={incomingInvite}
-            onAccept={handleAcceptInvite}
-            onReject={handleRejectInvite}
-          />
-        </Suspense>
+        <InviteModal 
+          invite={incomingInvite}
+          onAccept={handleAcceptInvite}
+          onReject={handleRejectInvite}
+        />
       )}
 
       {/* User Notifications Center Modal */}

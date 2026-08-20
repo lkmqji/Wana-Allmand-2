@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * useSocketEvent - Ref-Trampolining hook for real-time WebSocket event listeners.
- * Eliminates Stale Closures and prevents listener churn in React concurrent mode.
+ * useSocketEvent - Synchronous Ref-Trampolining hook for real-time WebSocket event listeners.
+ * Eliminates Stale Closures, prevents listener churn, and updates handler ref synchronously.
  *
  * @param {any} socket - Socket.IO client instance
  * @param {string} eventName - Name of the socket event
@@ -10,11 +10,8 @@ import { useEffect, useRef } from 'react';
  */
 export function useSocketEvent(socket, eventName, handler) {
   const handlerRef = useRef(handler);
-
-  // Keep the mutable ref pointing to the latest version of the handler on every render
-  useEffect(() => {
-    handlerRef.current = handler;
-  });
+  // Keep the mutable ref pointing to the latest version of the handler synchronously
+  handlerRef.current = handler;
 
   useEffect(() => {
     if (!socket || !eventName || typeof handler !== 'function') return;
