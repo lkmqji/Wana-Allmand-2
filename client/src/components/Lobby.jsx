@@ -3,9 +3,6 @@ import { exampleLists, getAllDefaultWords } from '../data/exampleLists';
 import { formatPlayerName, extractEmoji, generateBurstParticles } from '../utils/formatters';
 import { useSoundEffects } from '../context/AudioContext';
 import ListPreviewModal from './ListPreviewModal';
-import { useSocketEvent } from '../utils/useSocketEvent';
-import { useBufferedReactions } from '../utils/useBufferedReactions';
-import { useOnlineUsers, realtimeStore } from '../stores/realtimeStore';
 
 export default function Lobby({ 
   socket, 
@@ -21,9 +18,6 @@ export default function Lobby({
   setChatMessages,
   onStartSurvival 
 }) {
-  const storeOnlineUsers = useOnlineUsers();
-  const effectiveOnlineUsers = storeOnlineUsers && storeOnlineUsers.length > 0 ? storeOnlineUsers : (onlineUsers || []);
-
   const { playAlert, playMessageSent, playReactionBurst } = useSoundEffects();
   // Tabs: 'chat', 'online', 'words', 'settings'
   const [activeTab, setActiveTab] = useState('chat');
@@ -32,25 +26,6 @@ export default function Lobby({
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [isSurvivalSolo, setIsSurvivalSolo] = useState(false);
-
-  // Refresh live online users on mount and whenever the online tab is opened
-  useEffect(() => {
-    if (socket) {
-      const currentName = formatPlayerName(playerName || user?.displayName || 'Joueur');
-      socket.emit('register_online_user', {
-        firebaseId: user?.uid || null,
-        name: currentName ? `${avatar || '🦊'} ${currentName}` : `${avatar || '🦊'} Joueur`,
-        avatar: avatar || '🦊'
-      });
-      socket.emit('get_online_users');
-    }
-  }, [socket, activeTab, session?.id, playerName, avatar, user]);
-
-  useSocketEvent(socket, 'online_users_update', (users) => {
-    if (Array.isArray(users)) {
-      realtimeStore.setOnlineUsers(users);
-    }
-  });
   const messages = chatMessages;
   const [inputMsg, setInputMsg] = useState('');
   const chatBottomRef = useRef(null);
@@ -69,9 +44,15 @@ export default function Lobby({
     prevPlayerCountRef.current = currentCount;
   }, [players, playAlert]);
 
-  useSocketEvent(socket, 'player_joined', () => {
-    playAlert();
-  });
+  useEffect(() => {
+    const handlePlayerJoined = () => {
+      playAlert();
+    };
+    socket.on('player_joined', handlePlayerJoined);
+    return () => {
+      socket.off('player_joined', handlePlayerJoined);
+    };
+  }, [socket, playAlert]);
 
   // Auto-dismiss Lobby chat toast after 4s
   useEffect(() => {
@@ -175,8 +156,8 @@ export default function Lobby({
   ]);
   const maxAvailableWordsCount = Math.max(words.length, totalAvailablePool.length);
 
-  // Floating reactions burst state & 5s cooldown (Micro-buffered via requestAnimationFrame)
-  const [floatingReactions, handleReactionBurst, setFloatingReactions] = useBufferedReactions(playReactionBurst);
+  // Floating reactions burst state & 5s cooldown
+  const [floatingReactions, setFloatingReactions] = useState([]);
   const [reactionCooldown, setReactionCooldown] = useState(0);
 
   // Cooldown countdown ticker
@@ -189,8 +170,32 @@ export default function Lobby({
     }
   }, [reactionCooldown]);
 
-  useSocketEvent(socket, 'floating_reaction_burst', handleReactionBurst);
-  useSocketEvent(socket, 'floating_reaction', handleReactionBurst);
+  useEffect(() => {
+    const handleReactionBurst = (data) => {
+      playReactionBurst();
+      if (data?.particles && Array.isArray(data.particles)) {
+        setFloatingReactions(prev => [...prev, ...data.particles]);
+        setTimeout(() => {
+          const idsToRemove = new Set(data.particles.map(p => p.id));
+          setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
+        }, 2500);
+      } else if (data?.emoji) {
+        const { particles } = generateBurstParticles(data.emoji);
+        setFloatingReactions(prev => [...prev, ...particles]);
+        setTimeout(() => {
+          const idsToRemove = new Set(particles.map(p => p.id));
+          setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
+        }, 2500);
+      }
+    };
+
+    socket.on('floating_reaction_burst', handleReactionBurst);
+    socket.on('floating_reaction', handleReactionBurst);
+    return () => {
+      socket.off('floating_reaction_burst', handleReactionBurst);
+      socket.off('floating_reaction', handleReactionBurst);
+    };
+  }, [socket, playReactionBurst]);
 
   const handleSendReaction = (rawTextOrEmoji) => {
     if (reactionCooldown > 0 || !session?.id) return;
@@ -227,45 +232,52 @@ export default function Lobby({
   }, [messages]);
 
   // Listen to lobby chat messages & invite confirmations
-  useSocketEvent(socket, 'lobby_chat_message', (msg) => {
-    if (!msg) return;
-    if (setChatMessages) {
-      setChatMessages((prev) => {
-        if (msg.id && prev.some((m) => m.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
-    }
-
-    // If player is on 'words', 'online', or 'settings' and message is from another player, show toast & update badge
-    if (activeTab !== 'chat' && msg.senderId && msg.senderId !== socket?.id && !msg.isSystem) {
-      setUnreadChatCount((prev) => prev + 1);
-      setLobbyChatToast({
-        id: msg.id || Date.now(),
-        senderAvatar: msg.senderAvatar || '💬',
-        senderName: formatPlayerName(msg.senderName || 'Joueur'),
-        text: msg.text
-      });
-    }
-  });
-
-  useSocketEvent(socket, 'invite_sent_success', ({ targetSocketId }) => {
-    if (targetSocketId) {
-      setInvitedSockets((prev) => ({ ...prev, [targetSocketId]: true }));
-      setTimeout(() => {
-        setInvitedSockets((prev) => {
-          const next = { ...prev };
-          delete next[targetSocketId];
-          return next;
+  useEffect(() => {
+    const handleLobbyMessage = (msg) => {
+      if (!msg) return;
+      if (setChatMessages) {
+        setChatMessages((prev) => {
+          if (msg.id && prev.some(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
         });
-      }, 8000);
-    }
-  });
+      }
+
+      // If player is on 'words', 'online', or 'settings' and message is from another player, show toast & update badge
+      if (activeTab !== 'chat' && msg.senderId && msg.senderId !== socket.id && !msg.isSystem) {
+        setUnreadChatCount((prev) => prev + 1);
+        setLobbyChatToast({
+          id: msg.id || Date.now(),
+          senderAvatar: msg.senderAvatar || '💬',
+          senderName: formatPlayerName(msg.senderName || 'Joueur'),
+          text: msg.text
+        });
+      }
+    };
+
+    const handleInviteSent = ({ targetSocketId }) => {
+      if (targetSocketId) {
+        setInvitedSockets((prev) => ({ ...prev, [targetSocketId]: true }));
+        setTimeout(() => {
+          setInvitedSockets((prev) => {
+            const next = { ...prev };
+            delete next[targetSocketId];
+            return next;
+          });
+        }, 8000);
+      }
+    };
+
+    socket.on('lobby_chat_message', handleLobbyMessage);
+    socket.on('invite_sent_success', handleInviteSent);
+
+    return () => {
+      socket.off('lobby_chat_message', handleLobbyMessage);
+      socket.off('invite_sent_success', handleInviteSent);
+    };
+  }, [socket, session?.id, setChatMessages, activeTab]);
 
   const handleLeave = () => {
-    if (session?.id) socket.emit('leave_session', session.id);
-    localStorage.removeItem('wana_active_session');
-    sessionStorage.removeItem('active_game_session');
-    realtimeStore.resetSession();
+    socket.emit('leave_session', session?.id);
     if (setChatMessages) setChatMessages([]);
     setView('home');
   };
@@ -317,15 +329,13 @@ export default function Lobby({
   };
 
   const handleInvitePlayer = (targetUser) => {
-    if (!targetUser || (!targetUser.socketId && !targetUser.firebaseId)) return;
+    if (!targetUser?.socketId) return;
     socket.emit('send_game_invite', {
       targetSocketId: targetUser.socketId,
       targetFirebaseId: targetUser.firebaseId,
       sessionId: session?.id
     });
-    if (targetUser.socketId) {
-      setInvitedSockets((prev) => ({ ...prev, [targetUser.socketId]: true }));
-    }
+    setInvitedSockets((prev) => ({ ...prev, [targetUser.socketId]: true }));
   };
 
   // Local word typing (No chat spam during typing)
@@ -528,11 +538,9 @@ export default function Lobby({
 
   // Filter online users: exclude self and players currently in this room
   const sessionPlayerIds = Object.keys(players || {});
-  const filteredOnlineUsers = effectiveOnlineUsers.filter((u) => {
-    if (!u) return false;
-    if (u.socketId && socket?.id && u.socketId === socket.id) return false;
-    if (u.firebaseId && user?.uid && u.firebaseId === user.uid) return false;
-    if (u.socketId && sessionPlayerIds.includes(u.socketId)) return false;
+  const filteredOnlineUsers = onlineUsers.filter((u) => {
+    if (u.socketId === socket.id) return false;
+    if (sessionPlayerIds.includes(u.socketId)) return false;
     if (searchQuery.trim()) {
       return (u.name || '').toLowerCase().includes(searchQuery.toLowerCase().trim());
     }

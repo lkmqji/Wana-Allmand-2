@@ -728,17 +728,6 @@ function broadcastOnlineUsers() {
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
-    // Register connected socket as online user immediately
-    onlineUsers.set(socket.id, {
-        socketId: socket.id,
-        firebaseId: null,
-        name: 'Joueur',
-        avatar: '🦊',
-        status: 'available',
-        sessionId: null
-    });
-    broadcastOnlineUsers();
-
     // Join personal user room for direct notifications
     socket.on('register_user', (firebaseId) => {
         if (firebaseId) {
@@ -756,7 +745,7 @@ io.on('connection', (socket) => {
             socketId: socket.id,
             firebaseId: firebaseId || null,
             name: formatPlayerName(name) || 'Joueur',
-            avatar: avatar || '🦊',
+            avatar: avatar || '👤',
             status: existing?.status || 'available',
             sessionId: existing?.sessionId || null
         });
@@ -768,7 +757,7 @@ io.on('connection', (socket) => {
             socketId: u.socketId,
             firebaseId: u.firebaseId,
             name: u.name,
-            avatar: u.avatar || '🦊',
+            avatar: u.avatar || '👤',
             status: u.status || 'available',
             sessionId: u.sessionId || null
         })));
@@ -792,8 +781,6 @@ io.on('connection', (socket) => {
                 text: `${leavingUser?.name || 'Un joueur'} a quitté la salle.`,
                 timestamp: Date.now()
             });
-        } else if (result && result.destroyed) {
-            io.to(sessionId).emit('session_closed', { message: "L'hôte a quitté la salle. La session est fermée." });
         }
     };
 
@@ -914,12 +901,11 @@ io.on('connection', (socket) => {
             createdAt: Date.now()
         };
 
-        // Target other socket and/or firebase user room
+        // Strictly target other socket only, never host
         if (targetSocketId && targetSocketId !== socket.id) {
             io.to(targetSocketId).emit('game_invite_received', inviteData);
-        }
-        if (targetFirebaseId) {
-            io.to(`user_${targetFirebaseId}`).emit('game_invite_received', inviteData);
+        } else if (targetFirebaseId) {
+            socket.to(`user_${targetFirebaseId}`).emit('game_invite_received', inviteData);
         }
         
         socket.emit('invite_sent_success', { targetSocketId, targetFirebaseId });

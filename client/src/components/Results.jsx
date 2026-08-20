@@ -2,9 +2,6 @@ import { useEffect, useState, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { formatPlayerName, getClientPlayerKey, extractEmoji, generateBurstParticles } from '../utils/formatters';
 import { useSoundEffects } from '../context/AudioContext';
-import { useSocketEvent } from '../utils/useSocketEvent';
-import { useBufferedReactions } from '../utils/useBufferedReactions';
-import { useSession, realtimeStore } from '../stores/realtimeStore';
 
 const PRESET_RESULTS_CHAT = [
   "GG! 🏆",
@@ -16,15 +13,13 @@ const PRESET_RESULTS_CHAT = [
 
 const PRESET_REACTIONS = ['🔥', '⚡', '🏆', '⚔️', '💪', '👏'];
 
-export default function Results({ players = {}, setView, socket, session: propSession, isHost, playerName, avatar, user, chatMessages = [], setChatMessages }) {
-  const storeSession = useSession();
-  const session = storeSession || propSession;
+export default function Results({ players = {}, setView, socket, session, isHost, playerName, avatar, user, chatMessages = [], setChatMessages }) {
   const { playVictory, playDefeat, playMessageSent, playReactionBurst, isMusicMuted, toggleMusicMute } = useSoundEffects();
   const [currentPlayers, setCurrentPlayers] = useState(players || {});
   
-  // Telegram Burst reactions state & 5s cooldown (Micro-buffered via requestAnimationFrame)
+  // Telegram Burst reactions state & 5s cooldown
   const [reactionCooldown, setReactionCooldown] = useState(0);
-  const [floatingReactions, handleReactionBurst, setFloatingReactions] = useBufferedReactions(playReactionBurst);
+  const [floatingReactions, setFloatingReactions] = useState([]);
 
   // Cooldown countdown ticker
   useEffect(() => {
@@ -41,16 +36,44 @@ export default function Results({ players = {}, setView, socket, session: propSe
     setCurrentPlayers(players || {});
   }, [players]);
 
-  useSocketEvent(socket, 'player_joined', (updatedPlayers) => {
-    if (updatedPlayers) setCurrentPlayers(updatedPlayers);
-  });
+  useEffect(() => {
+    const handlePlayerUpdate = (updatedPlayers) => {
+      if (updatedPlayers) setCurrentPlayers(updatedPlayers);
+    };
+    const handleSessionUpdate = (updatedSession) => {
+      if (updatedSession?.players) setCurrentPlayers(updatedSession.players);
+    };
 
-  useSocketEvent(socket, 'session_updated', (updatedSession) => {
-    if (updatedSession?.players) setCurrentPlayers(updatedSession.players);
-  });
+    const handleReactionBurst = (data) => {
+      playReactionBurst();
+      if (data?.particles && Array.isArray(data.particles)) {
+        setFloatingReactions(prev => [...prev, ...data.particles]);
+        setTimeout(() => {
+          const idsToRemove = new Set(data.particles.map(p => p.id));
+          setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
+        }, 2500);
+      } else if (data?.emoji) {
+        const { particles } = generateBurstParticles(data.emoji);
+        setFloatingReactions(prev => [...prev, ...particles]);
+        setTimeout(() => {
+          const idsToRemove = new Set(particles.map(p => p.id));
+          setFloatingReactions(prev => prev.filter(r => !idsToRemove.has(r.id)));
+        }, 2500);
+      }
+    };
 
-  useSocketEvent(socket, 'floating_reaction_burst', handleReactionBurst);
-  useSocketEvent(socket, 'floating_reaction', handleReactionBurst);
+    socket.on('player_joined', handlePlayerUpdate);
+    socket.on('session_updated', handleSessionUpdate);
+    socket.on('floating_reaction_burst', handleReactionBurst);
+    socket.on('floating_reaction', handleReactionBurst);
+
+    return () => {
+      socket.off('player_joined', handlePlayerUpdate);
+      socket.off('session_updated', handleSessionUpdate);
+      socket.off('floating_reaction_burst', handleReactionBurst);
+      socket.off('floating_reaction', handleReactionBurst);
+    };
+  }, [socket, playReactionBurst]);
 
   const playerArr = Object.values(currentPlayers || {}).sort((a, b) => b.score - a.score);
   const winner = playerArr[0];
@@ -111,74 +134,79 @@ export default function Results({ players = {}, setView, socket, session: propSe
   }, [isDraw, winner]);
 
   // Chat message listener & proposal listeners
-  // In-Results Chat & Rematch Handlers (Ref-Trampolining)
-  useSocketEvent(socket, 'lobby_chat_message', (msg) => {
-    if (!msg) return;
-    if (setChatMessages) {
-      setChatMessages(prev => {
-        if (msg.id && prev.some(m => m.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
-    }
-
-    const bubbleId = msg.id || (Date.now() + '-' + Math.random());
-    const bubbleMsg = { ...msg, id: bubbleId };
-    setFloatingBubbles(prev => [...prev.slice(-3), bubbleMsg]);
-    setTimeout(() => {
-      setFloatingBubbles(prev => prev.filter(b => b.id !== bubbleId));
-    }, 3500);
-  });
-
-  useSocketEvent(socket, 'game_chat_message', (msg) => {
-    if (!msg) return;
-    if (setChatMessages) {
-      setChatMessages(prev => {
-        if (msg.id && prev.some(m => m.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
-    }
-
-    const bubbleId = msg.id || (Date.now() + '-' + Math.random());
-    const bubbleMsg = { ...msg, id: bubbleId };
-    setFloatingBubbles(prev => [...prev.slice(-3), bubbleMsg]);
-    setTimeout(() => {
-      setFloatingBubbles(prev => prev.filter(b => b.id !== bubbleId));
-    }, 3500);
-  });
-
-  useSocketEvent(socket, 'retry_failed_words_proposal', (proposal) => {
-    setIncomingProposal(proposal);
-  });
-
-  useSocketEvent(socket, 'retry_failed_words_declined', ({ declinerName }) => {
-    setWaitingForProposalResp(false);
-    const shouldPlaySolo = window.confirm(
-      `${declinerName || 'Votre adversaire'} a décliné la proposition de rejouer les fautes ensemble.\n\nSouhaitez-vous rejouer ces mots manqués en solo ?`
-    );
-    if (shouldPlaySolo && session?.vocabList) {
-      const failedWords = getFailedWords();
-      if (failedWords.length > 0) {
-        createSoloFailedSession(failedWords);
+  useEffect(() => {
+    const handleChatMessage = (msg) => {
+      if (!msg) return;
+      if (setChatMessages) {
+        setChatMessages(prev => {
+          if (msg.id && prev.some(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
       }
-    }
-  });
 
-  useSocketEvent(socket, 'retry_failed_words_cancelled', () => {
-    setIncomingProposal(null);
-  });
+      // Add to floating bubbles (visible for 3.5s in top-right)
+      const bubbleId = msg.id || (Date.now() + '-' + Math.random());
+      const bubbleMsg = { ...msg, id: bubbleId };
+      setFloatingBubbles(prev => [...prev.slice(-3), bubbleMsg]);
+      setTimeout(() => {
+        setFloatingBubbles(prev => prev.filter(b => b.id !== bubbleId));
+      }, 3500);
+    };
 
-  useSocketEvent(socket, 'rematch_proposal', (proposal) => {
-    setIncomingRematchProposal(proposal);
-  });
+    const handleRetryProposal = (proposal) => {
+      setIncomingProposal(proposal);
+    };
 
-  useSocketEvent(socket, 'rematch_declined', ({ declinerName }) => {
-    setWaitingForRematchResp(false);
-    alert(`${declinerName || 'Votre adversaire'} a décliné la demande de revanche.`);
-  });
+    const handleRetryDeclined = ({ declinerName }) => {
+      setWaitingForProposalResp(false);
+      const shouldPlaySolo = window.confirm(
+        `${declinerName || 'Votre adversaire'} a décliné la proposition de rejouer les fautes ensemble.\n\nSouhaitez-vous rejouer ces mots manqués en solo ?`
+      );
+      if (shouldPlaySolo && session?.vocabList) {
+        const failedWords = getFailedWords();
+        if (failedWords.length > 0) {
+          createSoloFailedSession(failedWords);
+        }
+      }
+    };
 
-  useSocketEvent(socket, 'rematch_cancelled', () => {
-    setIncomingRematchProposal(null);
-  });
+    const handleRematchProposal = (proposal) => {
+      setIncomingRematchProposal(proposal);
+    };
+
+    const handleRematchDeclined = ({ declinerName }) => {
+      setWaitingForRematchResp(false);
+      alert(`${declinerName || 'Votre adversaire'} a décliné la demande de revanche.`);
+    };
+
+    const handleRetryCancelled = () => {
+      setIncomingProposal(null);
+    };
+
+    const handleRematchCancelled = () => {
+      setIncomingRematchProposal(null);
+    };
+
+    socket.on('lobby_chat_message', handleChatMessage);
+    socket.on('game_chat_message', handleChatMessage);
+    socket.on('retry_failed_words_proposal', handleRetryProposal);
+    socket.on('retry_failed_words_declined', handleRetryDeclined);
+    socket.on('retry_failed_words_cancelled', handleRetryCancelled);
+    socket.on('rematch_proposal', handleRematchProposal);
+    socket.on('rematch_declined', handleRematchDeclined);
+    socket.on('rematch_cancelled', handleRematchCancelled);
+
+    return () => {
+      socket.off('lobby_chat_message', handleChatMessage);
+      socket.off('game_chat_message', handleChatMessage);
+      socket.off('retry_failed_words_proposal', handleRetryProposal);
+      socket.off('retry_failed_words_declined', handleRetryDeclined);
+      socket.off('retry_failed_words_cancelled', handleRetryCancelled);
+      socket.off('rematch_proposal', handleRematchProposal);
+      socket.off('rematch_declined', handleRematchDeclined);
+      socket.off('rematch_cancelled', handleRematchCancelled);
+    };
+  }, [socket, session, setChatMessages]);
 
   // Auto-scroll internal chat container only (prevents full window jumping in portrait mode)
   useEffect(() => {
@@ -948,9 +976,6 @@ export default function Results({ players = {}, setView, socket, session: propSe
           className="btn btn-secondary" 
           onClick={() => {
             if (session?.id) socket.emit('leave_session', session.id);
-            localStorage.removeItem('wana_active_session');
-            sessionStorage.removeItem('active_game_session');
-            realtimeStore.resetSession();
             if (setChatMessages) setChatMessages([]);
             setView('home');
           }} 
@@ -998,11 +1023,11 @@ export default function Results({ players = {}, setView, socket, session: propSe
       </div>
 
       {/* Detailed Game Summary List */}
-      {session && Array.isArray(session.vocabList) && session.vocabList.length > 0 && (
+      {session && session.vocabList && (
         <div className="card" style={{ textAlign: 'left', padding: '1.1rem' }}>
-          <h3 style={{ marginBottom: '1rem', textAlign: 'center', fontSize: '1.2rem' }}>📝 Résumé des questions & réponses ({session.vocabList.length} mots)</h3>
+          <h3 style={{ marginBottom: '1rem', textAlign: 'center', fontSize: '1.2rem' }}>📝 Résumé des questions & réponses</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-            {session.vocabList.map((word, index) => (
+            {session.vocabList.slice(0, session.currentQuestionIndex || session.vocabList.length).map((word, index) => (
               <div key={index} style={{ padding: '0.8rem 0.9rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                 <div style={{ marginBottom: '0.6rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-main)' }}>{word.question}</span>

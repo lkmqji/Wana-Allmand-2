@@ -1,52 +1,23 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
+import Home from './components/Home';
+import Lobby from './components/Lobby';
+import Game from './components/Game';
+import Results from './components/Results';
+import VengeanceMode from './components/VengeanceMode';
 import Layout from './components/Layout';
-import RightPanel from './components/RightPanel';
-
-// Lazy-loaded heavy views and modals for optimal initial bundle & fast TTI
-const Home = lazy(() => import('./components/Home'));
-const Lobby = lazy(() => import('./components/Lobby'));
-const Game = lazy(() => import('./components/Game'));
-const Results = lazy(() => import('./components/Results'));
-const VengeanceMode = lazy(() => import('./components/VengeanceMode'));
-const Admin = lazy(() => import('./components/Admin'));
-const NotificationCenter = lazy(() => import('./components/NotificationCenter'));
-const TitleScreen = lazy(() => import('./components/TitleScreen'));
-const InstallGate = lazy(() => import('./components/InstallGate'));
+import Admin from './components/Admin';
+import NotificationCenter from './components/NotificationCenter';
 import InviteModal from './components/InviteModal';
-
-// Sleek dark-mode loading spinner fallback
-function ViewLoadingFallback({ message = "Chargement de l'arène..." }) {
-  return (
-    <div className="suspense-fallback-container">
-      <div className="suspense-spinner-wrapper">
-        <div className="suspense-spinner-ring" />
-        <span className="suspense-spinner-core">⚡</span>
-      </div>
-      <span className="suspense-loading-text">{message}</span>
-    </div>
-  );
-}
+import RightPanel from './components/RightPanel';
+import TitleScreen from './components/TitleScreen';
+import InstallGate from './components/InstallGate';
 import { exampleLists } from './data/exampleLists';
 import { auth, loginWithGoogle, logout, deleteAccount, updateUserProfile } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { formatPlayerName, getClientPlayerKey } from './utils/formatters';
 import { useSoundEffects, useAudio } from './context/AudioContext';
 import { sfx } from './utils/sfxManager';
-import { useSocketEvent } from './utils/useSocketEvent';
-import { 
-  realtimeStore, 
-  useSession, 
-  usePlayers, 
-  useIsHost, 
-  useOnlineUsers, 
-  useNotifications, 
-  useUnreadCount, 
-  useToastNotif, 
-  useIncomingInvite, 
-  useChatMessages, 
-  useAnnouncement 
-} from './stores/realtimeStore';
 
 // Strict Standalone PWA detection helper with Desktop (PC/Mac) bypass
 const evaluateStandalone = () => {
@@ -100,17 +71,12 @@ const evaluateStandalone = () => {
   };
 };
 
-// Connect to server with Resilient Reconnection (Exponential Backoff + Jitter)
+// Connect to server (uses env variable or fallback to localhost)
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const ADMIN_UID = import.meta.env.VITE_ADMIN_UID;
 const socket = io(API_URL, {
-  transports: ['websocket', 'polling'],
-  reconnection: true,
-  reconnectionAttempts: Infinity,
-  reconnectionDelay: 500,        // d_base = 500ms
-  reconnectionDelayMax: 5000,    // d_max = 5s
-  randomizationFactor: 0.5,      // Jitter
-  timeout: 20000
+  transports: ['websocket'],
+  upgrade: false
 });
 
 function App() {
@@ -128,7 +94,7 @@ function App() {
     return { requirePwaInstall: false, guestMode: true, maintenanceMode: false, announcement: '' };
   });
 
-  // Load initial global config
+  // Load global config & listen for real-time admin changes (Kill Switch)
   useEffect(() => {
     const fetchConfig = async () => {
       try {
@@ -149,20 +115,24 @@ function App() {
     };
 
     fetchConfig();
-  }, []);
 
-  // Real-time admin config sync via Ref-Trampolining hook (Kill Switch)
-  useSocketEvent(socket, 'config_updated', (newConfig) => {
-    if (newConfig && typeof newConfig === 'object') {
-      setConfig(prev => {
-        const next = { ...prev, ...newConfig };
-        try {
-          localStorage.setItem('wana_app_config', JSON.stringify(next));
-        } catch {}
-        return next;
-      });
-    }
-  });
+    const handleConfigUpdate = (newConfig) => {
+      if (newConfig && typeof newConfig === 'object') {
+        setConfig(prev => {
+          const next = { ...prev, ...newConfig };
+          try {
+            localStorage.setItem('wana_app_config', JSON.stringify(next));
+          } catch {}
+          return next;
+        });
+      }
+    };
+
+    socket.on('config_updated', handleConfigUpdate);
+    return () => {
+      socket.off('config_updated', handleConfigUpdate);
+    };
+  }, []);
 
   const [view, setView] = useState('home'); // home, lobby, game, results
 
@@ -172,28 +142,9 @@ function App() {
     setIsInGame(inGame);
   }, [view, setIsInGame]);
   const [activeTab, setActiveTab] = useState('learn'); // learn, lists, community, stats, profile
-
-  // --- Real-time External Store Subscriptions (uSES) ---
-  const session = useSession();
-  const players = usePlayers();
-  const isHost = useIsHost();
-  const onlineUsers = useOnlineUsers();
-  const notifications = useNotifications();
-  const unreadCount = useUnreadCount();
-  const toastNotif = useToastNotif();
-  const incomingInvite = useIncomingInvite();
-  const chatMessages = useChatMessages();
-  const announcement = useAnnouncement();
-
-  const setSession = realtimeStore.setSession;
-  const setPlayers = realtimeStore.setPlayers;
-  const setIsHost = realtimeStore.setIsHost;
-  const setChatMessages = realtimeStore.setChatMessages;
-  const setNotifications = realtimeStore.setNotifications;
-  const setUnreadCount = realtimeStore.setUnreadCount;
-  const setToastNotif = realtimeStore.setToastNotif;
-  const setAnnouncement = realtimeStore.setAnnouncement;
-
+  const [session, setSession] = useState(null);
+  const [players, setPlayers] = useState({});
+  const [isHost, setIsHost] = useState(false);
   const [error, setError] = useState('');
   const [playerName, setPlayerName] = useState(() => {
     return localStorage.getItem('wana_player_name') || '';
@@ -206,11 +157,17 @@ function App() {
   const [isGuest, setIsGuest] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [toastNotif, setToastNotif] = useState(null);
   const [serverGuestMode, setServerGuestMode] = useState(true); // from server config
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('wana_theme') || 'midnight';
   });
   const [leaderboard, setLeaderboard] = useState([]);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [incomingInvite, setIncomingInvite] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
   const [discordToast, setDiscordToast] = useState(null);
   const [failedWords, setFailedWords] = useState(() => {
     try {
@@ -420,6 +377,8 @@ function App() {
   }, [isAdmin]);
 
 
+  const [announcement, setAnnouncement] = useState('');
+
   // Fetch server config (guest mode etc.)
   useEffect(() => {
     fetch(`${API_URL}/api/config`)
@@ -429,25 +388,27 @@ function App() {
         if (data.announcement) setAnnouncement(data.announcement);
       })
       .catch(() => {});
-  }, [setAnnouncement]);
+  }, []);
 
-  const registerUserOnline = () => {
-    const currentName = formatPlayerName(playerName || user?.displayName || (isGuest ? 'Invité' : ''));
-    socket.emit('register_online_user', {
-      firebaseId: user?.uid || null,
-      name: currentName ? `${avatar} ${currentName}` : `${avatar} Joueur`,
-      avatar: avatar || '🦊'
-    });
-    socket.emit('get_online_users');
-  };
-
-  // Sync user profile with online users registry on server when identity changes
+  // Sync user profile with online users registry on server and on socket connect/reconnect
   useEffect(() => {
-    registerUserOnline();
-  }, [user, playerName, avatar, isGuest]);
+    const registerUserOnline = () => {
+      const currentName = formatPlayerName(playerName || user?.displayName || (isGuest ? 'Invité' : ''));
+      socket.emit('register_online_user', {
+        firebaseId: user?.uid || null,
+        name: currentName ? `${avatar} ${currentName}` : `${avatar} Joueur`,
+        avatar: avatar || '🦊'
+      });
+      socket.emit('get_online_users');
+    };
 
-  // Re-register upon socket connect/reconnect
-  useSocketEvent(socket, 'connect', registerUserOnline);
+    registerUserOnline();
+    socket.on('connect', registerUserOnline);
+
+    return () => {
+      socket.off('connect', registerUserOnline);
+    };
+  }, [user, playerName, avatar, isGuest]);
 
   const handleSaveProfile = async (newName, newAvatar) => {
     const formatted = formatPlayerName(newName);
@@ -568,204 +529,205 @@ function App() {
       .catch(console.error);
   }, []);
 
-  // Game & Session Socket Handlers (Ref-Trampolining to prevent stale closures)
-  useSocketEvent(socket, 'session_created', (sess) => {
-    const fullSession = typeof sess === 'object' ? sess : { id: sess };
-    setSession(fullSession);
-    setPlayers(fullSession.players || {});
-    setIsHost(true);
-    setChatMessages([
-      {
-        id: 'welcome',
-        isSystem: true,
-        text: `🎮 Salle #${fullSession.id} ouverte. Chattez, personnalisez vos mots & invitez vos amis !`,
-        timestamp: Date.now()
-      }
-    ]);
-    setView('lobby');
-  });
-
-  useSocketEvent(socket, 'session_joined', (sess) => {
-    setSession(sess);
-    setPlayers(sess.players);
-    setIsHost(sess.hostId === socket.id);
-    setView('lobby');
-  });
-
-  useSocketEvent(socket, 'kicked', () => {
-    alert("Vous avez été exclu de la session par l'hôte.");
-    setSession(null);
-    setPlayers({});
-    setIsHost(false);
-    setChatMessages([]);
-    setView('home');
-  });
-
-  useSocketEvent(socket, 'player_joined', (updatedPlayers) => {
-    setPlayers(updatedPlayers);
-  });
-
-  useSocketEvent(socket, 'online_users_update', (users) => {
-    if (Array.isArray(users)) {
-      setOnlineUsers(users);
-    }
-  });
-
-  useSocketEvent(socket, 'game_invite_received', (inviteData) => {
-    // Never show invite if we are the host or if it's our own session
-    if (!inviteData || (inviteData.hostSocketId && socket?.id && inviteData.hostSocketId === socket.id)) return;
-    playNotification();
-    realtimeStore.setIncomingInvite(inviteData);
-    setToastNotif({
-      icon: '⚔️',
-      title: 'Nouvelle invitation !',
-      message: `${formatPlayerName(inviteData.hostName || 'Un joueur')} vous invite à un duel #${inviteData.sessionId} !`
-    });
-  });
-
-  useSocketEvent(socket, 'invite_response', (resp) => {
-    playNotification();
-    if (resp.accepted) {
-      setToastNotif({
-        icon: '⚔️',
-        title: 'Invitation acceptée !',
-        message: `${formatPlayerName(resp.playerName)} a accepté votre invitation et rejoint la salle !`
-      });
-    } else {
-      setToastNotif({
-        icon: 'ℹ️',
-        title: 'Invitation déclinée',
-        message: `${formatPlayerName(resp.playerName)} a décliné votre invitation.`
-      });
-    }
-    setTimeout(() => setToastNotif(null), 5000);
-  });
-
-  useSocketEvent(socket, 'game_started', () => {
-    setView('game');
-  });
-
-  useSocketEvent(socket, 'game_over', (data) => {
-    sessionStorage.removeItem('active_game_session');
-    setPlayers(data.players);
-    setSession(prev => ({
-      ...(typeof prev === 'object' && prev ? prev : {}),
-      vocabList: data.vocabList || [],
-      status: 'finished',
-      players: data.players
-    }));
-    setView('results');
-  });
-
-  useSocketEvent(socket, 'forfeit_game_over', (data) => {
-    localStorage.removeItem('wana_active_session');
-    sessionStorage.removeItem('active_game_session');
-    setPlayers(data.players);
-    setSession(prev => ({
-      ...(typeof prev === 'object' && prev ? prev : {}),
-      vocabList: data.vocabList || [],
-      status: 'finished',
-      players: data.players
-    }));
-    setView('results');
-    playNotification();
-    setToastNotif({
-      icon: '🏆',
-      title: 'Victoire par forfait !',
-      message: `${data.forfeitedName} ne s'est pas reconnecté à temps.`
-    });
-    setTimeout(() => setToastNotif(null), 6000);
-  });
-
-  useSocketEvent(socket, 'session_closed', ({ message } = {}) => {
-    alert(message || "La session a été fermée.");
-    localStorage.removeItem('wana_active_session');
-    sessionStorage.removeItem('active_game_session');
-    realtimeStore.resetSession();
-    setView('home');
-  });
-
-  useSocketEvent(socket, 'rejoin_success', (data) => {
-    setSession(data.session);
-    setPlayers(data.session.players || {});
-    setIsHost(Boolean(data.isHost));
-
-    const sessStatus = data.session.status || data.status;
-    if (sessStatus === 'playing' || sessStatus === 'showing_results') {
-      setView('game');
-    } else if (sessStatus === 'waiting') {
+  useEffect(() => {
+    socket.on('session_created', (sess) => {
+      const fullSession = typeof sess === 'object' ? sess : { id: sess };
+      setSession(fullSession);
+      setPlayers(fullSession.players || {});
+      setIsHost(true);
+      setChatMessages([
+        {
+          id: 'welcome',
+          isSystem: true,
+          text: `🎮 Salle #${fullSession.id} ouverte. Chattez, personnalisez vos mots & invitez vos amis !`,
+          timestamp: Date.now()
+        }
+      ]);
       setView('lobby');
-    } else if (sessStatus === 'finished') {
-      setView('results');
-    }
-
-    playNotification();
-    setToastNotif({
-      icon: '⚡',
-      title: 'Session réintégrée',
-      message: 'Vous êtes de retour dans votre session !'
     });
-    setTimeout(() => setToastNotif(null), 4000);
-  });
 
-  useSocketEvent(socket, 'rejoin_failed', () => {
-    localStorage.removeItem('wana_active_session');
-    sessionStorage.removeItem('active_game_session');
-    realtimeStore.resetSession();
-  });
+    socket.on('session_joined', (sess) => {
+      setSession(sess);
+      setPlayers(sess.players);
+      setIsHost(sess.hostId === socket.id);
+      setView('lobby');
+    });
 
-  useSocketEvent(socket, 'admin_announcement', (msg) => {
-    playNotification();
-    setAnnouncement(msg);
-  });
+    socket.on('kicked', () => {
+      alert("Vous avez été exclu de la session par l'hôte.");
+      setSession(null);
+      setPlayers({});
+      setIsHost(false);
+      setChatMessages([]);
+      setView('home');
+    });
 
-  useSocketEvent(socket, 'new_notification', (notif) => {
-    playNotification();
-    setNotifications(prev => [notif, ...prev]);
-    setUnreadCount(prev => prev + 1);
-    setToastNotif(notif);
-    setTimeout(() => setToastNotif(null), 6000);
-  });
+    socket.on('player_joined', (updatedPlayers) => {
+      setPlayers(updatedPlayers);
+    });
 
-  useSocketEvent(socket, 'session_updated', (sess) => {
-    setSession(sess);
-    if (sess.players) setPlayers(sess.players);
-    setIsHost(sess.hostId === socket.id);
-  });
+    socket.on('online_users_update', (users) => {
+      if (Array.isArray(users)) {
+        setOnlineUsers(users);
+      }
+    });
 
-  useSocketEvent(socket, 'error', (msg) => {
-    setError(msg);
-  });
+    socket.on('game_invite_received', (inviteData) => {
+      // Never show invite if we are the host or if it's our own session
+      if (!inviteData || inviteData.hostSocketId === socket.id) return;
+      setIncomingInvite(inviteData);
+    });
+
+    socket.on('invite_response', (resp) => {
+      playNotification();
+      if (resp.accepted) {
+        setToastNotif({
+          icon: '⚔️',
+          title: 'Invitation acceptée !',
+          message: `${formatPlayerName(resp.playerName)} a accepté votre invitation et rejoint la salle !`
+        });
+      } else {
+        setToastNotif({
+          icon: 'ℹ️',
+          title: 'Invitation déclinée',
+          message: `${formatPlayerName(resp.playerName)} a décliné votre invitation.`
+        });
+      }
+      setTimeout(() => setToastNotif(null), 5000);
+    });
+
+    socket.on('game_started', () => {
+      setView('game');
+    });
+
+    socket.on('game_over', (data) => {
+      sessionStorage.removeItem('active_game_session');
+      setPlayers(data.players);
+      setSession(prev => ({ ...prev, vocabList: data.vocabList }));
+      setView('results');
+    });
+
+    socket.on('forfeit_game_over', (data) => {
+      localStorage.removeItem('wana_active_session');
+      setPlayers(data.players);
+      setSession(prev => ({ ...prev, vocabList: data.vocabList }));
+      setView('results');
+      playNotification();
+      setToastNotif({
+        icon: '🏆',
+        title: 'Victoire par forfait !',
+        message: `${data.forfeitedName} ne s'est pas reconnecté à temps.`
+      });
+      setTimeout(() => setToastNotif(null), 6000);
+    });
+
+    socket.on('rejoin_success', (data) => {
+      setSession(data.session);
+      setPlayers(data.session.players || {});
+      setIsHost(Boolean(data.isHost));
+
+      const sessStatus = data.session.status || data.status;
+      if (sessStatus === 'playing' || sessStatus === 'showing_results') {
+        setView('game');
+      } else if (sessStatus === 'waiting') {
+        setView('lobby');
+      } else if (sessStatus === 'finished') {
+        setView('results');
+      }
+
+      playNotification();
+      setToastNotif({
+        icon: '⚡',
+        title: 'Session réintégrée',
+        message: 'Vous êtes de retour dans votre session !'
+      });
+      setTimeout(() => setToastNotif(null), 4000);
+    });
+
+    socket.on('rejoin_failed', () => {
+      localStorage.removeItem('wana_active_session');
+    });
+
+    socket.on('admin_announcement', (msg) => {
+      playNotification();
+      setAnnouncement(msg);
+    });
+
+    socket.on('new_notification', (notif) => {
+      playNotification();
+      setNotifications(prev => [notif, ...prev]);
+      setUnreadCount(prev => prev + 1);
+      setToastNotif(notif);
+      setTimeout(() => setToastNotif(null), 6000);
+    });
+
+    socket.on('session_updated', (sess) => {
+      setSession(sess);
+      if (sess.players) setPlayers(sess.players);
+      setIsHost(sess.hostId === socket.id);
+    });
+
+    socket.on('error', (msg) => {
+      setError(msg);
+    });
+
+    return () => {
+      socket.off('session_created');
+      socket.off('session_joined');
+      socket.off('session_updated');
+      socket.off('player_joined');
+      socket.off('online_users_update');
+      socket.off('game_invite_received');
+      socket.off('invite_response');
+      socket.off('game_started');
+      socket.off('game_over');
+      socket.off('forfeit_game_over');
+      socket.off('rejoin_success');
+      socket.off('rejoin_failed');
+      socket.off('admin_announcement');
+      socket.off('new_notification');
+      socket.off('error');
+      socket.off('kicked');
+    };
+  }, [playNotification]);
 
   // Global Chat Listener & Discord-like Floating Toast (Task 2 & Task 5)
-  const handleIncomingChatMessage = (msg) => {
-    if (!msg) return;
-    
-    const isFromOtherPlayer = msg.senderId && msg.senderId !== socket.id;
-    if (isFromOtherPlayer && !msg.isSystem) {
-      playMessageReceived();
-    }
+  useEffect(() => {
+    const handleIncomingChatMessage = (msg) => {
+      if (!msg) return;
+      
+      const isFromOtherPlayer = msg.senderId && msg.senderId !== socket.id;
+      if (isFromOtherPlayer && !msg.isSystem) {
+        playMessageReceived();
+      }
 
-    setChatMessages(prev => {
-      if (msg.id && prev.some(m => m.id === msg.id)) return prev;
-      return [...prev, msg];
-    });
-
-    // If user is outside active chat view, trigger floating Discord-like toast
-    const isChatVisibleDirectly = ['lobby', 'game', 'results'].includes(view) && activeTab === 'learn';
-    if (!isChatVisibleDirectly && isFromOtherPlayer && !msg.isSystem) {
-      setDiscordToast({
-        id: msg.id || Date.now(),
-        senderAvatar: msg.senderAvatar || '💬',
-        senderName: formatPlayerName(msg.senderName || 'Joueur'),
-        text: msg.text
+      setChatMessages(prev => {
+        if (msg.id && prev.some(m => m.id === msg.id)) return prev;
+        return [...prev, msg];
       });
-    }
-  };
 
-  useSocketEvent(socket, 'lobby_chat_message', handleIncomingChatMessage);
-  useSocketEvent(socket, 'game_chat_message', handleIncomingChatMessage);
-  useSocketEvent(socket, 'receive_message', handleIncomingChatMessage);
+      // If user is outside active chat view, trigger floating Discord-like toast
+      const isChatVisibleDirectly = ['lobby', 'game', 'results'].includes(view) && activeTab === 'learn';
+      if (!isChatVisibleDirectly && isFromOtherPlayer && !msg.isSystem) {
+        setDiscordToast({
+          id: msg.id || Date.now(),
+          senderAvatar: msg.senderAvatar || '💬',
+          senderName: formatPlayerName(msg.senderName || 'Joueur'),
+          text: msg.text
+        });
+      }
+    };
+
+    socket.on('lobby_chat_message', handleIncomingChatMessage);
+    socket.on('game_chat_message', handleIncomingChatMessage);
+    socket.on('receive_message', handleIncomingChatMessage);
+
+    return () => {
+      socket.off('lobby_chat_message', handleIncomingChatMessage);
+      socket.off('game_chat_message', handleIncomingChatMessage);
+      socket.off('receive_message', handleIncomingChatMessage);
+    };
+  }, [view, activeTab, playMessageReceived]);
 
   // Save active session to localStorage so closing/reopening browser directly rejoins lobby or game
   useEffect(() => {
@@ -783,75 +745,75 @@ function App() {
     }
   }, [view, session?.id, user?.uid, playerName, avatar]);
 
-  const handleRejoinCheck = () => {
-    try {
-      const saved = localStorage.getItem('wana_active_session');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed?.sessionId && !session?.id) {
-          socket.emit('rejoin_session', {
-            sessionId: parsed.sessionId,
-            clientPlayerKey: getClientPlayerKey(),
-            firebaseId: user?.uid || parsed.firebaseId || null,
-            playerName: playerName || parsed.playerName || '',
-            avatar: avatar || parsed.avatar || '🦊'
-          });
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  // Re-check rejoin status when user attributes change
+  // Attempt auto-rejoin on socket connect/reconnect and initial mount
   useEffect(() => {
+    const handleRejoinCheck = () => {
+      try {
+        const saved = localStorage.getItem('wana_active_session');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed?.sessionId) {
+            socket.emit('rejoin_session', {
+              sessionId: parsed.sessionId,
+              clientPlayerKey: getClientPlayerKey(),
+              firebaseId: user?.uid || parsed.firebaseId || null,
+              playerName: playerName || parsed.playerName || '',
+              avatar: avatar || parsed.avatar || '🦊'
+            });
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    socket.on('connect', handleRejoinCheck);
     handleRejoinCheck();
+
+    return () => {
+      socket.off('connect', handleRejoinCheck);
+    };
   }, [user, playerName, avatar]);
 
-  useSocketEvent(socket, 'connect', handleRejoinCheck);
-
   const handleAcceptInvite = () => {
-    const invite = incomingInvite || realtimeStore.getSnapshot().incomingInvite;
-    if (!invite) return;
+    if (!incomingInvite) return;
     const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Invité`;
     
     socket.emit('respond_game_invite', {
-      inviteId: invite.inviteId,
-      hostSocketId: invite.hostSocketId,
+      inviteId: incomingInvite.inviteId,
+      hostSocketId: incomingInvite.hostSocketId,
       accepted: true,
-      sessionId: invite.sessionId,
+      sessionId: incomingInvite.sessionId,
       playerName: finalName,
       avatar,
       firebaseId: user?.uid
     });
 
     socket.emit('join_session', {
-      sessionId: invite.sessionId,
+      sessionId: incomingInvite.sessionId,
       playerName: finalName,
       firebaseId: user?.uid,
-      avatar,
-      clientPlayerKey: getClientPlayerKey()
+      avatar
     });
 
-    realtimeStore.setIncomingInvite(null);
+    setIncomingInvite(null);
   };
 
   const handleRejectInvite = () => {
-    const invite = incomingInvite || realtimeStore.getSnapshot().incomingInvite;
-    if (!invite) return;
+    if (!incomingInvite) return;
     const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Invité`;
 
     socket.emit('respond_game_invite', {
-      inviteId: invite.inviteId,
-      hostSocketId: invite.hostSocketId,
+      inviteId: incomingInvite.inviteId,
+      hostSocketId: incomingInvite.hostSocketId,
       accepted: false,
-      sessionId: invite.sessionId,
+      sessionId: incomingInvite.sessionId,
       playerName: finalName,
       avatar,
       firebaseId: user?.uid
     });
 
-    realtimeStore.setIncomingInvite(null);
+    setIncomingInvite(null);
   };
 
   // Fallback timeout to ensure auth loading never hangs indefinitely
@@ -916,17 +878,13 @@ function App() {
   // Si l'admin a désactivé l'obligation (requirePwaInstall === false), on bypass totalement et on donne un accès direct.
   // Si l'admin l'exige (requirePwaInstall === true) ET qu'on n'est pas en standalone, on bloque avec InstallGate.
   if (config?.requirePwaInstall === true && !isStandalone) {
-    return (
-      <Suspense fallback={<ViewLoadingFallback message="Initialisation..." />}>
-        <InstallGate />
-      </Suspense>
-    );
+    return <InstallGate />;
   }
 
   if (isAuthLoading) {
     return (
       <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <ViewLoadingFallback message="Connexion à votre compte..." />
+        <h2 style={{ color: 'var(--primary)' }}>Chargement...</h2>
       </div>
     );
   }
@@ -1006,19 +964,17 @@ function App() {
   // 2. Authenticated users who haven't clicked enter yet see the Title Screen (Unlocks Audio)
   if (!hasEnteredApp) {
     return (
-      <Suspense fallback={<ViewLoadingFallback message="Préparation de l'arène..." />}>
-        <TitleScreen
-          onEnter={() => setHasEnteredApp(true)}
-          onLogout={() => {
-            logout();
-            setIsGuest(false);
-            setHasEnteredApp(false);
-          }}
-          user={user}
-          playerName={playerName}
-          avatar={avatar}
-        />
-      </Suspense>
+      <TitleScreen
+        onEnter={() => setHasEnteredApp(true)}
+        onLogout={() => {
+          logout();
+          setIsGuest(false);
+          setHasEnteredApp(false);
+        }}
+        user={user}
+        playerName={playerName}
+        avatar={avatar}
+      />
     );
   }
 
@@ -1031,21 +987,19 @@ function App() {
             {error} <button onClick={() => setError('')} style={{background:'none',border:'none',color:'white',cursor:'pointer'}}>X</button>
           </div>
         )}
-        <Suspense fallback={<ViewLoadingFallback message="Chargement du mode Survie / Vengeance..." />}>
-          <VengeanceMode 
-            failedWords={survivalSession ? survivalSession.words : failedWords}
-            isSurvivalMode={Boolean(survivalSession)}
-            modeTitle={survivalSession?.title || 'Mode Vengeance'}
-            user={user}
-            onPurify={survivalSession ? null : handlePurifySuccess}
-            onBackHome={() => {
-              setSurvivalSession(null);
-              setView('home');
-            }}
-            playerName={playerName}
-            avatar={avatar}
-          />
-        </Suspense>
+        <VengeanceMode 
+          failedWords={survivalSession ? survivalSession.words : failedWords}
+          isSurvivalMode={Boolean(survivalSession)}
+          modeTitle={survivalSession?.title || 'Mode Vengeance'}
+          user={user}
+          onPurify={survivalSession ? null : handlePurifySuccess}
+          onBackHome={() => {
+            setSurvivalSession(null);
+            setView('home');
+          }}
+          playerName={playerName}
+          avatar={avatar}
+        />
       </div>
     );
   }
@@ -1058,16 +1012,14 @@ function App() {
             {error} <button onClick={() => setError('')} style={{background:'none',border:'none',color:'white',cursor:'pointer'}}>X</button>
           </div>
         )}
-        <Suspense fallback={<ViewLoadingFallback message="Connexion au match en direct..." />}>
-          <Game 
-            socket={socket} 
-            session={session} 
-            playerName={playerName} 
-            avatar={avatar} 
-            chatMessages={chatMessages} 
-            setChatMessages={setChatMessages} 
-          />
-        </Suspense>
+        <Game 
+          socket={socket} 
+          session={session} 
+          playerName={playerName} 
+          avatar={avatar} 
+          chatMessages={chatMessages} 
+          setChatMessages={setChatMessages} 
+        />
       </div>
     );
   }
@@ -1234,74 +1186,72 @@ function App() {
           </div>
         )}
         
-        <Suspense fallback={<ViewLoadingFallback message="Chargement de l'arène..." />}>
-          {view === 'home' && (
-            <Home 
-              socket={socket} 
-              playerName={playerName} 
-              setPlayerName={setPlayerName}
-              avatar={avatar}
-              setAvatar={setAvatar}
-              onSaveProfile={handleSaveProfile}
-              user={user}
-              loginWithGoogle={loginWithGoogle}
-              logout={() => { logout(); setIsGuest(false); setHasEnteredApp(false); }}
-              deleteAccount={deleteAccount}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              onNavigate={setActiveTab}
-              setView={setView}
-              leaderboard={leaderboard}
-              isGuest={isGuest}
-              setIsGuest={setIsGuest}
-              isAdmin={isAdmin}
-              onOpenAdmin={() => setShowAdmin(true)}
-              theme={theme}
-              setTheme={setTheme}
-              failedWords={failedWords}
-              standaloneDebug={standaloneDebug}
-              onClearPwaCache={handleClearPwaCache}
-              onDeleteFailedWord={handleDeleteFailedWord}
-              onEditFailedWord={handleEditFailedWord}
-              onClearAllFailedWords={handleClearAllFailedWords}
-              onStartVengeance={() => {
-                setSurvivalSession(null);
-                setView('vengeance');
-              }}
-              onStartSurvival={handleStartSurvival}
-            />
-          )}
-          {view === 'lobby' && (
-            <Lobby 
-              socket={socket} 
-              session={session} 
-              players={players} 
-              isHost={isHost} 
-              setView={setView} 
-              onlineUsers={onlineUsers}
-              playerName={playerName}
-              avatar={avatar}
-              user={user}
-              chatMessages={chatMessages}
-              setChatMessages={setChatMessages}
-              onStartSurvival={handleStartSurvival}
-            />
-          )}
-          {view === 'results' && (
-            <Results 
-              players={players} 
-              setView={setView} 
-              socket={socket} 
-              session={session} 
-              isHost={isHost}
-              playerName={playerName}
-              avatar={avatar}
-              user={user}
-              chatMessages={chatMessages}
-              setChatMessages={setChatMessages}
-            />
-          )}
-        </Suspense>
+        {view === 'home' && (
+          <Home 
+            socket={socket} 
+            playerName={playerName} 
+            setPlayerName={setPlayerName}
+            avatar={avatar}
+            setAvatar={setAvatar}
+            onSaveProfile={handleSaveProfile}
+            user={user}
+            loginWithGoogle={loginWithGoogle}
+            logout={() => { logout(); setIsGuest(false); setHasEnteredApp(false); }}
+            deleteAccount={deleteAccount}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            onNavigate={setActiveTab}
+            setView={setView}
+            leaderboard={leaderboard}
+            isGuest={isGuest}
+            setIsGuest={setIsGuest}
+            isAdmin={isAdmin}
+            onOpenAdmin={() => setShowAdmin(true)}
+            theme={theme}
+            setTheme={setTheme}
+            failedWords={failedWords}
+            standaloneDebug={standaloneDebug}
+            onClearPwaCache={handleClearPwaCache}
+            onDeleteFailedWord={handleDeleteFailedWord}
+            onEditFailedWord={handleEditFailedWord}
+            onClearAllFailedWords={handleClearAllFailedWords}
+            onStartVengeance={() => {
+              setSurvivalSession(null);
+              setView('vengeance');
+            }}
+            onStartSurvival={handleStartSurvival}
+          />
+        )}
+        {view === 'lobby' && (
+          <Lobby 
+            socket={socket} 
+            session={session} 
+            players={players} 
+            isHost={isHost} 
+            setView={setView} 
+            onlineUsers={onlineUsers}
+            playerName={playerName}
+            avatar={avatar}
+            user={user}
+            chatMessages={chatMessages}
+            setChatMessages={setChatMessages}
+            onStartSurvival={handleStartSurvival}
+          />
+        )}
+        {view === 'results' && (
+          <Results 
+            players={players} 
+            setView={setView} 
+            socket={socket} 
+            session={session} 
+            isHost={isHost}
+            playerName={playerName}
+            avatar={avatar}
+            user={user}
+            chatMessages={chatMessages}
+            setChatMessages={setChatMessages}
+          />
+        )}
       </Layout>
 
       {/* Real-time Game Invite Modal */}
@@ -1314,29 +1264,19 @@ function App() {
       )}
 
       {/* User Notifications Center Modal */}
-      <Suspense fallback={null}>
-        <NotificationCenter
-          user={user}
-          socket={socket}
-          isOpen={showNotifications}
-          onClose={() => setShowNotifications(false)}
-          unreadCount={unreadCount}
-          setUnreadCount={setUnreadCount}
-          notifications={notifications}
-          setNotifications={setNotifications}
-        />
-      </Suspense>
+      <NotificationCenter
+        user={user}
+        socket={socket}
+        isOpen={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        unreadCount={unreadCount}
+        setUnreadCount={setUnreadCount}
+        notifications={notifications}
+        setNotifications={setNotifications}
+      />
 
       {/* Admin Panel - Only accessible by the confirmed admin */}
-      {showAdmin && isAdmin && (
-        <Suspense fallback={
-          <div className="modal-overlay" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <ViewLoadingFallback message="Chargement du panneau d'administration..." />
-          </div>
-        }>
-          <Admin user={user} onClose={() => setShowAdmin(false)} />
-        </Suspense>
-      )}
+      {showAdmin && isAdmin && <Admin user={user} onClose={() => setShowAdmin(false)} />}
     </>
   );
 }

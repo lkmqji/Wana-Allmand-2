@@ -1,10 +1,7 @@
 import { useState } from 'react';
 import { formatPlayerName } from '../utils/formatters';
-import { useIncomingInvite } from '../stores/realtimeStore';
 
-export default function InviteModal({ invite: propInvite, onAccept, onReject }) {
-  const storeInvite = useIncomingInvite();
-  const invite = propInvite || storeInvite;
+export default function InviteModal({ invite, onAccept, onReject }) {
   const [showFullList, setShowFullList] = useState(true);
 
   if (!invite) return null;
