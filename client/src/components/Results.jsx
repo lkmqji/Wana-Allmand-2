@@ -4,6 +4,7 @@ import { formatPlayerName, getClientPlayerKey, extractEmoji, generateBurstPartic
 import { useSoundEffects } from '../context/AudioContext';
 import { useSocketEvent } from '../utils/useSocketEvent';
 import { useBufferedReactions } from '../utils/useBufferedReactions';
+import { useSession, realtimeStore } from '../stores/realtimeStore';
 
 const PRESET_RESULTS_CHAT = [
   "GG! 🏆",
@@ -15,7 +16,9 @@ const PRESET_RESULTS_CHAT = [
 
 const PRESET_REACTIONS = ['🔥', '⚡', '🏆', '⚔️', '💪', '👏'];
 
-export default function Results({ players = {}, setView, socket, session, isHost, playerName, avatar, user, chatMessages = [], setChatMessages }) {
+export default function Results({ players = {}, setView, socket, session: propSession, isHost, playerName, avatar, user, chatMessages = [], setChatMessages }) {
+  const storeSession = useSession();
+  const session = storeSession || propSession;
   const { playVictory, playDefeat, playMessageSent, playReactionBurst, isMusicMuted, toggleMusicMute } = useSoundEffects();
   const [currentPlayers, setCurrentPlayers] = useState(players || {});
   
@@ -945,6 +948,9 @@ export default function Results({ players = {}, setView, socket, session, isHost
           className="btn btn-secondary" 
           onClick={() => {
             if (session?.id) socket.emit('leave_session', session.id);
+            localStorage.removeItem('wana_active_session');
+            sessionStorage.removeItem('active_game_session');
+            realtimeStore.resetSession();
             if (setChatMessages) setChatMessages([]);
             setView('home');
           }} 
@@ -992,11 +998,11 @@ export default function Results({ players = {}, setView, socket, session, isHost
       </div>
 
       {/* Detailed Game Summary List */}
-      {session && session.vocabList && (
+      {session && Array.isArray(session.vocabList) && session.vocabList.length > 0 && (
         <div className="card" style={{ textAlign: 'left', padding: '1.1rem' }}>
-          <h3 style={{ marginBottom: '1rem', textAlign: 'center', fontSize: '1.2rem' }}>📝 Résumé des questions & réponses</h3>
+          <h3 style={{ marginBottom: '1rem', textAlign: 'center', fontSize: '1.2rem' }}>📝 Résumé des questions & réponses ({session.vocabList.length} mots)</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-            {session.vocabList.slice(0, session.currentQuestionIndex || session.vocabList.length).map((word, index) => (
+            {session.vocabList.map((word, index) => (
               <div key={index} style={{ padding: '0.8rem 0.9rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                 <div style={{ marginBottom: '0.6rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-main)' }}>{word.question}</span>

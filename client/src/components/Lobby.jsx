@@ -5,7 +5,7 @@ import { useSoundEffects } from '../context/AudioContext';
 import ListPreviewModal from './ListPreviewModal';
 import { useSocketEvent } from '../utils/useSocketEvent';
 import { useBufferedReactions } from '../utils/useBufferedReactions';
-import { useOnlineUsers } from '../stores/realtimeStore';
+import { useOnlineUsers, realtimeStore } from '../stores/realtimeStore';
 
 export default function Lobby({ 
   socket, 
@@ -250,7 +250,10 @@ export default function Lobby({
   });
 
   const handleLeave = () => {
-    socket.emit('leave_session', session?.id);
+    if (session?.id) socket.emit('leave_session', session.id);
+    localStorage.removeItem('wana_active_session');
+    sessionStorage.removeItem('active_game_session');
+    realtimeStore.resetSession();
     if (setChatMessages) setChatMessages([]);
     setView('home');
   };

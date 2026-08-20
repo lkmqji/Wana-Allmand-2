@@ -644,14 +644,25 @@ function App() {
   useSocketEvent(socket, 'game_over', (data) => {
     sessionStorage.removeItem('active_game_session');
     setPlayers(data.players);
-    setSession(prev => ({ ...prev, vocabList: data.vocabList }));
+    setSession(prev => ({
+      ...(typeof prev === 'object' && prev ? prev : {}),
+      vocabList: data.vocabList || [],
+      status: 'finished',
+      players: data.players
+    }));
     setView('results');
   });
 
   useSocketEvent(socket, 'forfeit_game_over', (data) => {
     localStorage.removeItem('wana_active_session');
+    sessionStorage.removeItem('active_game_session');
     setPlayers(data.players);
-    setSession(prev => ({ ...prev, vocabList: data.vocabList }));
+    setSession(prev => ({
+      ...(typeof prev === 'object' && prev ? prev : {}),
+      vocabList: data.vocabList || [],
+      status: 'finished',
+      players: data.players
+    }));
     setView('results');
     playNotification();
     setToastNotif({
@@ -660,6 +671,14 @@ function App() {
       message: `${data.forfeitedName} ne s'est pas reconnecté à temps.`
     });
     setTimeout(() => setToastNotif(null), 6000);
+  });
+
+  useSocketEvent(socket, 'session_closed', ({ message } = {}) => {
+    alert(message || "La session a été fermée.");
+    localStorage.removeItem('wana_active_session');
+    sessionStorage.removeItem('active_game_session');
+    realtimeStore.resetSession();
+    setView('home');
   });
 
   useSocketEvent(socket, 'rejoin_success', (data) => {
@@ -687,6 +706,8 @@ function App() {
 
   useSocketEvent(socket, 'rejoin_failed', () => {
     localStorage.removeItem('wana_active_session');
+    sessionStorage.removeItem('active_game_session');
+    realtimeStore.resetSession();
   });
 
   useSocketEvent(socket, 'admin_announcement', (msg) => {

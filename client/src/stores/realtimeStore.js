@@ -2,8 +2,7 @@ import { useSyncExternalStore } from 'react';
 
 /**
  * Global Real-Time State Container (uSES)
- * Decouples volatile WebSocket streams from the React root component tree
- * with referentially stable selectors for O(1) selective subscriptions.
+ * Fully compatible with direct values AND React-style (prev => ...) updater callbacks.
  */
 
 let state = {
@@ -40,15 +39,16 @@ export const realtimeStore = {
     return state;
   },
 
-  // --- Mutators (Atomic Slices) ---
-  setOnlineUsers(onlineUsers) {
-    const nextUsers = Array.isArray(onlineUsers) ? onlineUsers : [];
-    state = { ...state, onlineUsers: nextUsers };
+  // --- Mutators (Atomic Slices, supporting both direct values & functional updaters) ---
+  setOnlineUsers(usersOrUpdater) {
+    const nextUsers = typeof usersOrUpdater === 'function' ? usersOrUpdater(state.onlineUsers) : usersOrUpdater;
+    state = { ...state, onlineUsers: Array.isArray(nextUsers) ? nextUsers : [] };
     emitChange();
   },
 
-  setSession(session) {
-    const fullSession = typeof session === 'object' ? session : (session ? { id: session } : null);
+  setSession(sessionOrUpdater) {
+    const next = typeof sessionOrUpdater === 'function' ? sessionOrUpdater(state.session) : sessionOrUpdater;
+    const fullSession = typeof next === 'object' ? next : (next ? { id: next } : null);
     state = { 
       ...state, 
       session: fullSession,
@@ -63,13 +63,15 @@ export const realtimeStore = {
     emitChange();
   },
 
-  setPlayers(players) {
-    state = { ...state, players: players || {} };
+  setPlayers(playersOrUpdater) {
+    const nextPlayers = typeof playersOrUpdater === 'function' ? playersOrUpdater(state.players) : playersOrUpdater;
+    state = { ...state, players: nextPlayers || {} };
     emitChange();
   },
 
-  setIsHost(isHost) {
-    state = { ...state, isHost: Boolean(isHost) };
+  setIsHost(isHostOrUpdater) {
+    const nextIsHost = typeof isHostOrUpdater === 'function' ? isHostOrUpdater(state.isHost) : isHostOrUpdater;
+    state = { ...state, isHost: Boolean(nextIsHost) };
     emitChange();
   },
 
@@ -108,18 +110,21 @@ export const realtimeStore = {
     emitChange();
   },
 
-  setToastNotif(toastNotif) {
-    state = { ...state, toastNotif };
+  setToastNotif(toastOrUpdater) {
+    const nextToast = typeof toastOrUpdater === 'function' ? toastOrUpdater(state.toastNotif) : toastOrUpdater;
+    state = { ...state, toastNotif: nextToast };
     emitChange();
   },
 
-  setIncomingInvite(incomingInvite) {
-    state = { ...state, incomingInvite };
+  setIncomingInvite(inviteOrUpdater) {
+    const nextInvite = typeof inviteOrUpdater === 'function' ? inviteOrUpdater(state.incomingInvite) : inviteOrUpdater;
+    state = { ...state, incomingInvite: nextInvite };
     emitChange();
   },
 
-  setAnnouncement(announcement) {
-    state = { ...state, announcement: announcement || '' };
+  setAnnouncement(announcementOrUpdater) {
+    const next = typeof announcementOrUpdater === 'function' ? announcementOrUpdater(state.announcement) : announcementOrUpdater;
+    state = { ...state, announcement: next || '' };
     emitChange();
   },
 
