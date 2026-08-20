@@ -85,6 +85,55 @@ function App() {
   const { playMessageReceived, playNotification, setIsInGame } = useAudio();
   const [hasEnteredApp, setHasEnteredApp] = useState(false);
 
+  // Global Application Config (cached in localStorage to prevent white flashes)
+  const [config, setConfig] = useState(() => {
+    try {
+      const saved = localStorage.getItem('wana_app_config');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return { requirePwaInstall: false, guestMode: true, maintenanceMode: false, announcement: '' };
+  });
+
+  // Load global config & listen for real-time admin changes (Kill Switch)
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/config`);
+        if (res.ok) {
+          const data = await res.json();
+          setConfig(prev => {
+            const next = { ...prev, ...data };
+            try {
+              localStorage.setItem('wana_app_config', JSON.stringify(next));
+            } catch {}
+            return next;
+          });
+        }
+      } catch (err) {
+        console.debug('Config load error:', err);
+      }
+    };
+
+    fetchConfig();
+
+    const handleConfigUpdate = (newConfig) => {
+      if (newConfig && typeof newConfig === 'object') {
+        setConfig(prev => {
+          const next = { ...prev, ...newConfig };
+          try {
+            localStorage.setItem('wana_app_config', JSON.stringify(next));
+          } catch {}
+          return next;
+        });
+      }
+    };
+
+    socket.on('config_updated', handleConfigUpdate);
+    return () => {
+      socket.off('config_updated', handleConfigUpdate);
+    };
+  }, []);
+
   const [view, setView] = useState('home'); // home, lobby, game, results
 
   // Automatically sync in-game state to AudioContext (mutes in-game if preferred, restores menu music when match ends)
@@ -825,8 +874,10 @@ function App() {
     setHasEnteredApp(true);
   };
 
-  // 🛑 HARD GATE: Stricte interdiction d'utiliser l'application dans un navigateur classique
-  if (!isStandalone) {
+  // 🛑 HARD GATE / KILL SWITCH :
+  // Si l'admin a désactivé l'obligation (requirePwaInstall === false), on bypass totalement et on donne un accès direct.
+  // Si l'admin l'exige (requirePwaInstall === true) ET qu'on n'est pas en standalone, on bloque avec InstallGate.
+  if (config?.requirePwaInstall === true && !isStandalone) {
     return <InstallGate />;
   }
 

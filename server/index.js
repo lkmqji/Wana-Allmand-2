@@ -49,6 +49,7 @@ app.get('/api/config', async (req, res) => {
         res.json({ 
             guestMode: config.guestMode ?? true,
             maintenanceMode: config.maintenanceMode ?? false,
+            requirePwaInstall: config.requirePwaInstall ?? false,
             announcement: config.announcement || ''
         });
     } catch (err) {
@@ -142,6 +143,15 @@ app.post('/api/admin/config', verifyAdmin, async (req, res) => {
         if (setting === 'announcement') {
             io.emit('admin_announcement', value);
         }
+
+        // Broadcast real-time config updates (e.g., requirePwaInstall, guestMode, maintenanceMode)
+        io.emit('config_updated', {
+            guestMode: config.guestMode ?? true,
+            maintenanceMode: config.maintenanceMode ?? false,
+            requirePwaInstall: config.requirePwaInstall ?? false,
+            announcement: config.announcement || '',
+            [setting]: value
+        });
 
         res.json({ success: true, [setting]: value });
     } catch (err) {

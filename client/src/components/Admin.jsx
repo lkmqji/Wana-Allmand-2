@@ -9,6 +9,7 @@ export default function Admin({ user, onClose }) {
   const [config, setConfig] = useState({
     guestMode: true,
     maintenanceMode: false,
+    requirePwaInstall: false,
     announcement: ""
   });
   const [overview, setOverview] = useState(null);
@@ -73,6 +74,7 @@ export default function Admin({ user, onClose }) {
         setConfig({
           guestMode: cfgData.guestMode ?? true,
           maintenanceMode: cfgData.maintenanceMode ?? false,
+          requirePwaInstall: cfgData.requirePwaInstall ?? false,
           announcement: cfgData.announcement || ""
         });
         setAnnouncementText(cfgData.announcement || "");
@@ -520,6 +522,16 @@ export default function Admin({ user, onClose }) {
                           {config.maintenanceMode ? "EN MAINTENANCE" : "NORMAL"}
                         </span>
                       </div>
+
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.8rem 1rem", background: "var(--bg-main)", borderRadius: "10px" }}>
+                        <div>
+                          <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>Installation PWA Mobile</div>
+                          <div style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>Exigence écran d'accueil</div>
+                        </div>
+                        <span style={{ fontWeight: "bold", color: config.requirePwaInstall ? "var(--primary)" : "var(--success)" }}>
+                          {config.requirePwaInstall ? "OBLIGATOIRE" : "LIBRE (WEB)"}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -749,6 +761,35 @@ export default function Admin({ user, onClose }) {
                       <span style={{
                         position: "absolute", top: "3px",
                         left: config.maintenanceMode ? "30px" : "3px",
+                        width: "24px", height: "24px", borderRadius: "50%",
+                        background: "white", transition: "left 0.3s", display: "block"
+                      }} />
+                    </button>
+                  </div>
+
+                  {/* Require PWA Installation Toggle Setting */}
+                  <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1.2rem", border: "1px solid rgba(99,102,241,0.3)", background: "linear-gradient(135deg, rgba(99,102,241,0.06), transparent)" }}>
+                    <div>
+                      <div style={{ fontWeight: "bold", fontSize: "1rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                        <span>📱</span>
+                        <span>Forcer l'installation de l'Application (PWA)</span>
+                      </div>
+                      <div style={{ color: "var(--text-muted)", fontSize: "0.85rem", marginTop: "0.2rem" }}>
+                        Si activé, les visiteurs sur mobile doivent obligatoirement installer l'app sur leur écran d'accueil. Si désactivé, l'application est accessible directement sur le web sans mur d'installation.
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => toggleConfig("requirePwaInstall", config.requirePwaInstall)}
+                      disabled={saving === "requirePwaInstall"}
+                      style={{
+                        flexShrink: 0, width: "58px", height: "30px", borderRadius: "15px",
+                        background: config.requirePwaInstall ? "var(--primary)" : "rgba(255,255,255,0.15)",
+                        border: "none", cursor: "pointer", position: "relative", transition: "background 0.3s"
+                      }}
+                    >
+                      <span style={{
+                        position: "absolute", top: "3px",
+                        left: config.requirePwaInstall ? "30px" : "3px",
                         width: "24px", height: "24px", borderRadius: "50%",
                         background: "white", transition: "left 0.3s", display: "block"
                       }} />
