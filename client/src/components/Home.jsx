@@ -57,7 +57,6 @@ export default function Home({
   const [publicLists, setPublicLists] = useState(() => listsCache.public || []);
   const [isConnected, setIsConnected] = useState(true);
   const [soloWordCount, setSoloWordCount] = useState(10);
-  const [themeInput, setThemeInput] = useState('');
   const [showWordEditor, setShowWordEditor] = useState(false);
   const [manualWords, setManualWords] = useState([{ id: 1, question: '', answer: '' }]);
   const [selectedListIds, setSelectedListIds] = useState(new Set());
