@@ -1,17 +1,32 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { io } from 'socket.io-client';
-import Home from './components/Home';
-import Lobby from './components/Lobby';
-import Game from './components/Game';
-import Results from './components/Results';
-import VengeanceMode from './components/VengeanceMode';
 import Layout from './components/Layout';
-import Admin from './components/Admin';
-import NotificationCenter from './components/NotificationCenter';
-import InviteModal from './components/InviteModal';
 import RightPanel from './components/RightPanel';
-import TitleScreen from './components/TitleScreen';
-import InstallGate from './components/InstallGate';
+
+// Lazy-loaded heavy views and modals for optimal initial bundle & fast TTI
+const Home = lazy(() => import('./components/Home'));
+const Lobby = lazy(() => import('./components/Lobby'));
+const Game = lazy(() => import('./components/Game'));
+const Results = lazy(() => import('./components/Results'));
+const VengeanceMode = lazy(() => import('./components/VengeanceMode'));
+const Admin = lazy(() => import('./components/Admin'));
+const NotificationCenter = lazy(() => import('./components/NotificationCenter'));
+const InviteModal = lazy(() => import('./components/InviteModal'));
+const TitleScreen = lazy(() => import('./components/TitleScreen'));
+const InstallGate = lazy(() => import('./components/InstallGate'));
+
+// Sleek dark-mode loading spinner fallback
+function ViewLoadingFallback({ message = "Chargement de l'arène..." }) {
+  return (
+    <div className="suspense-fallback-container">
+      <div className="suspense-spinner-wrapper">
+        <div className="suspense-spinner-ring" />
+        <span className="suspense-spinner-core">⚡</span>
+      </div>
+      <span className="suspense-loading-text">{message}</span>
+    </div>
+  );
+}
 import { exampleLists } from './data/exampleLists';
 import { auth, loginWithGoogle, logout, deleteAccount, updateUserProfile } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -878,13 +893,17 @@ function App() {
   // Si l'admin a désactivé l'obligation (requirePwaInstall === false), on bypass totalement et on donne un accès direct.
   // Si l'admin l'exige (requirePwaInstall === true) ET qu'on n'est pas en standalone, on bloque avec InstallGate.
   if (config?.requirePwaInstall === true && !isStandalone) {
-    return <InstallGate />;
+    return (
+      <Suspense fallback={<ViewLoadingFallback message="Initialisation..." />}>
+        <InstallGate />
+      </Suspense>
+    );
   }
 
   if (isAuthLoading) {
     return (
       <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <h2 style={{ color: 'var(--primary)' }}>Chargement...</h2>
+        <ViewLoadingFallback message="Connexion à votre compte..." />
       </div>
     );
   }
@@ -964,17 +983,19 @@ function App() {
   // 2. Authenticated users who haven't clicked enter yet see the Title Screen (Unlocks Audio)
   if (!hasEnteredApp) {
     return (
-      <TitleScreen
-        onEnter={() => setHasEnteredApp(true)}
-        onLogout={() => {
-          logout();
-          setIsGuest(false);
-          setHasEnteredApp(false);
-        }}
-        user={user}
-        playerName={playerName}
-        avatar={avatar}
-      />
+      <Suspense fallback={<ViewLoadingFallback message="Préparation de l'arène..." />}>
+        <TitleScreen
+          onEnter={() => setHasEnteredApp(true)}
+          onLogout={() => {
+            logout();
+            setIsGuest(false);
+            setHasEnteredApp(false);
+          }}
+          user={user}
+          playerName={playerName}
+          avatar={avatar}
+        />
+      </Suspense>
     );
   }
 
@@ -987,19 +1008,21 @@ function App() {
             {error} <button onClick={() => setError('')} style={{background:'none',border:'none',color:'white',cursor:'pointer'}}>X</button>
           </div>
         )}
-        <VengeanceMode 
-          failedWords={survivalSession ? survivalSession.words : failedWords}
-          isSurvivalMode={Boolean(survivalSession)}
-          modeTitle={survivalSession?.title || 'Mode Vengeance'}
-          user={user}
-          onPurify={survivalSession ? null : handlePurifySuccess}
-          onBackHome={() => {
-            setSurvivalSession(null);
-            setView('home');
-          }}
-          playerName={playerName}
-          avatar={avatar}
-        />
+        <Suspense fallback={<ViewLoadingFallback message="Chargement du mode Survie / Vengeance..." />}>
+          <VengeanceMode 
+            failedWords={survivalSession ? survivalSession.words : failedWords}
+            isSurvivalMode={Boolean(survivalSession)}
+            modeTitle={survivalSession?.title || 'Mode Vengeance'}
+            user={user}
+            onPurify={survivalSession ? null : handlePurifySuccess}
+            onBackHome={() => {
+              setSurvivalSession(null);
+              setView('home');
+            }}
+            playerName={playerName}
+            avatar={avatar}
+          />
+        </Suspense>
       </div>
     );
   }
@@ -1012,14 +1035,16 @@ function App() {
             {error} <button onClick={() => setError('')} style={{background:'none',border:'none',color:'white',cursor:'pointer'}}>X</button>
           </div>
         )}
-        <Game 
-          socket={socket} 
-          session={session} 
-          playerName={playerName} 
-          avatar={avatar} 
-          chatMessages={chatMessages} 
-          setChatMessages={setChatMessages} 
-        />
+        <Suspense fallback={<ViewLoadingFallback message="Connexion au match en direct..." />}>
+          <Game 
+            socket={socket} 
+            session={session} 
+            playerName={playerName} 
+            avatar={avatar} 
+            chatMessages={chatMessages} 
+            setChatMessages={setChatMessages} 
+          />
+        </Suspense>
       </div>
     );
   }
@@ -1186,97 +1211,111 @@ function App() {
           </div>
         )}
         
-        {view === 'home' && (
-          <Home 
-            socket={socket} 
-            playerName={playerName} 
-            setPlayerName={setPlayerName}
-            avatar={avatar}
-            setAvatar={setAvatar}
-            onSaveProfile={handleSaveProfile}
-            user={user}
-            loginWithGoogle={loginWithGoogle}
-            logout={() => { logout(); setIsGuest(false); setHasEnteredApp(false); }}
-            deleteAccount={deleteAccount}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            onNavigate={setActiveTab}
-            setView={setView}
-            leaderboard={leaderboard}
-            isGuest={isGuest}
-            setIsGuest={setIsGuest}
-            isAdmin={isAdmin}
-            onOpenAdmin={() => setShowAdmin(true)}
-            theme={theme}
-            setTheme={setTheme}
-            failedWords={failedWords}
-            standaloneDebug={standaloneDebug}
-            onClearPwaCache={handleClearPwaCache}
-            onDeleteFailedWord={handleDeleteFailedWord}
-            onEditFailedWord={handleEditFailedWord}
-            onClearAllFailedWords={handleClearAllFailedWords}
-            onStartVengeance={() => {
-              setSurvivalSession(null);
-              setView('vengeance');
-            }}
-            onStartSurvival={handleStartSurvival}
-          />
-        )}
-        {view === 'lobby' && (
-          <Lobby 
-            socket={socket} 
-            session={session} 
-            players={players} 
-            isHost={isHost} 
-            setView={setView} 
-            onlineUsers={onlineUsers}
-            playerName={playerName}
-            avatar={avatar}
-            user={user}
-            chatMessages={chatMessages}
-            setChatMessages={setChatMessages}
-            onStartSurvival={handleStartSurvival}
-          />
-        )}
-        {view === 'results' && (
-          <Results 
-            players={players} 
-            setView={setView} 
-            socket={socket} 
-            session={session} 
-            isHost={isHost}
-            playerName={playerName}
-            avatar={avatar}
-            user={user}
-            chatMessages={chatMessages}
-            setChatMessages={setChatMessages}
-          />
-        )}
+        <Suspense fallback={<ViewLoadingFallback message="Chargement de l'arène..." />}>
+          {view === 'home' && (
+            <Home 
+              socket={socket} 
+              playerName={playerName} 
+              setPlayerName={setPlayerName}
+              avatar={avatar}
+              setAvatar={setAvatar}
+              onSaveProfile={handleSaveProfile}
+              user={user}
+              loginWithGoogle={loginWithGoogle}
+              logout={() => { logout(); setIsGuest(false); setHasEnteredApp(false); }}
+              deleteAccount={deleteAccount}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              onNavigate={setActiveTab}
+              setView={setView}
+              leaderboard={leaderboard}
+              isGuest={isGuest}
+              setIsGuest={setIsGuest}
+              isAdmin={isAdmin}
+              onOpenAdmin={() => setShowAdmin(true)}
+              theme={theme}
+              setTheme={setTheme}
+              failedWords={failedWords}
+              standaloneDebug={standaloneDebug}
+              onClearPwaCache={handleClearPwaCache}
+              onDeleteFailedWord={handleDeleteFailedWord}
+              onEditFailedWord={handleEditFailedWord}
+              onClearAllFailedWords={handleClearAllFailedWords}
+              onStartVengeance={() => {
+                setSurvivalSession(null);
+                setView('vengeance');
+              }}
+              onStartSurvival={handleStartSurvival}
+            />
+          )}
+          {view === 'lobby' && (
+            <Lobby 
+              socket={socket} 
+              session={session} 
+              players={players} 
+              isHost={isHost} 
+              setView={setView} 
+              onlineUsers={onlineUsers}
+              playerName={playerName}
+              avatar={avatar}
+              user={user}
+              chatMessages={chatMessages}
+              setChatMessages={setChatMessages}
+              onStartSurvival={handleStartSurvival}
+            />
+          )}
+          {view === 'results' && (
+            <Results 
+              players={players} 
+              setView={setView} 
+              socket={socket} 
+              session={session} 
+              isHost={isHost}
+              playerName={playerName}
+              avatar={avatar}
+              user={user}
+              chatMessages={chatMessages}
+              setChatMessages={setChatMessages}
+            />
+          )}
+        </Suspense>
       </Layout>
 
       {/* Real-time Game Invite Modal */}
       {incomingInvite && (
-        <InviteModal 
-          invite={incomingInvite}
-          onAccept={handleAcceptInvite}
-          onReject={handleRejectInvite}
-        />
+        <Suspense fallback={null}>
+          <InviteModal 
+            invite={incomingInvite}
+            onAccept={handleAcceptInvite}
+            onReject={handleRejectInvite}
+          />
+        </Suspense>
       )}
 
       {/* User Notifications Center Modal */}
-      <NotificationCenter
-        user={user}
-        socket={socket}
-        isOpen={showNotifications}
-        onClose={() => setShowNotifications(false)}
-        unreadCount={unreadCount}
-        setUnreadCount={setUnreadCount}
-        notifications={notifications}
-        setNotifications={setNotifications}
-      />
+      <Suspense fallback={null}>
+        <NotificationCenter
+          user={user}
+          socket={socket}
+          isOpen={showNotifications}
+          onClose={() => setShowNotifications(false)}
+          unreadCount={unreadCount}
+          setUnreadCount={setUnreadCount}
+          notifications={notifications}
+          setNotifications={setNotifications}
+        />
+      </Suspense>
 
       {/* Admin Panel - Only accessible by the confirmed admin */}
-      {showAdmin && isAdmin && <Admin user={user} onClose={() => setShowAdmin(false)} />}
+      {showAdmin && isAdmin && (
+        <Suspense fallback={
+          <div className="modal-overlay" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <ViewLoadingFallback message="Chargement du panneau d'administration..." />
+          </div>
+        }>
+          <Admin user={user} onClose={() => setShowAdmin(false)} />
+        </Suspense>
+      )}
     </>
   );
 }

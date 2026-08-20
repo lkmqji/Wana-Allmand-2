@@ -1682,4 +1682,48 @@ h1, h2, h3, h4 {
   transform: scale(0.94);
 }
 
+/* 🚀 Suspense Dynamic View Fallback Spinner */
+.suspense-fallback-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  width: 100%;
+  gap: 1.2rem;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.suspense-spinner-wrapper {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.suspense-spinner-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid rgba(99, 102, 241, 0.15);
+  border-top-color: var(--primary, #6366f1);
+  border-right-color: var(--secondary, #ec4899);
+  animation: spin 0.85s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.3);
+}
+
+.suspense-spinner-core {
+  font-size: 1.4rem;
+  animation: pulseGlow 1.2s ease-in-out infinite alternate;
+}
+
+.suspense-loading-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #94a3b8);
+}
+
 
