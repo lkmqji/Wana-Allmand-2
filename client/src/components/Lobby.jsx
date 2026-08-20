@@ -5,6 +5,7 @@ import { useSoundEffects } from '../context/AudioContext';
 import ListPreviewModal from './ListPreviewModal';
 import { useSocketEvent } from '../utils/useSocketEvent';
 import { useBufferedReactions } from '../utils/useBufferedReactions';
+import { useOnlineUsers } from '../stores/realtimeStore';
 
 export default function Lobby({ 
   socket, 
@@ -20,6 +21,9 @@ export default function Lobby({
   setChatMessages,
   onStartSurvival 
 }) {
+  const storeOnlineUsers = useOnlineUsers();
+  const effectiveOnlineUsers = storeOnlineUsers && storeOnlineUsers.length > 0 ? storeOnlineUsers : (onlineUsers || []);
+
   const { playAlert, playMessageSent, playReactionBurst } = useSoundEffects();
   // Tabs: 'chat', 'online', 'words', 'settings'
   const [activeTab, setActiveTab] = useState('chat');
@@ -28,6 +32,13 @@ export default function Lobby({
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [isSurvivalSolo, setIsSurvivalSolo] = useState(false);
+
+  // Refresh live online users on mount and whenever the online tab is opened
+  useEffect(() => {
+    if (socket) {
+      socket.emit('get_online_users');
+    }
+  }, [socket, activeTab]);
   const messages = chatMessages;
   const [inputMsg, setInputMsg] = useState('');
   const chatBottomRef = useRef(null);
@@ -291,13 +302,15 @@ export default function Lobby({
   };
 
   const handleInvitePlayer = (targetUser) => {
-    if (!targetUser?.socketId) return;
+    if (!targetUser || (!targetUser.socketId && !targetUser.firebaseId)) return;
     socket.emit('send_game_invite', {
       targetSocketId: targetUser.socketId,
       targetFirebaseId: targetUser.firebaseId,
       sessionId: session?.id
     });
-    setInvitedSockets((prev) => ({ ...prev, [targetUser.socketId]: true }));
+    if (targetUser.socketId) {
+      setInvitedSockets((prev) => ({ ...prev, [targetUser.socketId]: true }));
+    }
   };
 
   // Local word typing (No chat spam during typing)
@@ -500,9 +513,11 @@ export default function Lobby({
 
   // Filter online users: exclude self and players currently in this room
   const sessionPlayerIds = Object.keys(players || {});
-  const filteredOnlineUsers = onlineUsers.filter((u) => {
-    if (u.socketId === socket.id) return false;
-    if (sessionPlayerIds.includes(u.socketId)) return false;
+  const filteredOnlineUsers = effectiveOnlineUsers.filter((u) => {
+    if (!u) return false;
+    if (u.socketId && socket?.id && u.socketId === socket.id) return false;
+    if (u.firebaseId && user?.uid && u.firebaseId === user.uid) return false;
+    if (u.socketId && sessionPlayerIds.includes(u.socketId)) return false;
     if (searchQuery.trim()) {
       return (u.name || '').toLowerCase().includes(searchQuery.toLowerCase().trim());
     }

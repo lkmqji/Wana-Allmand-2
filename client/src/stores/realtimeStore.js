@@ -1,9 +1,9 @@
-import { useSyncExternalStore, useCallback } from 'react';
+import { useSyncExternalStore } from 'react';
 
 /**
- * Global Real-Time State Container
+ * Global Real-Time State Container (uSES)
  * Decouples volatile WebSocket streams from the React root component tree
- * to eliminate Context Thrashing, Visual Tearing, and Root State Overload.
+ * with referentially stable selectors for O(1) selective subscriptions.
  */
 
 let state = {
@@ -42,13 +42,12 @@ export const realtimeStore = {
 
   // --- Mutators (Atomic Slices) ---
   setOnlineUsers(onlineUsers) {
-    if (state.onlineUsers === onlineUsers) return;
-    state = { ...state, onlineUsers: Array.isArray(onlineUsers) ? onlineUsers : [] };
+    const nextUsers = Array.isArray(onlineUsers) ? onlineUsers : [];
+    state = { ...state, onlineUsers: nextUsers };
     emitChange();
   },
 
   setSession(session) {
-    if (state.session === session) return;
     const fullSession = typeof session === 'object' ? session : (session ? { id: session } : null);
     state = { 
       ...state, 
@@ -60,27 +59,22 @@ export const realtimeStore = {
 
   updateSession(updater) {
     const nextSession = typeof updater === 'function' ? updater(state.session) : updater;
-    if (state.session === nextSession) return;
     state = { ...state, session: nextSession };
     emitChange();
   },
 
   setPlayers(players) {
-    if (state.players === players) return;
     state = { ...state, players: players || {} };
     emitChange();
   },
 
   setIsHost(isHost) {
-    const bool = Boolean(isHost);
-    if (state.isHost === bool) return;
-    state = { ...state, isHost: bool };
+    state = { ...state, isHost: Boolean(isHost) };
     emitChange();
   },
 
   setChatMessages(updater) {
     const nextMessages = typeof updater === 'function' ? updater(state.chatMessages) : updater;
-    if (state.chatMessages === nextMessages) return;
     state = { ...state, chatMessages: Array.isArray(nextMessages) ? nextMessages : [] };
     emitChange();
   },
@@ -94,7 +88,6 @@ export const realtimeStore = {
 
   setNotifications(updater) {
     const nextNotifs = typeof updater === 'function' ? updater(state.notifications) : updater;
-    if (state.notifications === nextNotifs) return;
     state = { ...state, notifications: Array.isArray(nextNotifs) ? nextNotifs : [] };
     emitChange();
   },
@@ -111,27 +104,22 @@ export const realtimeStore = {
 
   setUnreadCount(updater) {
     const nextCount = typeof updater === 'function' ? updater(state.unreadCount) : updater;
-    if (state.unreadCount === nextCount) return;
     state = { ...state, unreadCount: Math.max(0, nextCount || 0) };
     emitChange();
   },
 
   setToastNotif(toastNotif) {
-    if (state.toastNotif === toastNotif) return;
     state = { ...state, toastNotif };
     emitChange();
   },
 
   setIncomingInvite(incomingInvite) {
-    if (state.incomingInvite === incomingInvite) return;
     state = { ...state, incomingInvite };
     emitChange();
   },
 
   setAnnouncement(announcement) {
-    const str = announcement || '';
-    if (state.announcement === str) return;
-    state = { ...state, announcement: str };
+    state = { ...state, announcement: announcement || '' };
     emitChange();
   },
 
@@ -147,24 +135,28 @@ export const realtimeStore = {
   }
 };
 
-/**
- * useRealtimeSelector - Generic selective subscription hook using useSyncExternalStore
- */
-export function useRealtimeSelector(selector) {
-  const getSnapshot = useCallback(() => selector(state), [selector]);
-  return useSyncExternalStore(realtimeStore.subscribe, getSnapshot, getSnapshot);
-}
+// --- Referentially Stable Static Selectors ---
+const selectOnlineUsers = () => state.onlineUsers;
+const selectSession = () => state.session;
+const selectPlayers = () => state.players;
+const selectIsHost = () => state.isHost;
+const selectChatMessages = () => state.chatMessages;
+const selectNotifications = () => state.notifications;
+const selectUnreadCount = () => state.unreadCount;
+const selectToastNotif = () => state.toastNotif;
+const selectIncomingInvite = () => state.incomingInvite;
+const selectAnnouncement = () => state.announcement;
 
-// --- Dedicated O(1) Slice Hooks ---
-export const useOnlineUsers = () => useRealtimeSelector(s => s.onlineUsers);
-export const useSession = () => useRealtimeSelector(s => s.session);
-export const usePlayers = () => useRealtimeSelector(s => s.players);
-export const useIsHost = () => useRealtimeSelector(s => s.isHost);
-export const useChatMessages = () => useRealtimeSelector(s => s.chatMessages);
-export const useNotifications = () => useRealtimeSelector(s => s.notifications);
-export const useUnreadCount = () => useRealtimeSelector(s => s.unreadCount);
-export const useToastNotif = () => useRealtimeSelector(s => s.toastNotif);
-export const useIncomingInvite = () => useRealtimeSelector(s => s.incomingInvite);
-export const useAnnouncement = () => useRealtimeSelector(s => s.announcement);
+// --- Dedicated O(1) Slice Hooks with Guaranteed Stability ---
+export const useOnlineUsers = () => useSyncExternalStore(realtimeStore.subscribe, selectOnlineUsers, selectOnlineUsers);
+export const useSession = () => useSyncExternalStore(realtimeStore.subscribe, selectSession, selectSession);
+export const usePlayers = () => useSyncExternalStore(realtimeStore.subscribe, selectPlayers, selectPlayers);
+export const useIsHost = () => useSyncExternalStore(realtimeStore.subscribe, selectIsHost, selectIsHost);
+export const useChatMessages = () => useSyncExternalStore(realtimeStore.subscribe, selectChatMessages, selectChatMessages);
+export const useNotifications = () => useSyncExternalStore(realtimeStore.subscribe, selectNotifications, selectNotifications);
+export const useUnreadCount = () => useSyncExternalStore(realtimeStore.subscribe, selectUnreadCount, selectUnreadCount);
+export const useToastNotif = () => useSyncExternalStore(realtimeStore.subscribe, selectToastNotif, selectToastNotif);
+export const useIncomingInvite = () => useSyncExternalStore(realtimeStore.subscribe, selectIncomingInvite, selectIncomingInvite);
+export const useAnnouncement = () => useSyncExternalStore(realtimeStore.subscribe, selectAnnouncement, selectAnnouncement);
 
 export default realtimeStore;

@@ -614,8 +614,9 @@ function App() {
 
   useSocketEvent(socket, 'game_invite_received', (inviteData) => {
     // Never show invite if we are the host or if it's our own session
-    if (!inviteData || inviteData.hostSocketId === socket.id) return;
-    setIncomingInvite(inviteData);
+    if (!inviteData || (inviteData.hostSocketId && socket?.id && inviteData.hostSocketId === socket.id)) return;
+    playNotification();
+    realtimeStore.setIncomingInvite(inviteData);
   });
 
   useSocketEvent(socket, 'invite_response', (resp) => {
@@ -785,44 +786,47 @@ function App() {
   useSocketEvent(socket, 'connect', handleRejoinCheck);
 
   const handleAcceptInvite = () => {
-    if (!incomingInvite) return;
+    const invite = incomingInvite || realtimeStore.getSnapshot().incomingInvite;
+    if (!invite) return;
     const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Invité`;
     
     socket.emit('respond_game_invite', {
-      inviteId: incomingInvite.inviteId,
-      hostSocketId: incomingInvite.hostSocketId,
+      inviteId: invite.inviteId,
+      hostSocketId: invite.hostSocketId,
       accepted: true,
-      sessionId: incomingInvite.sessionId,
+      sessionId: invite.sessionId,
       playerName: finalName,
       avatar,
       firebaseId: user?.uid
     });
 
     socket.emit('join_session', {
-      sessionId: incomingInvite.sessionId,
+      sessionId: invite.sessionId,
       playerName: finalName,
       firebaseId: user?.uid,
-      avatar
+      avatar,
+      clientPlayerKey: getClientPlayerKey()
     });
 
-    setIncomingInvite(null);
+    realtimeStore.setIncomingInvite(null);
   };
 
   const handleRejectInvite = () => {
-    if (!incomingInvite) return;
+    const invite = incomingInvite || realtimeStore.getSnapshot().incomingInvite;
+    if (!invite) return;
     const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Invité`;
 
     socket.emit('respond_game_invite', {
-      inviteId: incomingInvite.inviteId,
-      hostSocketId: incomingInvite.hostSocketId,
+      inviteId: invite.inviteId,
+      hostSocketId: invite.hostSocketId,
       accepted: false,
-      sessionId: incomingInvite.sessionId,
+      sessionId: invite.sessionId,
       playerName: finalName,
       avatar,
       firebaseId: user?.uid
     });
 
-    setIncomingInvite(null);
+    realtimeStore.setIncomingInvite(null);
   };
 
   // Fallback timeout to ensure auth loading never hangs indefinitely
