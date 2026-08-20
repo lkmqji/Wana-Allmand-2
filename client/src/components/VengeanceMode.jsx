@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { exampleLists } from '../data/exampleLists';
 import { resolveWordPair } from '../utils/dictionary';
-import { useSoundEffects } from '../context/AudioContext';
+import { useAudio, useSoundEffects } from '../context/AudioContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const ROUND_DURATION = 10.5; // 30% faster than 15s duel
@@ -65,7 +65,6 @@ function checkVengeanceAnswer(expected, actual) {
       actNoun = actParts.slice(1).join(' ');
       if (expArt !== actArt) articleMatched = false;
     } else {
-      // User omitted article or typed only noun
       articleMatched = false;
     }
   }
@@ -77,17 +76,49 @@ function checkVengeanceAnswer(expected, actual) {
 }
 
 /**
- * Compares user wrong attempt against expected answer and highlights errors (Task 2)
+ * Task 4: Fisher-Yates Shuffle algorithm for unpredictable word sequences
+ */
+function fisherYatesShuffle(array) {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+/**
+ * Task 3: Web Speech API (Prononciation allemande native)
+ */
+function speakGermanWord(word, isSoundEnabled = true) {
+  if (!isSoundEnabled || !word || typeof window === 'undefined' || !window.speechSynthesis) return;
+
+  try {
+    window.speechSynthesis.cancel(); // Stop any pending pronunciation
+    // Clean string (strip parentheses / notes)
+    const cleanWord = word.replace(/[\(].*?[\)]/g, '').trim();
+    const utterance = new SpeechSynthesisUtterance(cleanWord);
+    utterance.lang = 'de-DE';
+    utterance.rate = 0.95; // Natural speed
+    utterance.pitch = 1.0;
+    window.speechSynthesis.speak(utterance);
+  } catch (e) {
+    console.debug('SpeechSynthesis notice:', e);
+  }
+}
+
+/**
+ * Task 1: Clean Fault Highlighter (Strikethrough / Red diff without verbose labels)
  */
 function renderFaultComparison(wrongAttempt, expected) {
   if (!wrongAttempt || !wrongAttempt.trim()) {
-    return <span style={{ color: '#ef4444', fontStyle: 'italic', fontSize: '1.1rem' }}>(vide / timeout)</span>;
+    return <span style={{ color: '#ef4444', fontStyle: 'italic', fontSize: '1.05rem' }}>⏱️ (temps écoulé)</span>;
   }
   const wrong = wrongAttempt.trim();
   const exp = (expected || '').trim();
 
   return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontFamily: 'monospace', fontSize: '1.25rem', verticalAlign: 'middle' }}>
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontFamily: 'monospace', fontSize: '1.2rem', verticalAlign: 'middle' }}>
       {wrong.split('').map((char, idx) => {
         const expectedChar = exp[idx];
         const isCorrectChar = expectedChar && char.toLowerCase() === expectedChar.toLowerCase();
@@ -123,11 +154,17 @@ export default function VengeanceMode({
   isSurvivalMode = false,
   modeTitle = 'Mode Vengeance'
 }) {
-  // Task 3: Batch choice selector (10, 15, 20, 'TOUT')
-  const [batchSizeChoice, setBatchSizeChoice] = useState(10);
+  const { isSoundEnabled } = useAudio();
+  const { playSuccess, playError, playExplosion, playCountdownGo, playTimeWarning } = useSoundEffects();
+
+  const maxAvailable = (failedWords || []).length || 1;
+
+  // Task 2: Interactive batch size state & free-typing custom input string
+  const [batchSizeChoice, setBatchSizeChoice] = useState(() => Math.min(10, maxAvailable));
+  const [customCountInput, setCustomCountInput] = useState(() => String(Math.min(10, maxAvailable)));
   const [batchOffset, setBatchOffset] = useState(0);
 
-  // Helper to extract a batch of resolved word pairs
+  // Helper to extract & shuffle batch
   const getBatchData = (choice, offset = 0) => {
     const extraLists = [exampleLists, ...(allLists || [])];
     const all = (failedWords || []).map((w, idx) => {
@@ -141,23 +178,44 @@ export default function VengeanceMode({
       };
     }).filter(w => Boolean(w.word));
 
-    const count = choice === 'TOUT' ? all.length : Number(choice);
+    const count = Number(choice) || 10;
     const sliced = all.slice(offset, offset + count);
-    const finalWords = sliced.length > 0 ? sliced : all.slice(0, count);
+    const finalSliced = sliced.length > 0 ? sliced : all.slice(0, count);
+    // Task 4: Fisher-Yates shuffle
+    const shuffled = fisherYatesShuffle(finalSliced);
+
     return {
       allWords: all,
-      batchWords: finalWords,
-      totalCount: finalWords.length,
-      remainingCount: Math.max(0, all.length - (offset + finalWords.length))
+      batchWords: shuffled,
+      totalCount: shuffled.length,
+      remainingCount: Math.max(0, all.length - (offset + shuffled.length))
     };
   };
+
+  // Task 5: Progression persistence key in localStorage
+  const progressStorageKey = `wana_prog_${isSurvivalMode ? 'surv' : 'veng'}_${modeTitle.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+  // Check saved progress
+  const [savedProgress, setSavedProgress] = useState(() => {
+    try {
+      const raw = localStorage.getItem(progressStorageKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.queue) && parsed.queue.length > 0) {
+        return parsed;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  });
 
   // Task 1: Intro Sas state
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // Initial queue initialization with batch choice
-  const [queue, setQueue] = useState(() => getBatchData(10, 0).batchWords);
-  const [batchTotal, setBatchTotal] = useState(() => getBatchData(10, 0).totalCount);
+  // Queue state
+  const [queue, setQueue] = useState(() => getBatchData(Math.min(10, maxAvailable), 0).batchWords);
+  const [batchTotal, setBatchTotal] = useState(() => getBatchData(Math.min(10, maxAvailable), 0).totalCount);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [inputVal, setInputVal] = useState('');
@@ -165,7 +223,7 @@ export default function VengeanceMode({
   const [isAnswering, setIsAnswering] = useState(false);
   const [feedback, setFeedback] = useState(null);
   
-  // Task 2: Active Correction & Error Pedagogy states
+  // Task 1 & 2: Active Correction & Error pedagogy states
   const [mustTypeCorrection, setMustTypeCorrection] = useState(false);
   const [correctionText, setCorrectionText] = useState('');
   const [wrongAttempt, setWrongAttempt] = useState('');
@@ -175,19 +233,57 @@ export default function VengeanceMode({
   const [purifiedCount, setPurifiedCount] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
 
-  const { playSuccess, playError, playExplosion, playCountdownGo, playTimeWarning } = useSoundEffects();
-
   const inputRef = useRef(null);
   const timerRef = useRef(null);
 
   const currentWord = queue[currentIndex] || null;
 
-  // Sound on Word Appearance
+  // Task 3: Pronounce German word on word appearance or active correction
   useEffect(() => {
     if (isPlaying && currentWord && !isCompleted && !feedback && !mustTypeCorrection) {
       playCountdownGo();
+      speakGermanWord(currentWord.word, isSoundEnabled);
     }
-  }, [isPlaying, currentIndex, currentWord?.id, isCompleted, mustTypeCorrection]);
+  }, [isPlaying, currentIndex, currentWord?.id, isCompleted, mustTypeCorrection, isSoundEnabled]);
+
+  // Pronounce word when active correction modal triggers
+  useEffect(() => {
+    if (isPlaying && mustTypeCorrection && correctionText) {
+      speakGermanWord(correctionText, isSoundEnabled);
+    }
+  }, [isPlaying, mustTypeCorrection, correctionText, isSoundEnabled]);
+
+  // Task 5: Auto-save progression to localStorage during play
+  useEffect(() => {
+    if (isPlaying && !isCompleted && queue.length > 0) {
+      try {
+        const progressData = {
+          queue,
+          currentIndex,
+          purifiedCount,
+          batchTotal,
+          batchOffset,
+          batchSizeChoice,
+          modeTitle,
+          isSurvivalMode,
+          timestamp: Date.now()
+        };
+        localStorage.setItem(progressStorageKey, JSON.stringify(progressData));
+      } catch (e) {
+        console.warn('Could not save progress:', e);
+      }
+    }
+  }, [isPlaying, isCompleted, queue, currentIndex, purifiedCount, batchTotal, batchOffset, batchSizeChoice, progressStorageKey]);
+
+  // Clean saved progress on triumph
+  useEffect(() => {
+    if (isCompleted) {
+      try {
+        localStorage.removeItem(progressStorageKey);
+        setSavedProgress(null);
+      } catch {}
+    }
+  }, [isCompleted, progressStorageKey]);
 
   // Time warning ticker in Vengeance Mode
   const roundedVengeanceTime = Math.ceil(timeLeft);
@@ -286,7 +382,7 @@ export default function VengeanceMode({
     };
     setQueue(updatedQueue);
 
-    // Trigger Active Correction mode with empty/timeout notice
+    // Trigger Active Correction mode with timeout
     setWrongAttempt(inputVal || '');
     setMustTypeCorrection(true);
     setCorrectionText(currentWord.word);
@@ -297,7 +393,7 @@ export default function VengeanceMode({
     if (e) e.preventDefault();
     if (!currentWord) return;
 
-    // Task 2: Active Correction Validation
+    // Task 1 & 2: Active Correction Validation
     if (mustTypeCorrection) {
       const isExactCorrection = 
         normalizeText(inputVal) === normalizeText(correctionText) ||
@@ -347,7 +443,7 @@ export default function VengeanceMode({
           expected: currentWord.word
         });
 
-        // Task 4: Only call backend purification API if playing actual failedWords purge mode
+        // Only call backend purification API if playing actual failedWords purge mode
         if (!isSurvivalMode && user?.uid) {
           fetch(`${API_URL}/api/users/${user.uid}/purify`, {
             method: 'PUT',
@@ -405,7 +501,7 @@ export default function VengeanceMode({
         }, 1000);
       }
     } else {
-      // WRONG ANSWER: Store attempt + Muscle Memory Correction (Task 2)
+      // WRONG ANSWER: Store attempt + Muscle Memory Correction (Task 1 & 2)
       setIsAnswering(false);
       setIsShaking(true);
       playError();
@@ -425,7 +521,7 @@ export default function VengeanceMode({
     }
   };
 
-  // Task 3: Continuous chaining of remaining batches
+  // Task 3 & 5: Continuous chaining of remaining batches
   const totalAvailableWords = (failedWords || []).length;
   const remainingWordsCount = Math.max(0, totalAvailableWords - (batchOffset + batchTotal));
 
@@ -444,6 +540,46 @@ export default function VengeanceMode({
     setMustTypeCorrection(false);
     setCorrectionText('');
     setWrongAttempt('');
+  };
+
+  // Task 5: Resume saved progress
+  const handleResumeSavedProgress = () => {
+    if (!savedProgress) return;
+    setQueue(savedProgress.queue);
+    setCurrentIndex(savedProgress.currentIndex || 0);
+    setPurifiedCount(savedProgress.purifiedCount || 0);
+    setBatchTotal(savedProgress.batchTotal || savedProgress.queue.length);
+    setBatchOffset(savedProgress.batchOffset || 0);
+    if (savedProgress.batchSizeChoice) {
+      setBatchSizeChoice(savedProgress.batchSizeChoice);
+      setCustomCountInput(String(savedProgress.batchSizeChoice));
+    }
+    setIsPlaying(true);
+  };
+
+  // Task 5: Reset saved progress
+  const handleResetSavedProgress = () => {
+    try {
+      localStorage.removeItem(progressStorageKey);
+    } catch {}
+    setSavedProgress(null);
+    const data = getBatchData(batchSizeChoice, 0);
+    setQueue(data.batchWords);
+    setBatchTotal(data.totalCount);
+    setBatchOffset(0);
+    setCurrentIndex(0);
+    setPurifiedCount(0);
+  };
+
+  // Task 2: Handler for selecting quick pills (10, 15, 20)
+  const handleSelectPill = (num) => {
+    const val = Math.min(num, maxAvailable);
+    setBatchSizeChoice(val);
+    setCustomCountInput(String(val));
+    const data = getBatchData(val, 0);
+    setQueue(data.batchWords);
+    setBatchTotal(data.totalCount);
+    setBatchOffset(0);
   };
 
   // 🏆 Écran de Triomphe
@@ -534,8 +670,10 @@ export default function VengeanceMode({
     );
   }
 
-  // Task 1 & 3: Sas de Préparation (Intro Screen with Batch Selector)
+  // Task 1, 2, 5: Sas de Préparation (Intro Screen with Custom Count & Resume Option)
   if (!isPlaying) {
+    const isCustomActive = ![10, 15, 20].includes(batchSizeChoice);
+
     return (
       <div className="vengeance-arena">
         {/* Top Header Bar */}
@@ -611,25 +749,66 @@ export default function VengeanceMode({
             </p>
           </div>
 
-          {/* Task 3: Quick Batch Selector (10, 15, 20, TOUT) */}
+          {/* Task 5: Saved Progress Resume Banner */}
+          {savedProgress && (
+            <div style={{
+              background: 'rgba(99, 102, 241, 0.15)',
+              border: '1.5px solid rgba(99, 102, 241, 0.45)',
+              borderRadius: '14px',
+              padding: '0.9rem 1.1rem',
+              marginBottom: '1.4rem',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '0.92rem', color: '#c7d2fe', fontWeight: 800, marginBottom: '0.3rem' }}>
+                💾 Progression sauvegardée trouvée !
+              </div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.85rem' }}>
+                {savedProgress.purifiedCount} / {savedProgress.batchTotal} mots validés ({savedProgress.queue?.length || 0} restants)
+              </div>
+              <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  onClick={handleResumeSavedProgress}
+                  className="btn btn-primary"
+                  style={{
+                    padding: '0.65rem 1.1rem',
+                    fontSize: '0.92rem',
+                    fontWeight: 800,
+                    borderRadius: '12px',
+                    flex: 1
+                  }}
+                >
+                  ▶️ Continuer
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetSavedProgress}
+                  className="btn btn-secondary"
+                  style={{
+                    padding: '0.65rem 0.9rem',
+                    fontSize: '0.82rem',
+                    borderRadius: '12px'
+                  }}
+                >
+                  🔄 Recommencer
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Task 2: Interactive Batch Selector with Editable "Personnalisé" Box */}
           <div style={{ marginBottom: '1.6rem', textAlign: 'center' }}>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.6rem', letterSpacing: '0.5px' }}>
-              🎯 Choisis la taille du lot pour cette session :
+              🎯 Taille du lot pour cette session :
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-              {[10, 15, 20, 'TOUT'].map(opt => {
-                const isSelected = batchSizeChoice === opt;
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+              {[10, 15, 20].map(num => {
+                const isSelected = batchSizeChoice === num;
                 return (
                   <button
-                    key={opt}
+                    key={num}
                     type="button"
-                    onClick={() => {
-                      setBatchSizeChoice(opt);
-                      const data = getBatchData(opt, 0);
-                      setQueue(data.batchWords);
-                      setBatchTotal(data.totalCount);
-                      setBatchOffset(0);
-                    }}
+                    onClick={() => handleSelectPill(num)}
                     style={{
                       padding: '0.45rem 0.9rem',
                       borderRadius: '999px',
@@ -643,10 +822,73 @@ export default function VengeanceMode({
                       transition: 'all 0.2s ease'
                     }}
                   >
-                    {opt === 'TOUT' ? `TOUT (${totalAvailableWords})` : `${opt} mots`}
+                    {num} mots
                   </button>
                 );
               })}
+
+              {/* Editable Custom Count Box allowing complete erasure */}
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                background: isCustomActive ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(220, 38, 38, 0.15))' : 'rgba(255, 255, 255, 0.05)',
+                border: `1.5px solid ${isCustomActive ? '#ef4444' : 'rgba(255, 255, 255, 0.15)'}`,
+                borderRadius: '999px',
+                padding: '0.2rem 0.6rem 0.2rem 0.8rem',
+                boxShadow: isCustomActive ? '0 0 14px rgba(239, 68, 68, 0.3)' : 'none',
+                transition: 'all 0.2s ease'
+              }}>
+                <span style={{ fontSize: '0.85rem', color: isCustomActive ? '#ffffff' : 'var(--text-muted)', fontWeight: 700 }}>
+                  Personnalisé :
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={customCountInput}
+                  placeholder="ex: 8"
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9]/g, '');
+                    setCustomCountInput(val);
+                    if (val) {
+                      const parsed = parseInt(val, 10);
+                      if (parsed >= 1) {
+                        const clamped = Math.min(parsed, maxAvailable);
+                        setBatchSizeChoice(clamped);
+                        const data = getBatchData(clamped, 0);
+                        setQueue(data.batchWords);
+                        setBatchTotal(data.totalCount);
+                        setBatchOffset(0);
+                      }
+                    }
+                  }}
+                  onBlur={() => {
+                    const parsed = parseInt(customCountInput, 10);
+                    const clamped = isNaN(parsed) || parsed < 1 ? Math.min(10, maxAvailable) : Math.min(parsed, maxAvailable);
+                    setCustomCountInput(String(clamped));
+                    setBatchSizeChoice(clamped);
+                    const data = getBatchData(clamped, 0);
+                    setQueue(data.batchWords);
+                    setBatchTotal(data.totalCount);
+                    setBatchOffset(0);
+                  }}
+                  style={{
+                    width: '45px',
+                    padding: '0.25rem 0.4rem',
+                    fontSize: '0.9rem',
+                    fontWeight: 800,
+                    textAlign: 'center',
+                    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '8px',
+                    color: '#ffffff',
+                    outline: 'none'
+                  }}
+                />
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  / {maxAvailable}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -744,7 +986,7 @@ export default function VengeanceMode({
         </div>
       </div>
 
-      {/* Main Game Box (Task 1: marginTop -8vh) */}
+      {/* Main Game Box */}
       <div 
         className={`vengeance-game-box ${feedback?.type === 'success' || feedback?.type === 'purify' ? 'correct-flash' : ''} ${feedback?.type === 'wrong' || mustTypeCorrection ? 'wrong-flash' : ''} ${isExploding ? 'heart-icon-active' : ''}`}
         style={{ marginTop: '-8vh' }}
@@ -806,45 +1048,57 @@ export default function VengeanceMode({
           )}
         </div>
 
-        {/* Task 2: Active Correction & Pedagogical Error Box */}
+        {/* Task 1: Cleaned-up Active Correction Box (No verbose labels) */}
         {mustTypeCorrection ? (
           <div style={{
             background: 'rgba(239, 68, 68, 0.12)',
             border: '2px solid rgba(239, 68, 68, 0.6)',
-            borderRadius: '16px',
-            padding: '1.1rem 1.3rem',
+            borderRadius: '18px',
+            padding: '1.2rem 1.4rem',
             textAlign: 'center',
             marginBottom: '1.3rem',
-            boxShadow: '0 0 30px rgba(239, 68, 68, 0.25)',
+            boxShadow: '0 0 35px rgba(239, 68, 68, 0.3)',
             animation: 'fadeIn 0.25s ease-out'
           }}>
-            {/* Wrong typing diff comparison */}
-            <div style={{ marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.85rem', color: '#fca5a5', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                ❌ Ta frappe :{' '}
-              </span>
+            {/* 1. Strikethrough wrong attempt in smaller text */}
+            <div style={{ marginBottom: '0.4rem' }}>
               {renderFaultComparison(wrongAttempt, correctionText)}
             </div>
 
-            {/* Expected correct answer in large H2 and green */}
-            <div style={{ margin: '0.3rem 0 0.5rem 0' }}>
-              <div style={{ fontSize: '0.78rem', color: '#86efac', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                ✓ Réponse attendue :
-              </div>
+            {/* 2. Expected correct word in huge green with audio speaker */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem' }}>
               <h2 style={{
-                fontSize: '2.1rem',
+                fontSize: '2.4rem',
                 fontWeight: 900,
                 color: 'var(--success-color, #4ade80)',
-                textShadow: '0 0 20px rgba(74, 222, 128, 0.5)',
-                margin: '0.2rem 0 0 0',
+                textShadow: '0 0 25px rgba(74, 222, 128, 0.55)',
+                margin: 0,
                 letterSpacing: '0.5px'
               }}>
                 {correctionText}
               </h2>
-            </div>
-
-            <div style={{ fontSize: '0.85rem', color: '#fed7aa', fontWeight: 600 }}>
-              ⌨️ Tape la bonne réponse pour continuer :
+              <button
+                type="button"
+                onClick={() => speakGermanWord(correctionText, isSoundEnabled)}
+                style={{
+                  background: 'rgba(74, 222, 128, 0.15)',
+                  border: '1px solid rgba(74, 222, 128, 0.4)',
+                  borderRadius: '50%',
+                  width: '36px',
+                  height: '36px',
+                  cursor: 'pointer',
+                  fontSize: '1.1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#4ade80',
+                  transition: 'all 0.2s ease',
+                  flexShrink: 0
+                }}
+                title="Écouter la prononciation"
+              >
+                🔊
+              </button>
             </div>
           </div>
         ) : feedback ? (
@@ -868,7 +1122,7 @@ export default function VengeanceMode({
           </div>
         ) : null}
 
-        {/* Submission Form (Task 1: Inline Submit Arrow inside Input) */}
+        {/* Submission Form (Task 1: Placeholder "Tape le mot correct :" in correction mode + inline arrow) */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
           <div style={{ position: 'relative', width: '100%' }}>
             <input
@@ -876,7 +1130,7 @@ export default function VengeanceMode({
               autoFocus
               type="text"
               className="input-field"
-              placeholder={mustTypeCorrection ? "Tape exactement la correction ci-dessus..." : "Écris la traduction en allemand..."}
+              placeholder={mustTypeCorrection ? "Tape le mot correct :" : "Écris la traduction en allemand..."}
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
               disabled={isAnswering}
@@ -926,14 +1180,14 @@ export default function VengeanceMode({
                 transition: 'all 0.15s ease',
                 opacity: inputVal.trim() ? 1 : 0.45
               }}
-              title="Valider la réponse (Entrée)"
+              title="Valider (Entrée)"
             >
               ➔
             </button>
           </div>
         </form>
 
-        {/* Task 1: Clean, Single Centered Footer Text */}
+        {/* Clean, Single Centered Footer Text */}
         <div style={{ textAlign: 'center', marginTop: '1.3rem', fontSize: '0.88rem', color: 'var(--text-secondary, #94a3b8)', fontWeight: 600 }}>
           {purifiedCount} / {batchTotal} {isSurvivalMode ? 'mots maîtrisés' : 'mots purifiés'}
         </div>
