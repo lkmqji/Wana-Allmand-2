@@ -56,6 +56,7 @@ export default function Home({
   const [isUploading, setIsUploading] = useState(false);
   const [rawText, setRawText] = useState('la table = der Tisch\nla chaise = der Stuhl\nla maison = das Haus');
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isLoadingLists, setIsLoadingLists] = useState(() => !user || !listsCache.archived[user?.uid]);
   const [archivedLists, setArchivedLists] = useState(() => user && listsCache.archived[user.uid] ? listsCache.archived[user.uid] : []);
   const [publicLists, setPublicLists] = useState(() => listsCache.public || []);
   const [isConnected, setIsConnected] = useState(true);
@@ -138,6 +139,9 @@ export default function Home({
     if (user) {
       if (listsCache.archived[user.uid]) {
         setArchivedLists(listsCache.archived[user.uid]);
+        setIsLoadingLists(false);
+      } else {
+        setIsLoadingLists(true);
       }
       fetch(`${API_URL}/api/lists/${user.uid}`)
         .then(res => res.json())
@@ -147,9 +151,11 @@ export default function Home({
             setArchivedLists(data);
           }
         })
-        .catch(console.error);
+        .catch(console.error)
+        .finally(() => setIsLoadingLists(false));
     } else {
       setArchivedLists([]);
+      setIsLoadingLists(false);
     }
   }, [user]);
 
@@ -764,6 +770,24 @@ export default function Home({
                 <div className="card text-muted text-center" style={{ padding: '2rem' }}>
                   Connectez-vous avec votre compte Google pour créer et sauvegarder vos listes.
                 </div>
+              ) : isLoadingLists && archivedLists.length === 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.2rem' }}>
+                  {[1, 2, 3, 4].map(k => (
+                    <div key={k} className="skeleton-card" style={{ height: '170px', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                        <div className="skeleton-avatar skeleton-loading" style={{ width: '40px', height: '40px' }} />
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                          <div className="skeleton-text skeleton-loading" style={{ width: '70%', height: '16px' }} />
+                          <div className="skeleton-text skeleton-loading" style={{ width: '40%', height: '12px' }} />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto' }}>
+                        <div className="skeleton-text skeleton-loading" style={{ flex: 1, height: '36px', borderRadius: '12px' }} />
+                        <div className="skeleton-text skeleton-loading" style={{ width: '42px', height: '36px', borderRadius: '12px' }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : archivedLists.length === 0 ? (
                 <div className="card text-muted text-center" style={{ padding: '2.5rem 1rem' }}>
                   <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>📂</span>
@@ -1139,9 +1163,21 @@ export default function Home({
       {/* ------------------- STATS TAB ------------------- */}
       {activeTab === 'stats' && (
         <>
-          <h2 style={{ marginBottom: '1rem' }}>Classement Mondial 🏆</h2>
+          <h2 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span>Classement Mondial</span>
+            <span>🏆</span>
+          </h2>
           {(!leaderboard || leaderboard.length === 0) ? (
-             <div className="card text-muted text-center">Aucune donnée de classement pour le moment.</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="skeleton-row" style={{ padding: '1rem 1.2rem', gap: '1rem', borderRadius: '20px' }}>
+                  <div className="skeleton-text skeleton-loading" style={{ width: '32px', height: '28px', borderRadius: '8px' }} />
+                  <div className="skeleton-avatar skeleton-loading" style={{ width: '42px', height: '42px', minWidth: '42px' }} />
+                  <div className="skeleton-text skeleton-loading" style={{ flex: 1, height: '20px' }} />
+                  <div className="skeleton-text skeleton-loading" style={{ width: '70px', height: '24px' }} />
+                </div>
+              ))}
+            </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {leaderboard.slice(0, 10).map((player, idx) => (

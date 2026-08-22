@@ -219,9 +219,21 @@ export default function RightPanel({
   // Default right panel fallback for lists/community/profile
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Classement Mondial 🏆</h3>
+      <h3 style={{ margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+        <span>Classement Mondial</span>
+        <span>🏆</span>
+      </h3>
       {(!Array.isArray(leaderboard) || leaderboard.length === 0) ? (
-        <p className="text-muted" style={{ fontSize: '0.9rem' }}>Chargement du classement...</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="skeleton-row" style={{ padding: '0.65rem 0.8rem', gap: '0.6rem' }}>
+              <div className="skeleton-text skeleton-loading" style={{ width: '20px', height: '18px' }} />
+              <div className="skeleton-avatar skeleton-loading" style={{ width: '26px', height: '26px', minWidth: '26px' }} />
+              <div className="skeleton-text skeleton-loading" style={{ flex: 1, height: '14px' }} />
+              <div className="skeleton-text skeleton-loading" style={{ width: '45px', height: '14px' }} />
+            </div>
+          ))}
+        </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
           {leaderboard.slice(0, 5).map((player, idx) => (

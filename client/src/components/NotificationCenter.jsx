@@ -88,22 +88,21 @@ export default function NotificationCenter({ user, socket, isOpen, onClose, unre
   if (!isOpen) return null;
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)",
-      zIndex: 1050, display: "flex", justifyContent: "center", alignItems: "flex-start",
-      padding: "2rem 1rem", overflowY: "auto"
-    }}>
-      <div style={{
-        width: "100%", maxWidth: "520px", background: "var(--bg-surface)",
-        border: "1px solid var(--border-color)", borderRadius: "20px",
-        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.6)", overflow: "hidden",
-        display: "flex", flexDirection: "column", maxHeight: "85vh"
-      }}>
+    <div className="modal-overlay" style={{ zIndex: 1250, alignItems: "flex-start", paddingTop: "4rem" }}>
+      <div 
+        className="modal-content animate-scale-up"
+        style={{
+          width: "100%", maxWidth: "520px",
+          overflow: "hidden",
+          display: "flex", flexDirection: "column", maxHeight: "85vh",
+          padding: 0
+        }}
+      >
         {/* Header */}
         <div style={{
           padding: "1.2rem 1.5rem", borderBottom: "1px solid var(--border-color)",
           display: "flex", justifyContent: "space-between", alignItems: "center",
-          background: "linear-gradient(to right, rgba(99,102,241,0.08), transparent)"
+          background: "linear-gradient(to right, rgba(99,102,241,0.12), transparent)"
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
             <span style={{ fontSize: "1.4rem" }}>🔔</span>
@@ -139,8 +138,17 @@ export default function NotificationCenter({ user, socket, isOpen, onClose, unre
         {/* Notifications List */}
         <div style={{ padding: "1rem 1.5rem", overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.8rem", flex: 1 }}>
           {loading ? (
-            <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
-              Chargement...
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              {[1, 2, 3].map((k) => (
+                <div key={k} className="skeleton-card" style={{ padding: "0.9rem 1rem", gap: "0.5rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                    <div className="skeleton-avatar skeleton-loading" style={{ width: "28px", height: "28px", minWidth: "28px" }} />
+                    <div className="skeleton-text skeleton-loading" style={{ width: "40%", height: "14px" }} />
+                  </div>
+                  <div className="skeleton-text skeleton-loading" style={{ width: "90%", height: "12px" }} />
+                  <div className="skeleton-text skeleton-loading" style={{ width: "25%", height: "10px" }} />
+                </div>
+              ))}
             </div>
           ) : notifications.length === 0 ? (
             <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-muted)" }}>

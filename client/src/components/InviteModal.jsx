@@ -11,34 +11,16 @@ export default function InviteModal({ invite, onAccept, onReject }) {
   const timePerWord = settings?.timePerWord || 15;
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      width: '100vw',
-      height: '100vh',
-      backgroundColor: 'rgba(0, 0, 0, 0.75)',
-      backdropFilter: 'blur(8px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 2000,
-      padding: '1rem',
-      animation: 'fadeIn 0.25s ease-out'
-    }}>
+    <div className="modal-overlay" style={{ zIndex: 2000 }}>
       <div 
-        className="card"
+        className="modal-content animate-scale-up"
         style={{
           width: '100%',
           maxWidth: '520px',
           maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 30px rgba(99, 102, 241, 0.3)',
-          border: '2px solid var(--primary)',
-          borderRadius: '24px',
-          padding: '1.5rem',
-          background: 'var(--bg-surface)',
+          padding: '1.8rem',
           overflow: 'hidden'
         }}
       >

@@ -50,14 +50,14 @@ export function AudioProvider({ children }) {
     }
   });
 
-  // Dedicated In-Game Music Mute state (Mutes music during matches, restores when match ends, persists across all matches)
+  // Dedicated In-Game Music Mute state (Default to false so ambient music plays everywhere smoothly)
   const [isInGame, setIsInGame] = useState(false);
   const [isGameMusicMuted, setIsGameMusicMuted] = useState(() => {
     try {
       const saved = localStorage.getItem('wana_game_music_muted');
-      return saved !== null ? saved === 'true' : true;
+      return saved !== null ? saved === 'true' : false;
     } catch {
-      return true;
+      return false;
     }
   });
 
@@ -129,7 +129,7 @@ export function AudioProvider({ children }) {
     if (bgm) {
       const isMutedInCurrentContext = !isSoundEnabled || isMusicMuted || (isInGame && isGameMusicMuted);
       if (!isMutedInCurrentContext) {
-        const finalBgmVol = Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.10));
+        const finalBgmVol = Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.12));
         bgm.volume = finalBgmVol;
         if (hasInteractedRef.current && !document.hidden) {
           bgm.play().catch(err => {
@@ -150,12 +150,23 @@ export function AudioProvider({ children }) {
     try {
       bgmAudio = new Audio('/sounds/bgm-main.mp3');
       bgmAudio.loop = true;
+      bgmAudio.preload = 'auto';
       const initialMuted = !isSoundEnabledRef.current || isMusicMutedRef.current || (isInGameRef.current && isGameMusicMutedRef.current);
       const initialVol = !initialMuted
-        ? Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.10))
+        ? Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.12))
         : 0;
       bgmAudio.volume = initialVol;
-      bgmAudio.preload = 'auto';
+
+      // Ensure looping resilience across all browsers
+      const handleEnded = () => {
+        bgmAudio.currentTime = 0;
+        const shouldPlay = isSoundEnabledRef.current && !isMusicMutedRef.current && !(isInGameRef.current && isGameMusicMutedRef.current);
+        if (shouldPlay && !document.hidden) {
+          bgmAudio.play().catch(() => {});
+        }
+      };
+      bgmAudio.addEventListener('ended', handleEnded);
+
       bgmRef.current = bgmAudio;
     } catch (e) {
       console.debug('BGM initialization notice:', e);
@@ -219,14 +230,20 @@ export function AudioProvider({ children }) {
   }, []);
 
   const toggleSound = useCallback(() => {
+    hasInteractedRef.current = true;
+    sfx.unlockAudio();
     setIsSoundEnabled(prev => !prev);
   }, []);
 
   const setSoundEnabled = useCallback((val) => {
+    hasInteractedRef.current = true;
+    sfx.unlockAudio();
     setIsSoundEnabled(Boolean(val));
   }, []);
 
   const toggleMusicMute = useCallback(() => {
+    hasInteractedRef.current = true;
+    sfx.unlockAudio();
     if (isInGameRef.current) {
       setIsGameMusicMuted(prev => !prev);
     } else {
@@ -235,14 +252,20 @@ export function AudioProvider({ children }) {
   }, []);
 
   const toggleGameMusicMute = useCallback(() => {
+    hasInteractedRef.current = true;
+    sfx.unlockAudio();
     setIsGameMusicMuted(prev => !prev);
   }, []);
 
   const setGameMusicMuted = useCallback((val) => {
+    hasInteractedRef.current = true;
+    sfx.unlockAudio();
     setIsGameMusicMuted(Boolean(val));
   }, []);
 
   const setMusicMuted = useCallback((val) => {
+    hasInteractedRef.current = true;
+    sfx.unlockAudio();
     setIsMusicMuted(Boolean(val));
   }, []);
 
@@ -264,16 +287,23 @@ export function AudioProvider({ children }) {
   const resetAudioSettings = useCallback(() => {
     setIsSoundEnabled(true);
     setIsMusicMuted(false);
-    setMasterVolumeState(0.5);
-    setSfxVolumeState(0.5);
+    setIsGameMusicMuted(false);
+    setMasterVolumeState(0.7);
+    setSfxVolumeState(0.6);
     setBgmVolumeState(0.5);
   }, []);
 
   const startBgm = useCallback(() => {
+    hasInteractedRef.current = true;
+    sfx.unlockAudio();
     if (bgmRef.current && isSoundEnabledRef.current && !isMusicMutedRef.current) {
-      bgmRef.current.play().catch(() => {});
+      const finalBgmVol = Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.12));
+      bgmRef.current.volume = finalBgmVol;
+      bgmRef.current.play().catch((err) => {
+        console.debug('startBgm playback notice:', err);
+      });
     }
-  }, []);
+  }, [masterVolume, bgmVolume]);
 
   const pauseBgm = useCallback(() => {
     if (bgmRef.current) {
@@ -369,8 +399,11 @@ export function AudioProvider({ children }) {
       hasInteractedRef.current = true;
       sfx.unlockAudio();
 
-      // Start BGM if sound is enabled
-      if (isSoundEnabledRef.current && bgmRef.current) {
+      // Start BGM if sound is enabled & not muted
+      const isMuted = !isSoundEnabledRef.current || isMusicMutedRef.current || (isInGameRef.current && isGameMusicMutedRef.current);
+      if (!isMuted && bgmRef.current) {
+        const finalBgmVol = Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.12));
+        bgmRef.current.volume = finalBgmVol;
         bgmRef.current.play().catch(e => {
           console.debug('BGM autoplay on interaction notice:', e);
         });
@@ -379,11 +412,15 @@ export function AudioProvider({ children }) {
       window.removeEventListener('pointerdown', handleFirstInteraction);
       window.removeEventListener('keydown', handleFirstInteraction);
       window.removeEventListener('touchstart', handleFirstInteraction);
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('mousedown', handleFirstInteraction);
     };
 
     window.addEventListener('pointerdown', handleFirstInteraction, { passive: true });
     window.addEventListener('keydown', handleFirstInteraction, { passive: true });
     window.addEventListener('touchstart', handleFirstInteraction, { passive: true });
+    window.addEventListener('click', handleFirstInteraction, { passive: true });
+    window.addEventListener('mousedown', handleFirstInteraction, { passive: true });
 
     // Global UI event listeners for interactive elements
     const isInteractiveElement = (target) => {
@@ -407,6 +444,16 @@ export function AudioProvider({ children }) {
       if (isInteractiveElement(e.target)) {
         sfx.playClick(true);
       }
+
+      // Safe recovery if BGM was paused due to autoplay policy
+      if (!hasInteractedRef.current) {
+        handleFirstInteraction();
+      } else {
+        const isMuted = isMusicMutedRef.current || (isInGameRef.current && isGameMusicMutedRef.current);
+        if (!isMuted && bgmRef.current && bgmRef.current.paused && !document.hidden) {
+          bgmRef.current.play().catch(() => {});
+        }
+      }
     };
 
     document.addEventListener('mouseover', handleMouseOver, { passive: true });
@@ -416,10 +463,12 @@ export function AudioProvider({ children }) {
       window.removeEventListener('pointerdown', handleFirstInteraction);
       window.removeEventListener('keydown', handleFirstInteraction);
       window.removeEventListener('touchstart', handleFirstInteraction);
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('mousedown', handleFirstInteraction);
       document.removeEventListener('mouseover', handleMouseOver);
       document.removeEventListener('click', handleClick);
     };
-  }, []);
+  }, [masterVolume, bgmVolume]);
 
   const value = {
     isSoundEnabled,
