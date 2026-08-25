@@ -675,129 +675,132 @@ export default function Home({
 
       {/* ------------------- MY LISTS TAB (TASK 2 & 3 SUB-TABS) ------------------- */}
       {activeTab === 'lists' && (
-        <>
-          {/* Header & Sub-tab Segmented Control */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '0.8rem' }}>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>Mes Listes 🗂️</h2>
-              <p className="text-muted" style={{ fontSize: '0.85rem', marginTop: '0.2rem' }}>
-                Gérez vos listes et purifiez vos mots ratés
-              </p>
+        <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+          {/* Header & Sub-tab Segmented Control + Search Container (Sticky) */}
+          <div className="lists-sticky-header">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.8rem' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>Mes Listes 🗂️</h2>
+                <p className="text-muted" style={{ fontSize: '0.85rem', marginTop: '0.2rem', marginBottom: 0 }}>
+                  Gérez vos listes et purifiez vos mots ratés
+                </p>
+              </div>
+
+              {/* Segmented Control (Pill toggle) (Task 2) */}
+              <div style={{
+                display: 'inline-flex',
+                background: 'var(--card-bg, #151e2e)',
+                padding: '0.3rem',
+                borderRadius: '14px',
+                border: '1.5px solid var(--border-color, #243044)',
+                gap: '0.3rem',
+                width: '100%',
+                maxWidth: '430px'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setListSubTab('my_lists')}
+                  style={{
+                    flex: 1,
+                    padding: '0.65rem 1rem',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: listSubTab === 'my_lists' ? 'var(--accent-primary, var(--primary))' : 'transparent',
+                    color: listSubTab === 'my_lists' ? '#ffffff' : 'var(--text-muted)',
+                    fontWeight: 800,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    boxShadow: listSubTab === 'my_lists' ? '0 4px 14px rgba(99, 102, 241, 0.35)' : 'none'
+                  }}
+                >
+                  <span>📁</span>
+                  <span>Mes Listes</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setListSubTab('failed_words')}
+                  style={{
+                    flex: 1,
+                    padding: '0.65rem 1rem',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: listSubTab === 'failed_words' ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'transparent',
+                    color: listSubTab === 'failed_words' ? '#ffffff' : 'var(--text-muted)',
+                    fontWeight: 800,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    boxShadow: listSubTab === 'failed_words' ? '0 4px 14px rgba(239, 68, 68, 0.4)' : 'none'
+                  }}
+                >
+                  <span>💔</span>
+                  <span>Fautes à Purifier ({failedWords.length})</span>
+                </button>
+              </div>
             </div>
 
-            {/* Segmented Control (Pill toggle) (Task 2) */}
-            <div style={{
-              display: 'inline-flex',
-              background: 'var(--card-bg, #151e2e)',
-              padding: '0.3rem',
-              borderRadius: '14px',
-              border: '1.5px solid var(--border-color, #243044)',
-              gap: '0.3rem',
-              width: '100%',
-              maxWidth: '430px'
-            }}>
-              <button
-                type="button"
-                onClick={() => setListSubTab('my_lists')}
-                style={{
-                  flex: 1,
-                  padding: '0.65rem 1rem',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: listSubTab === 'my_lists' ? 'var(--accent-primary, var(--primary))' : 'transparent',
-                  color: listSubTab === 'my_lists' ? '#ffffff' : 'var(--text-muted)',
-                  fontWeight: 800,
-                  fontSize: '0.9rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                  boxShadow: listSubTab === 'my_lists' ? '0 4px 14px rgba(99, 102, 241, 0.35)' : 'none'
-                }}
-              >
-                <span>📁</span>
-                <span>Mes Listes</span>
-              </button>
+            {/* Search Bar for Lists (Task 2) */}
+            {listSubTab === 'my_lists' && user && archivedLists.length > 0 && (
+              <div style={{ marginTop: '0.9rem', position: 'relative' }}>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="🔍 Rechercher une liste..."
+                  className="input-field"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 2.4rem 0.75rem 1rem',
+                    fontSize: '0.92rem',
+                    borderRadius: '12px'
+                  }}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    style={{
+                      position: 'absolute',
+                      right: '0.75rem',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      padding: '0.2rem'
+                    }}
+                    title="Effacer la recherche"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            )}
 
-              <button
-                type="button"
-                onClick={() => setListSubTab('failed_words')}
-                style={{
-                  flex: 1,
-                  padding: '0.65rem 1rem',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: listSubTab === 'failed_words' ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'transparent',
-                  color: listSubTab === 'failed_words' ? '#ffffff' : 'var(--text-muted)',
-                  fontWeight: 800,
-                  fontSize: '0.9rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                  boxShadow: listSubTab === 'failed_words' ? '0 4px 14px rgba(239, 68, 68, 0.4)' : 'none'
-                }}
-              >
-                <span>💔</span>
-                <span>Fautes à Purifier ({failedWords.length})</span>
-              </button>
-            </div>
+            {listSubTab === 'my_lists' && selectedListIds.size >= 2 && (
+              <div style={{ marginTop: '0.8rem', display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={handleMergeLists} className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', width: 'auto' }}>
+                  Fusionner ({selectedListIds.size})
+                </button>
+              </div>
+            )}
           </div>
 
           {/* SUB-TAB 1 : MES LISTES */}
           {listSubTab === 'my_lists' && (
             <>
-              {/* Search Bar for Lists (Task 2) */}
-              {user && archivedLists.length > 0 && (
-                <div style={{ marginBottom: '1.2rem', position: 'relative' }}>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="🔍 Rechercher une liste..."
-                    className="input-field"
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 2.4rem 0.75rem 1rem',
-                      fontSize: '0.92rem',
-                      borderRadius: '12px'
-                    }}
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      style={{
-                        position: 'absolute',
-                        right: '0.75rem',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer',
-                        fontSize: '0.9rem',
-                        padding: '0.2rem'
-                      }}
-                      title="Effacer la recherche"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {selectedListIds.size >= 2 && (
-                <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
-                  <button onClick={handleMergeLists} className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', width: 'auto' }}>
-                    Fusionner ({selectedListIds.size})
-                  </button>
-                </div>
-              )}
 
               {!user ? (
                 <div className="card text-muted text-center" style={{ padding: '2rem' }}>
@@ -1111,7 +1114,7 @@ export default function Home({
               )}
             </>
           )}
-        </>
+        </div>
       )}
 
       {/* ------------------- COMMUNITY TAB ------------------- */}
@@ -1120,169 +1123,36 @@ export default function Home({
           <h2 style={{ marginBottom: '1rem' }}>Bibliothèque</h2>
           
           <h3 className="text-muted" style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Listes par défaut</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.2rem', marginBottom: '2.5rem' }}>
             {exampleLists.map(list => (
-              <div 
-                key={list.id} 
-                className="card list-card" 
-                onClick={() => setPreviewList({ ...list, isEditable: false })}
-                style={{ display: 'flex', flexDirection: 'column', gap: '1rem', cursor: 'pointer', position: 'relative' }}
-                title="Cliquer pour voir les mots de la liste"
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <div className="list-card-emoji" style={{ fontSize: '1.4rem' }}>
-                    {getListEmoji(list.title)}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>{list.title}</h4>
-                    <p className="text-muted" style={{ margin: '0.2rem 0 0 0', fontSize: '0.82rem' }}>
-                      👑 Wana Officiel • {list.subtitle || list.count}
-                    </p>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewList({ ...list, isEditable: false })}
-                    className="btn btn-secondary"
-                    style={{ flex: 1, padding: '0.65rem', fontSize: '0.86rem', fontWeight: 600 }}
-                  >
-                    👁️ Voir
-                  </button>
-                  <div style={{ flex: 1 }}>
-                    <PlayDropdown
-                      onPlay={() => handleStartDirectSession(list.words)}
-                      onPlaySurvival={onStartSurvival ? () => onStartSurvival(list.words, list.title) : null}
-                      label="⚔️ JOUER"
-                    />
-                  </div>
-                </div>
-              </div>
+              <ListCard
+                key={list.id}
+                list={{ ...list, isDefault: true, isOfficial: true }}
+                onPlay={() => handleStartDirectSession(list.words)}
+                onPlaySurvival={onStartSurvival ? () => onStartSurvival(list.words, list.title) : null}
+                onPreview={() => setPreviewList({ ...list, isEditable: false })}
+              />
             ))}
           </div>
 
           <h3 className="text-muted" style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Listes Publiques (Communauté)</h3>
           {publicLists.length === 0 ? (
-             <div className="card text-muted text-center">Aucune liste publique pour le moment.</div>
+             <div className="card text-muted text-center" style={{ padding: '2.5rem 1rem' }}>
+               <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>🌍</span>
+               <p style={{ fontWeight: 'bold', fontSize: '1.05rem', color: 'var(--text-main)' }}>Aucune liste publique pour le moment.</p>
+               <p style={{ fontSize: '0.88rem', marginTop: '0.3rem' }}>Partagez vos listes avec la communauté en activant le mode Public depuis « Mes Listes » !</p>
+             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.2rem' }}>
               {publicLists.map(list => (
-                <div 
-                  key={list._id} 
-                  className="card list-card" 
-                  onClick={() => setPreviewList({ ...list, isEditable: false })}
-                  style={{ 
-                    borderColor: 'rgba(234, 179, 8, 0.45)', 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    gap: '0.9rem',
-                    cursor: 'pointer',
-                    position: 'relative'
-                  }}
-                  title="Cliquer pour voir les mots de la liste"
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    {/* Google profile photo or creator avatar */}
-                    {list.creatorPhoto ? (
-                      <img
-                        src={list.creatorPhoto}
-                        alt={list.creatorName || 'Créateur'}
-                        style={{
-                          width: '38px',
-                          height: '38px',
-                          borderRadius: '50%',
-                          objectFit: 'cover',
-                          border: '2px solid var(--warning)',
-                          boxShadow: '0 0 10px rgba(234, 179, 8, 0.3)',
-                          flexShrink: 0
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: '38px',
-                          height: '38px',
-                          borderRadius: '50%',
-                          background: 'rgba(234, 179, 8, 0.15)',
-                          border: '2px solid var(--warning)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '1.2rem',
-                          flexShrink: 0
-                        }}
-                      >
-                        {list.creatorAvatar || '👤'}
-                      </div>
-                    )}
-
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <h4 style={{ 
-                        margin: 0, 
-                        fontSize: '1.05rem', 
-                        fontWeight: 800,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        color: 'var(--text-main)'
-                      }}>
-                        {list.name}
-                      </h4>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
-                        <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedProfileUser({
-                              firebaseId: list.creatorFirebaseId || null,
-                              name: list.creatorName || 'Membre'
-                            });
-                          }}
-                          style={{ fontSize: '0.82rem', color: '#facc15', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
-                          title="Voir le profil du créateur"
-                        >
-                          Par {list.creatorName || 'Membre'}
-                        </span>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>•</span>
-                        <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-                          {list.words?.length || 0} mots
-                        </span>
-                      </div>
-                    </div>
-
-                    <span 
-                      style={{ 
-                        fontSize: '0.75rem', 
-                        background: 'rgba(234, 179, 8, 0.15)', 
-                        color: '#facc15', 
-                        border: '1px solid rgba(234, 179, 8, 0.4)', 
-                        padding: '0.2rem 0.45rem', 
-                        borderRadius: '8px', 
-                        fontWeight: 800,
-                        flexShrink: 0
-                      }}
-                    >
-                      🌍 Public
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewList({ ...list, isEditable: false })}
-                      className="btn btn-secondary"
-                      style={{ flex: 1, padding: '0.65rem', fontSize: '0.86rem', fontWeight: 600 }}
-                    >
-                      👁️ Voir
-                    </button>
-                    <div style={{ flex: 1 }}>
-                      <PlayDropdown
-                        onPlay={() => handleStartDirectSession(list.words)}
-                        onPlaySurvival={onStartSurvival ? () => onStartSurvival(list.words, list.name) : null}
-                        label="⚔️ JOUER"
-                      />
-                    </div>
-                  </div>
-                </div>
+                <ListCard
+                  key={list._id}
+                  list={list}
+                  onPlay={() => handleStartDirectSession(list.words)}
+                  onPlaySurvival={onStartSurvival ? () => onStartSurvival(list.words, list.name || list.title) : null}
+                  onPreview={() => setPreviewList({ ...list, isEditable: false })}
+                  onSelectCreator={setSelectedProfileUser}
+                />
               ))}
             </div>
           )}
@@ -1308,10 +1178,10 @@ export default function Home({
               ))}
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-              {leaderboard.slice(0, 15).map((player, idx) => {
-                const isTop3 = idx < 3;
-                return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+              {/* TOP 3 PODIUM (Individual prominent cards) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                {leaderboard.slice(0, 3).map((player, idx) => (
                   <div 
                     key={player._id || idx} 
                     onClick={() => setSelectedProfileUser(player)}
@@ -1319,44 +1189,45 @@ export default function Home({
                     style={{ 
                       display: 'flex', 
                       alignItems: 'center', 
-                      gap: isTop3 ? '1rem' : '0.65rem', 
-                      padding: isTop3 ? '0.9rem 1.1rem' : '0.45rem 0.85rem',
+                      gap: '1rem', 
+                      padding: '0.9rem 1.1rem',
                       background: idx === 0 
                         ? 'linear-gradient(135deg, rgba(255, 215, 0, 0.18), var(--bg-surface))' 
                         : idx === 1 
                         ? 'linear-gradient(135deg, rgba(192, 192, 192, 0.18), var(--bg-surface))' 
-                        : idx === 2 
-                        ? 'linear-gradient(135deg, rgba(205, 127, 50, 0.18), var(--bg-surface))' 
-                        : 'rgba(255, 255, 255, 0.025)',
-                      border: isTop3 
-                        ? (idx === 0 ? '1.5px solid rgba(255, 215, 0, 0.5)' : idx === 1 ? '1.5px solid rgba(192, 192, 192, 0.5)' : '1.5px solid rgba(205, 127, 50, 0.5)') 
-                        : '1px solid var(--border-color)',
-                      borderRadius: isTop3 ? '16px' : '12px',
+                        : 'linear-gradient(135deg, rgba(205, 127, 50, 0.18), var(--bg-surface))', 
+                      border: idx === 0 
+                        ? '1.5px solid rgba(255, 215, 0, 0.5)' 
+                        : idx === 1 
+                        ? '1.5px solid rgba(192, 192, 192, 0.5)' 
+                        : '1.5px solid rgba(205, 127, 50, 0.5)',
+                      borderRadius: '16px',
                       cursor: 'pointer',
-                      transition: 'all 0.15s ease'
+                      transition: 'all 0.2s ease',
+                      boxShadow: idx === 0 
+                        ? '0 4px 18px rgba(255, 215, 0, 0.15)' 
+                        : '0 4px 14px rgba(0,0,0,0.1)'
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.borderColor = 'var(--primary)';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = isTop3 
-                        ? (idx === 0 ? 'rgba(255, 215, 0, 0.5)' : idx === 1 ? 'rgba(192, 192, 192, 0.5)' : 'rgba(205, 127, 50, 0.5)') 
-                        : 'var(--border-color)';
+                      e.currentTarget.style.borderColor = idx === 0 ? 'rgba(255, 215, 0, 0.5)' : idx === 1 ? 'rgba(192, 192, 192, 0.5)' : 'rgba(205, 127, 50, 0.5)';
                       e.currentTarget.style.transform = 'translateY(0)';
                     }}
                     title="Cliquer pour voir le profil détaillé"
                   >
                     {/* Rank Badge */}
                     <span style={{ 
-                      fontSize: isTop3 ? '1.8rem' : '0.85rem', 
+                      fontSize: '1.8rem', 
                       fontWeight: 900, 
-                      color: idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : 'var(--text-muted)', 
-                      minWidth: isTop3 ? '36px' : '28px', 
+                      color: idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : '#CD7F32', 
+                      minWidth: '36px', 
                       textAlign: 'center',
                       lineHeight: 1
                     }}>
-                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
                     </span>
 
                     {/* Avatar */}
@@ -1365,16 +1236,16 @@ export default function Home({
                         src={player.photoURL} 
                         alt={player.name} 
                         style={{ 
-                          width: isTop3 ? '38px' : '28px', 
-                          height: isTop3 ? '38px' : '28px', 
+                          width: '40px', 
+                          height: '40px', 
                           borderRadius: '50%', 
                           objectFit: 'cover',
-                          border: `1.5px solid ${isTop3 ? 'var(--primary)' : 'var(--border-color)'}`
+                          border: `2px solid ${idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : '#CD7F32'}`
                         }} 
                         referrerPolicy="no-referrer"
                       />
                     ) : (
-                      <span style={{ fontSize: isTop3 ? '1.5rem' : '1.1rem', lineHeight: 1 }}>
+                      <span style={{ fontSize: '1.6rem', lineHeight: 1 }}>
                         {player.avatar || '🦊'}
                       </span>
                     )}
@@ -1383,33 +1254,134 @@ export default function Home({
                     <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                       <h3 style={{ 
                         margin: 0, 
-                        fontSize: isTop3 ? '1.1rem' : '0.92rem', 
-                        fontWeight: isTop3 ? 800 : 700,
+                        fontSize: '1.1rem', 
+                        fontWeight: 800,
                         overflow: 'hidden', 
                         textOverflow: 'ellipsis', 
                         whiteSpace: 'nowrap' 
                       }}>
                         {formatPlayerName(player.name)}
                       </h3>
-                      {isTop3 && (
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                          Niveau {player.level || Math.floor((player.xp || 0) / 1000) + 1}
-                        </div>
-                      )}
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                        Niveau {player.level || Math.floor((player.xp || 0) / 1000) + 1}
+                      </div>
                     </div>
 
                     {/* Score / XP */}
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <span style={{ fontSize: isTop3 ? '1.3rem' : '0.95rem', fontWeight: 900, color: 'var(--primary)' }}>
+                      <span style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--primary)' }}>
                         {player.xp || 0}
                       </span>
-                      <span style={{ fontSize: isTop3 ? '0.8rem' : '0.72rem', color: 'var(--text-muted)', marginLeft: '3px' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>
                         pts
                       </span>
                     </div>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+
+              {/* REST OF PLAYERS (Grouped together in a single sleek box) */}
+              {leaderboard.length > 3 && (
+                <div 
+                  className="card" 
+                  style={{ 
+                    padding: '0.4rem', 
+                    borderRadius: '16px', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '0.1rem',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-surface)'
+                  }}
+                >
+                  {leaderboard.slice(3, 20).map((player, relIdx) => {
+                    const rank = relIdx + 4;
+                    const isLast = relIdx === leaderboard.slice(3, 20).length - 1;
+
+                    return (
+                      <div
+                        key={player._id || relIdx}
+                        onClick={() => setSelectedProfileUser(player)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.85rem',
+                          padding: '0.65rem 0.85rem',
+                          borderRadius: '10px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          borderBottom: isLast ? 'none' : '1px solid rgba(255, 255, 255, 0.05)'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(99, 102, 241, 0.08)';
+                          e.currentTarget.style.transform = 'translateX(3px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'transparent';
+                          e.currentTarget.style.transform = 'translateX(0)';
+                        }}
+                        title="Cliquer pour voir le profil détaillé"
+                      >
+                        {/* Rank */}
+                        <span style={{
+                          fontSize: '0.86rem',
+                          fontWeight: 800,
+                          color: 'var(--text-muted)',
+                          minWidth: '28px',
+                          textAlign: 'center'
+                        }}>
+                          #{rank}
+                        </span>
+
+                        {/* Avatar */}
+                        {player.photoURL ? (
+                          <img
+                            src={player.photoURL}
+                            alt={player.name}
+                            style={{
+                              width: '30px',
+                              height: '30px',
+                              borderRadius: '50%',
+                              objectFit: 'cover',
+                              border: '1px solid var(--border-color)'
+                            }}
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>
+                            {player.avatar || '👤'}
+                          </span>
+                        )}
+
+                        {/* Player Info */}
+                        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                          <h4 style={{
+                            margin: 0,
+                            fontSize: '0.92rem',
+                            fontWeight: 700,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            color: 'var(--text-main)'
+                          }}>
+                            {formatPlayerName(player.name)}
+                          </h4>
+                        </div>
+
+                        {/* XP pts */}
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                          <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--primary)' }}>
+                            {player.xp || 0}
+                          </span>
+                          <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginLeft: '3px' }}>
+                            pts
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </>
@@ -1478,13 +1450,14 @@ export default function Home({
 
             {/* Toolbar buttons */}
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.8rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <label className="btn btn-secondary" style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.85rem', cursor: isUploading ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
                   <span>📄 {isUploading ? 'Analyse...' : 'Importer un PDF'}</span>
                   <input type="file" accept=".pdf" style={{ display: 'none' }} onChange={handleUpload} disabled={isUploading} />
                 </label>
 
                 <button
+                  type="button"
                   onClick={() => setManualWords(prev => [...prev, { id: Date.now(), question: '', answer: '' }])}
                   className="btn btn-primary"
                   style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
@@ -1495,6 +1468,7 @@ export default function Home({
 
               {manualWords.length > 1 && (
                 <button
+                  type="button"
                   onClick={() => {
                     if (window.confirm("Voulez-vous vraiment effacer tous les mots de l'éditeur ?")) {
                       setManualWords([{ id: Date.now(), question: '', answer: '' }]);
@@ -1512,7 +1486,7 @@ export default function Home({
             <div style={{ background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: '10px', padding: '0.6rem 0.8rem', marginBottom: '0.8rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                 <span>💡</span>
-                <span>Noms avec article (<strong style={{ color: 'var(--warning)' }}>der / die / das</strong>) • Remplacer <strong style={{ color: 'var(--warning)' }}>ß</strong> par <strong style={{ color: 'var(--warning)' }}>ss</strong>.</span>
+                <span>Noms avec article (<strong style={{ color: 'var(--warning)' }}>der / die / das</strong>) • Remplacer <strong style={{ color: 'var(--warning)' }}>ß</strong> par <strong style={{ color: 'var(--warning)' }}>ss</strong> • Utilisez le bouton <strong>⇄</strong> pour inverser les colonnes.</span>
               </div>
             </div>
 
@@ -1522,7 +1496,28 @@ export default function Home({
                 <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-card, #1e1e2f)', zIndex: 5 }}>
                   <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
                     <th style={{ padding: '0.4rem', width: '36px', color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>#</th>
-                    <th style={{ padding: '0.4rem', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem' }}>Français / Anglais</th>
+                    <th style={{ padding: '0.4rem', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem' }}>Français / Question</th>
+                    <th style={{ width: '44px', textAlign: 'center', padding: '0.4rem 0' }}>
+                      <button
+                        type="button"
+                        onClick={() => setManualWords(prev => prev.map(w => ({ ...w, question: w.answer || '', answer: w.question || '' })))}
+                        style={{
+                          background: 'rgba(99, 102, 241, 0.15)',
+                          border: '1px solid rgba(99, 102, 241, 0.4)',
+                          color: '#a5b4fc',
+                          borderRadius: '6px',
+                          padding: '0.2rem 0.4rem',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold',
+                          lineHeight: 1,
+                          transition: 'all 0.15s ease'
+                        }}
+                        title="Inverser toutes les colonnes"
+                      >
+                        ⇄
+                      </button>
+                    </th>
                     <th style={{ padding: '0.4rem', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem' }}>Allemand (Réponse)</th>
                     <th style={{ width: '36px' }}></th>
                   </tr>
@@ -1539,6 +1534,36 @@ export default function Home({
                           placeholder="ex: la maison / the house"
                           style={{ width: '100%', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0.4rem 0.6rem', color: 'var(--text-main)', fontSize: '0.88rem' }}
                         />
+                      </td>
+                      <td style={{ padding: '0.35rem', textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => setManualWords(prev => prev.map(x => x.id === w.id ? { ...x, question: x.answer || '', answer: x.question || '' } : x))}
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            borderRadius: '6px',
+                            color: '#a5b4fc',
+                            cursor: 'pointer',
+                            padding: '0.3rem 0.45rem',
+                            fontSize: '0.85rem',
+                            lineHeight: 1,
+                            transition: 'all 0.15s ease'
+                          }}
+                          title="Inverser les deux colonnes pour ce mot"
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = 'rgba(99, 102, 241, 0.3)';
+                            e.currentTarget.style.borderColor = 'var(--primary)';
+                            e.currentTarget.style.transform = 'scale(1.15)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                            e.currentTarget.style.transform = 'scale(1)';
+                          }}
+                        >
+                          ⇄
+                        </button>
                       </td>
                       <td style={{ padding: '0.35rem' }}>
                         <input

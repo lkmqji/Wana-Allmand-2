@@ -1621,6 +1621,38 @@ h1, h2, h3, h4 {
   box-shadow: 0 12px 30px rgba(239, 68, 68, 0.25);
 }
 
+/* Sticky Header for Lists Tab */
+.lists-sticky-header {
+  position: sticky;
+  top: 0;
+  margin: -2rem -1rem 1.25rem -1rem;
+  padding: 2rem 1rem 1rem 1rem;
+  background: var(--bg-main);
+  background: linear-gradient(180deg, var(--bg-main) 92%, rgba(11, 15, 25, 0.95) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 30;
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.35);
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+[data-theme="classic"] .lists-sticky-header,
+[data-theme="light"] .lists-sticky-header,
+[data-theme="sakura"] .lists-sticky-header {
+  background: var(--bg-main);
+  background: linear-gradient(180deg, var(--bg-main) 92%, rgba(255, 255, 255, 0.95) 100%);
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 768px) {
+  .lists-sticky-header {
+    top: 0;
+    margin: -1.5rem -1rem 1rem -1rem;
+    padding: 1.5rem 1rem 0.85rem 1rem;
+  }
+}
+
 /* Vengeance Arena Container */
 .vengeance-arena {
   min-height: 100vh;
@@ -1631,9 +1663,11 @@ h1, h2, h3, h4 {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  padding: 2rem 1.5rem;
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .vengeance-arena::before {
@@ -1646,11 +1680,18 @@ h1, h2, h3, h4 {
   background: linear-gradient(90deg, #ef4444, #f97316, #fbbf24, #ef4444);
   background-size: 300% 100%;
   animation: barGradient 4s linear infinite;
+  z-index: 30;
 }
 
-@keyframes barGradient {
-  0% { background-position: 0% 0%; }
-  100% { background-position: 300% 0%; }
+.vengeance-top-bar {
+  width: 100%;
+  max-width: 580px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 20;
+  margin-bottom: 1.25rem;
+  flex-shrink: 0;
 }
 
 .vengeance-game-box {
@@ -1660,11 +1701,12 @@ h1, h2, h3, h4 {
   backdrop-filter: blur(16px);
   border: 1.5px solid rgba(239, 68, 68, 0.35);
   border-radius: 24px;
-  padding: 2rem;
+  padding: 1.75rem 2rem;
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(239, 68, 68, 0.18);
   position: relative;
   z-index: 10;
   transition: transform 0.2s ease, border-color 0.2s ease;
+  box-sizing: border-box;
 }
 
 .vengeance-game-box.correct-flash {

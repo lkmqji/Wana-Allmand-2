@@ -91,7 +91,7 @@ createRoot(document.getElementById('root')).render(
     <ErrorBoundary>
       <AudioProvider>
         <App />
-        {(import.meta.env.DEV || process.env.NODE_ENV === 'development') && <Agentation />}
+        {import.meta.env.DEV && <Agentation />}
       </AudioProvider>
     </ErrorBoundary>
   </StrictMode>,

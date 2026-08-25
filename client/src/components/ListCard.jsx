@@ -28,15 +28,17 @@ export default function ListCard({
   onPlaySurvival,
   onPreview,
   onTogglePublic,
-  onRename
+  onRename,
+  onSelectCreator
 }) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [tempTitle, setTempTitle] = useState(list?.name || '');
+  const listTitle = list?.name || list?.title || 'Sans titre';
+  const [tempTitle, setTempTitle] = useState(listTitle);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const emoji = getListEmoji(list.name, list.emoji);
-  const wordCount = list.words?.length || 0;
-  const dateFormatted = list.createdAt ? new Date(list.createdAt).toLocaleDateString() : 'Récemment';
+  const emoji = getListEmoji(listTitle, list.emoji);
+  const wordCount = Array.isArray(list.words) ? list.words.length : (typeof list.count === 'number' ? list.count : 0);
+  const dateFormatted = list.createdAt ? new Date(list.createdAt).toLocaleDateString() : (list.subtitle || 'Récemment');
 
   const handleCardClick = (e) => {
     // Open preview modal when clicking anywhere on the card
@@ -47,7 +49,7 @@ export default function ListCard({
 
   const handleSaveTitle = (e) => {
     e?.stopPropagation();
-    if (tempTitle.trim() && tempTitle.trim() !== list.name) {
+    if (tempTitle.trim() && tempTitle.trim() !== listTitle) {
       if (onRename) {
         onRename(list, tempTitle.trim());
       }
@@ -63,17 +65,46 @@ export default function ListCard({
         cursor: 'pointer',
         transition: 'all 0.22s ease',
         position: 'relative',
-        zIndex: isDropdownOpen ? 200 : 1
+        zIndex: isDropdownOpen ? 200 : 1,
+        borderLeftColor: (list.isPublic && !onTogglePublic) ? 'var(--warning, #eab308)' : undefined
       }}
       title="Cliquer pour voir les mots de la liste"
     >
-      {/* Header: 40px Emoji + Title with Pen Edit + World Status + Selection Checkbox */}
+      {/* Header: 40px Emoji/Avatar + Title with Pen Edit + Selection Checkbox */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.8rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
-          {/* 40px Theme Emoji */}
-          <div className="list-card-emoji">
-            {emoji}
-          </div>
+          {/* 40px Theme Emoji or Creator Avatar/Photo */}
+          {list.creatorPhoto ? (
+            <img
+              src={list.creatorPhoto}
+              alt={list.creatorName || 'Créateur'}
+              style={{
+                width: '40px',
+                height: '40px',
+                minWidth: '40px',
+                borderRadius: '12px',
+                objectFit: 'cover',
+                border: '2px solid var(--warning, #eab308)',
+                boxShadow: '0 0 10px rgba(234, 179, 8, 0.3)',
+                flexShrink: 0
+              }}
+            />
+          ) : list.creatorAvatar && list.creatorName ? (
+            <div
+              className="list-card-emoji"
+              style={{
+                background: 'rgba(234, 179, 8, 0.15)',
+                border: '2px solid var(--warning, #eab308)',
+                fontSize: '1.25rem'
+              }}
+            >
+              {list.creatorAvatar}
+            </div>
+          ) : (
+            <div className="list-card-emoji">
+              {emoji}
+            </div>
+          )}
           
           <div style={{ flex: 1, minWidth: 0 }}>
             {isEditingTitle ? (
@@ -125,18 +156,18 @@ export default function ListCard({
                     textOverflow: 'ellipsis',
                     color: 'var(--text-main)'
                   }}
-                  title={list.name}
+                  title={listTitle}
                 >
-                  {list.name}
+                  {listTitle}
                 </h4>
 
                 {/* Small Pen Edit Icon to Rename list */}
-                {(onRename || onPreview) && (
+                {onRename && (
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setTempTitle(list.name || '');
+                      setTempTitle(listTitle);
                       setIsEditingTitle(true);
                     }}
                     title="Renommer cette liste"
@@ -172,15 +203,55 @@ export default function ListCard({
               </div>
             )}
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
-              <span className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                {wordCount} {wordCount > 1 ? 'mots' : 'mot'}
-              </span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>•</span>
-              <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-                {dateFormatted}
-              </span>
-            </div>
+            {list.creatorName ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
+                <span 
+                  onClick={(e) => {
+                    if (onSelectCreator) {
+                      e.stopPropagation();
+                      onSelectCreator({
+                        firebaseId: list.creatorFirebaseId || null,
+                        name: list.creatorName || 'Membre'
+                      });
+                    }
+                  }}
+                  style={{ 
+                    fontSize: '0.82rem', 
+                    color: '#facc15', 
+                    fontWeight: 700, 
+                    cursor: onSelectCreator ? 'pointer' : 'default', 
+                    textDecoration: onSelectCreator ? 'underline' : 'none' 
+                  }}
+                  title={onSelectCreator ? "Voir le profil du créateur" : undefined}
+                >
+                  Par {list.creatorName}
+                </span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>•</span>
+                <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+                  {wordCount} {wordCount > 1 ? 'mots' : 'mot'}
+                </span>
+              </div>
+            ) : (list.isDefault || list.isOfficial) ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--primary, #6366f1)', fontWeight: 700 }}>
+                  👑 Wana Officiel
+                </span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>•</span>
+                <span className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                  {list.subtitle || `${wordCount} ${wordCount > 1 ? 'mots' : 'mot'}`}
+                </span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
+                <span className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                  {wordCount} {wordCount > 1 ? 'mots' : 'mot'}
+                </span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>•</span>
+                <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+                  {dateFormatted}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -205,9 +276,9 @@ export default function ListCard({
         )}
       </div>
 
-      {/* Action Row: [ 1/5 Icon-Only Public/Privé ] + [ 4/5 Voir la liste ] */}
+      {/* Action Row: [ 1/5 Icon-Only Public/Privé/Official ] + [ 4/5 Voir la liste ] */}
       <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', width: '100%' }} onClick={(e) => e.stopPropagation()}>
-        {onTogglePublic && (
+        {onTogglePublic ? (
           <button
             type="button"
             onClick={(e) => {
@@ -242,12 +313,57 @@ export default function ListCard({
           >
             <span>{list.isPublic ? '🌍' : '🔒'}</span>
           </button>
-        )}
+        ) : list.isPublic ? (
+          <div
+            title="Liste Publique (Communauté)"
+            className="btn btn-secondary"
+            style={{
+              flex: '0 0 46px',
+              width: '46px',
+              padding: '0.55rem 0',
+              fontSize: '1.1rem',
+              borderRadius: '10px',
+              borderColor: 'rgba(234, 179, 8, 0.5)',
+              color: '#facc15',
+              background: 'rgba(234, 179, 8, 0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'default'
+            }}
+          >
+            <span>🌍</span>
+          </div>
+        ) : (list.isDefault || list.isOfficial) ? (
+          <div
+            title="Liste Thématique Officielle"
+            className="btn btn-secondary"
+            style={{
+              flex: '0 0 46px',
+              width: '46px',
+              padding: '0.55rem 0',
+              fontSize: '1.1rem',
+              borderRadius: '10px',
+              borderColor: 'rgba(99, 102, 241, 0.4)',
+              color: '#a5b4fc',
+              background: 'rgba(99, 102, 241, 0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'default'
+            }}
+          >
+            <span>👑</span>
+          </div>
+        ) : null}
 
         {onPreview && (
           <button
             type="button"
-            onClick={onPreview}
+            onClick={(e) => {
+              e.stopPropagation();
+              onPreview();
+            }}
             className="btn btn-secondary"
             style={{ 
               flex: 1, 

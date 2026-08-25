@@ -102,6 +102,30 @@ export default function ListPreviewModal({
     }
   };
 
+  const handleSwapAllWords = () => {
+    const updated = words.map(w => ({
+      ...w,
+      answer: w.question || '',
+      question: w.answer || ''
+    }));
+    setWords(updated);
+    if (onUpdateWords) {
+      onUpdateWords(updated);
+    }
+  };
+
+  const handleSwapSingleWord = (idx) => {
+    const updated = words.map((w, i) => i === idx ? ({
+      ...w,
+      answer: w.question || '',
+      question: w.answer || ''
+    }) : w);
+    setWords(updated);
+    if (onUpdateWords) {
+      onUpdateWords(updated);
+    }
+  };
+
   return (
     <div
       className="modal-overlay"
@@ -313,20 +337,42 @@ export default function ListPreviewModal({
             }}
           />
           {isEditable && (
-            <button
-              type="button"
-              onClick={() => setShowAddForm(prev => !prev)}
-              className="btn btn-primary"
-              style={{
-                width: 'auto',
-                padding: '0.55rem 0.9rem',
-                fontSize: '0.85rem',
-                whiteSpace: 'nowrap',
-                fontWeight: 700
-              }}
-            >
-              {showAddForm ? '✕ Fermer' : '+ Ajouter'}
-            </button>
+            <div style={{ display: 'flex', gap: '0.4rem' }}>
+              <button
+                type="button"
+                onClick={handleSwapAllWords}
+                className="btn btn-secondary"
+                style={{
+                  width: 'auto',
+                  padding: '0.55rem 0.85rem',
+                  fontSize: '0.85rem',
+                  whiteSpace: 'nowrap',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem'
+                }}
+                title="Inverser les colonnes (🇩🇪 ⇄ 🇫🇷) pour tous les mots"
+              >
+                <span>⇄</span>
+                <span>Inverser tout</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAddForm(prev => !prev)}
+                className="btn btn-primary"
+                style={{
+                  width: 'auto',
+                  padding: '0.55rem 0.9rem',
+                  fontSize: '0.85rem',
+                  whiteSpace: 'nowrap',
+                  fontWeight: 700
+                }}
+              >
+                {showAddForm ? '✕ Fermer' : '+ Ajouter'}
+              </button>
+            </div>
           )}
         </div>
 
@@ -461,6 +507,38 @@ export default function ListPreviewModal({
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
                           <button
                             type="button"
+                            onClick={() => handleSwapSingleWord(idx)}
+                            style={{
+                              background: 'rgba(255, 255, 255, 0.08)',
+                              border: '1px solid rgba(255, 255, 255, 0.2)',
+                              color: '#a5b4fc',
+                              borderRadius: '8px',
+                              padding: '0.35rem 0.55rem',
+                              cursor: 'pointer',
+                              fontSize: '0.85rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s',
+                              lineHeight: 1
+                            }}
+                            title="Inverser les colonnes (🇩🇪 ⇄ 🇫🇷) pour ce mot"
+                            onMouseOver={e => {
+                              e.currentTarget.style.background = 'rgba(99, 102, 241, 0.35)';
+                              e.currentTarget.style.borderColor = 'var(--primary)';
+                              e.currentTarget.style.transform = 'scale(1.08)';
+                            }}
+                            onMouseOut={e => {
+                              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                              e.currentTarget.style.transform = 'scale(1)';
+                            }}
+                          >
+                            ⇄
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => setEditingWordIdx(idx)}
                             style={{
                               background: 'rgba(99, 102, 241, 0.15)',
@@ -586,6 +664,32 @@ function EditWordInlineForm({ word, onSave, onCancel }) {
           style={{ flex: 1, padding: '0.4rem 0.6rem', fontSize: '0.9rem' }}
           autoFocus
         />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <button
+          type="button"
+          onClick={() => {
+            const temp = german;
+            setGerman(french);
+            setFrench(temp);
+          }}
+          style={{
+            background: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            borderRadius: '6px',
+            color: '#a5b4fc',
+            cursor: 'pointer',
+            padding: '0.2rem 0.6rem',
+            fontSize: '0.8rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.3rem'
+          }}
+          title="Inverser Allemand et Français"
+        >
+          <span>⇅</span>
+          <span>Inverser les champs</span>
+        </button>
       </div>
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
         <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>🇫🇷</span>

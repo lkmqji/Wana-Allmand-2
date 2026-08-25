@@ -610,7 +610,7 @@ export default function VengeanceMode({
     const totalXp = purifiedCount * 50;
     return (
       <div className="vengeance-arena">
-        <div className="vengeance-game-box" style={{ textAlign: 'center', borderColor: '#ffd700', boxShadow: '0 0 60px rgba(255, 215, 0, 0.4)', marginTop: '-8vh' }}>
+        <div className="vengeance-game-box" style={{ textAlign: 'center', borderColor: '#ffd700', boxShadow: '0 0 60px rgba(255, 215, 0, 0.4)' }}>
           <div style={{ fontSize: '4rem', marginBottom: '0.8rem', animation: 'heartPop 0.6s ease-out' }}>
             🔥👑🔥
           </div>
@@ -700,16 +700,7 @@ export default function VengeanceMode({
     return (
       <div className="vengeance-arena">
         {/* Top Header Bar */}
-        <div style={{
-          position: 'absolute',
-          top: '1.5rem',
-          left: '1.5rem',
-          right: '1.5rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          zIndex: 20
-        }}>
+        <div className="vengeance-top-bar">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <button
               onClick={onBackHome}
@@ -773,7 +764,7 @@ export default function VengeanceMode({
         </div>
 
         {/* Intro Presentation Box */}
-        <div className="vengeance-game-box" style={{ textAlign: 'center', padding: '2.2rem 2rem', marginTop: '-8vh' }}>
+        <div className="vengeance-game-box" style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '3.6rem', marginBottom: '0.6rem', animation: 'heartPop 0.6s ease-out' }}>
             🔥⚔️🔥
           </div>
@@ -997,7 +988,7 @@ export default function VengeanceMode({
   if (!currentWord) {
     return (
       <div className="vengeance-arena">
-        <div className="vengeance-game-box text-center" style={{ marginTop: '-8vh' }}>
+        <div className="vengeance-game-box text-center">
           <h2>Aucun mot à purifier</h2>
           <button onClick={onBackHome} className="vengeance-action-btn" style={{ marginTop: '1.5rem' }}>
             Retour à l'Accueil
@@ -1013,16 +1004,7 @@ export default function VengeanceMode({
   return (
     <div className={`vengeance-arena ${isShaking ? 'shake-effect' : ''}`}>
       {/* Top Header Bar */}
-      <div style={{
-        position: 'absolute',
-        top: '1.5rem',
-        left: '1.5rem',
-        right: '1.5rem',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        zIndex: 20
-      }}>
+      <div className="vengeance-top-bar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
           <button
             onClick={onBackHome}
@@ -1088,7 +1070,6 @@ export default function VengeanceMode({
       {/* Main Game Box */}
       <div 
         className={`vengeance-game-box ${feedback?.type === 'success' || feedback?.type === 'purify' ? 'correct-flash' : ''} ${feedback?.type === 'wrong' || mustTypeCorrection ? 'wrong-flash' : ''} ${isExploding ? 'heart-icon-active' : ''}`}
-        style={{ marginTop: '-8vh' }}
       >
         
         {/* Visual Timer Bar */}
