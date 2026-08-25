@@ -75,8 +75,11 @@ const evaluateStandalone = () => {
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const ADMIN_UID = import.meta.env.VITE_ADMIN_UID;
 const socket = io(API_URL, {
-  transports: ['websocket'],
-  upgrade: false
+  transports: ['polling', 'websocket'],
+  reconnection: true,
+  reconnectionAttempts: 15,
+  reconnectionDelay: 1000,
+  timeout: 10000
 });
 
 function App() {
@@ -476,7 +479,8 @@ function App() {
             body: JSON.stringify({ 
               firebaseId: currentUser.uid, 
               name: savedLocalName || currentUser.displayName || 'Joueur',
-              avatar: savedLocalAvatar || '🦊'
+              avatar: savedLocalAvatar || '🦊',
+              photoURL: currentUser.photoURL || null
             })
           });
           const data = await syncRes.json();
@@ -703,6 +707,9 @@ function App() {
 
       setChatMessages(prev => {
         if (msg.id && prev.some(m => m.id === msg.id)) return prev;
+        if (prev.some(m => m.senderId === msg.senderId && m.text === msg.text && Math.abs(m.timestamp - (msg.timestamp || Date.now())) < 2000)) {
+          return prev;
+        }
         return [...prev, msg];
       });
 

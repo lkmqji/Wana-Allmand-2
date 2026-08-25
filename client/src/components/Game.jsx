@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { formatPlayerName, extractEmoji, generateBurstParticles } from '../utils/formatters';
 import { useSoundEffects } from '../context/AudioContext';
+import UserProfileModal from './UserProfileModal';
 
 const PRESET_PHRASES = [
   "💥 Ouch!",
@@ -32,7 +33,9 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     playSuccess,
     playError,
     isGameMusicMuted,
-    toggleGameMusicMute
+    toggleGameMusicMute,
+    isSoundEnabled,
+    toggleSound
   } = useSoundEffects();
   const [question, setQuestion] = useState('');
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -76,6 +79,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
 
   const [readyCount, setReadyCount] = useState({ ready: 0, total: 0 });
   const [iAmReady, setIAmReady] = useState(false);
+  const [selectedProfileUser, setSelectedProfileUser] = useState(null);
+  const [isControlsExpanded, setIsControlsExpanded] = useState(false);
 
   const [leaderId, setLeaderId] = useState(null);
   const [overtakerId, setOvertakerId] = useState(null);
@@ -359,16 +364,20 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     };
 
     const onGameChatMessage = (msg) => {
+      if (!msg) return;
       if (setChatMessages) {
         setChatMessages(prev => {
           if (msg.id && prev.some(m => m.id === msg.id)) return prev;
           return [...prev, msg];
         });
       }
-      setFloatingBubbles(prev => [...prev.slice(-3), msg]);
-      setTimeout(() => {
-        setFloatingBubbles(prev => prev.filter(b => b.id !== msg.id));
-      }, 3500);
+      // Only display floating bubble if not from local player (local bubble already rendered optimistically)
+      if (msg.senderId !== socket?.id) {
+        setFloatingBubbles(prev => [...prev.slice(-3), msg]);
+        setTimeout(() => {
+          setFloatingBubbles(prev => prev.filter(b => b.id !== msg.id));
+        }, 3500);
+      }
     };
 
     const handleReactionBurst = (data) => {
@@ -546,7 +555,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     socket.emit('game_chat_message', {
       sessionId: session?.id,
       text: text.trim(),
-      preset: true
+      preset: true,
+      id: localMsg.id
     });
 
     setReactionCooldown(2.5);
@@ -581,7 +591,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     socket.emit('game_chat_message', {
       sessionId: session?.id,
       text: quickChatInput.trim(),
-      preset: false
+      preset: false,
+      id: localMsg.id
     });
     setQuickChatInput('');
   };
@@ -613,7 +624,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     socket.emit('game_chat_message', {
       sessionId: session?.id,
       text: pauseChatInput.trim(),
-      preset: false
+      preset: false,
+      id: localMsg.id
     });
     setPauseChatInput('');
   };
@@ -919,27 +931,48 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
                 </div>
               </div>
 
-              <button
-                onClick={handleResumeGame}
-                className="btn btn-primary btn-resume-glow"
-                style={{
-                  width: 'auto',
-                  padding: '0.6rem 1.4rem',
-                  fontSize: '0.95rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  borderRadius: '12px'
-                }}
-              >
-                <span>▶️</span> REPRENDRE
-              </button>
+              <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={handleRequestTerminate}
+                  className="btn btn-secondary"
+                  style={{
+                    width: 'auto',
+                    padding: '0.6rem 1rem',
+                    fontSize: '0.85rem',
+                    fontWeight: 800,
+                    color: '#f87171',
+                    borderColor: 'rgba(239, 68, 68, 0.45)',
+                    background: 'rgba(239, 68, 68, 0.12)'
+                  }}
+                  title="Demander à sortir / quitter la partie"
+                >
+                  🚪 Quitter
+                </button>
+
+                <button
+                  onClick={handleResumeGame}
+                  className="btn btn-primary btn-resume-glow"
+                  style={{
+                    width: 'auto',
+                    padding: '0.6rem 1.4rem',
+                    fontSize: '0.95rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    borderRadius: '12px'
+                  }}
+                >
+                  <span>▶️</span> REPRENDRE
+                </button>
+              </div>
             </div>
 
-            {/* In-Pause Chat Box History */}
+            {/* In-Pause Chat Box History (Enlarged) */}
             <div style={{
               flex: 1,
-              height: '240px',
+              height: '280px',
+              minHeight: '220px',
               overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',
@@ -1111,7 +1144,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       </div>
 
       {/* =========================================================
-          TOP-LEFT ACTIONS: QUITTER & PAUSE (VERTICALLY STACKED)
+          TOP-LEFT ACTIONS: PAUSE PAR DÉFAUT + MENU VERTICAL FLOU (QUITTER, MUSIQUE, SON)
          ========================================================= */}
       <div style={{
         position: 'absolute',
@@ -1119,104 +1152,198 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
         left: '1rem',
         display: 'flex',
         flexDirection: 'column',
+        alignItems: 'flex-start',
         gap: '0.45rem',
-        alignItems: 'center',
         zIndex: 60
       }}>
-        {/* 1. Bouton Quitter */}
-        <button 
-          onClick={handleRequestTerminate}
-          style={{ 
-            background: 'var(--bg-main)', 
-            border: '2px solid var(--border-color)', 
-            color: 'var(--danger)', 
-            cursor: 'pointer', 
-            width: '38px',
-            height: '38px',
-            borderRadius: '50%',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            transition: 'all 0.2s',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-          }}
-          title="Demander à quitter la partie"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-            <polyline points="16 17 21 12 16 7"></polyline>
-            <line x1="21" y1="12" x2="9" y2="12"></line>
-          </svg>
-        </button>
-
-        {/* 2. Bouton Pause (si autorisé par l'hôte) */}
-        {allowPause && (
-          <button 
-            type="button"
-            onClick={handleTogglePause}
-            style={{ 
-              background: isPaused ? 'var(--warning)' : 'var(--bg-main)', 
-              border: `2px solid ${isPaused ? 'var(--warning)' : 'var(--border-color)'}`, 
-              color: isPaused ? '#ffffff' : 'var(--warning)', 
-              cursor: 'pointer', 
-              width: '38px',
-              height: '38px',
-              borderRadius: '50%',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              transition: 'all 0.2s',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-            }}
-            title={isPaused ? "Reprendre la partie" : "Mettre la partie en pause & ouvrir le chat"}
-          >
-            {isPaused ? (
-              <span style={{ fontSize: '1rem', lineHeight: 1 }}>▶️</span>
-            ) : (
-              <span style={{ fontSize: '1rem', lineHeight: 1 }}>⏸️</span>
-            )}
-          </button>
-        )}
-
-        {/* 3. Bouton Muet Rapide Musique en Partie (Garde les effets sonores / bruitages actifs) */}
-        <button 
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            toggleGameMusicMute();
-          }}
-          style={{ 
-            background: isGameMusicMuted ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-main)', 
-            border: `2px solid ${isGameMusicMuted ? 'var(--danger)' : 'var(--border-color)'}`, 
-            color: isGameMusicMuted ? 'var(--danger)' : 'var(--primary)', 
-            cursor: 'pointer', 
-            width: '38px',
-            height: '38px',
-            borderRadius: '50%',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
-            boxShadow: isGameMusicMuted ? '0 2px 10px rgba(239, 68, 68, 0.25)' : '0 2px 8px rgba(0,0,0,0.2)',
-            position: 'relative'
-          }}
-          title={isGameMusicMuted ? "Réactiver la musique en partie" : "Couper la musique en partie (les bruitages restent actifs)"}
-        >
-          {isGameMusicMuted ? (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 18V5l12-2v13"></path>
-              <circle cx="6" cy="18" r="3"></circle>
-              <circle cx="18" cy="16" r="3"></circle>
-              <line x1="2" y1="2" x2="22" y2="22" stroke="var(--danger)" strokeWidth="2.5"></line>
-            </svg>
+        {/* Main Pill: Pause + Bouton ▶/▼ d'extension */}
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.25rem',
+          background: 'rgba(15, 23, 42, 0.75)',
+          border: '1.5px solid rgba(255, 255, 255, 0.12)',
+          borderRadius: '24px',
+          padding: '3px 6px',
+          boxShadow: '0 6px 20px rgba(0, 0, 0, 0.35)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)'
+        }}>
+          {/* Pause / Reprendre (Affiché par défaut) */}
+          {allowPause ? (
+            <button
+              type="button"
+              onClick={handleTogglePause}
+              style={{
+                background: isPaused ? 'rgba(245, 158, 11, 0.25)' : 'transparent',
+                border: 'none',
+                color: isPaused ? '#fbbf24' : 'var(--warning)',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+                padding: '0.25rem 0.55rem',
+                borderRadius: '16px',
+                transition: 'all 0.2s ease'
+              }}
+              title={isPaused ? "Reprendre la partie" : "Mettre la partie en pause"}
+            >
+              <span>{isPaused ? '▶️' : '⏸️'}</span>
+              <span style={{ fontSize: '0.78rem', letterSpacing: '0.3px' }}>
+                {isPaused ? 'Reprendre' : 'Pause'}
+              </span>
+            </button>
           ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 18V5l12-2v13"></path>
-              <circle cx="6" cy="18" r="3"></circle>
-              <circle cx="18" cy="16" r="3"></circle>
-            </svg>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: '0.25rem 0.5rem',
+              fontSize: '0.78rem',
+              color: 'var(--text-muted)',
+              fontWeight: 700
+            }}>
+              ⚙️ Menu
+            </div>
           )}
-        </button>
+
+          {/* Bouton pour afficher/masquer verticalement */}
+          <button
+            type="button"
+            onClick={() => setIsControlsExpanded(v => !v)}
+            style={{
+              background: isControlsExpanded ? 'rgba(99, 102, 241, 0.35)' : 'rgba(255, 255, 255, 0.08)',
+              border: isControlsExpanded ? '1px solid var(--primary)' : '1px solid rgba(255, 255, 255, 0.1)',
+              color: isControlsExpanded ? '#ffffff' : 'var(--text-main)',
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '0.65rem',
+              fontWeight: 900,
+              padding: 0,
+              transition: 'all 0.2s ease'
+            }}
+            title={isControlsExpanded ? "Fermer le menu" : "Afficher plus d'options"}
+          >
+            {isControlsExpanded ? '▲' : '▼'}
+          </button>
+        </div>
+
+        {/* Menu vertical avec arrière-plan flou (Blur) */}
+        {isControlsExpanded && (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.35rem',
+            background: 'rgba(15, 23, 42, 0.85)',
+            border: '1.5px solid rgba(255, 255, 255, 0.12)',
+            borderRadius: '16px',
+            padding: '0.45rem',
+            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            minWidth: '160px',
+            animation: 'fadeIn 0.2s ease-out'
+          }}>
+            {/* Musique de fond */}
+            <button
+              type="button"
+              onClick={toggleGameMusicMute}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.5rem',
+                background: isGameMusicMuted ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                border: `1px solid ${isGameMusicMuted ? 'rgba(239, 68, 68, 0.4)' : 'rgba(255, 255, 255, 0.08)'}`,
+                borderRadius: '10px',
+                padding: '0.4rem 0.65rem',
+                color: isGameMusicMuted ? 'var(--danger)' : 'var(--text-main)',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.78rem',
+                transition: 'all 0.15s ease',
+                width: '100%',
+                textAlign: 'left'
+              }}
+              title={isGameMusicMuted ? "Activer la musique de fond" : "Couper la musique de fond"}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span>{isGameMusicMuted ? '🔇' : '🎵'}</span>
+                <span>Musique</span>
+              </div>
+              <span style={{ fontSize: '0.7rem', color: isGameMusicMuted ? 'var(--danger)' : 'var(--primary)', fontWeight: 700 }}>
+                {isGameMusicMuted ? 'Off' : 'On'}
+              </span>
+            </button>
+
+            {/* Effets sonores / Bruitages */}
+            <button
+              type="button"
+              onClick={toggleSound}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.5rem',
+                background: !isSoundEnabled ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                border: `1px solid ${!isSoundEnabled ? 'rgba(239, 68, 68, 0.4)' : 'rgba(255, 255, 255, 0.08)'}`,
+                borderRadius: '10px',
+                padding: '0.4rem 0.65rem',
+                color: !isSoundEnabled ? 'var(--danger)' : 'var(--text-main)',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.78rem',
+                transition: 'all 0.15s ease',
+                width: '100%',
+                textAlign: 'left'
+              }}
+              title={!isSoundEnabled ? "Activer les bruitages" : "Couper les bruitages"}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span>{!isSoundEnabled ? '🔇' : '🔊'}</span>
+                <span>Sons</span>
+              </div>
+              <span style={{ fontSize: '0.7rem', color: !isSoundEnabled ? 'var(--danger)' : 'var(--primary)', fontWeight: 700 }}>
+                {!isSoundEnabled ? 'Off' : 'On'}
+              </span>
+            </button>
+
+            {/* Séparateur discret */}
+            <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', margin: '2px 0' }} />
+
+            {/* Quitter */}
+            <button
+              type="button"
+              onClick={handleRequestTerminate}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                background: 'rgba(239, 68, 68, 0.12)',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+                borderRadius: '10px',
+                padding: '0.4rem 0.65rem',
+                color: 'var(--danger)',
+                cursor: 'pointer',
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                transition: 'all 0.15s ease',
+                width: '100%',
+                textAlign: 'left'
+              }}
+              title="Quitter la partie"
+            >
+              <span>🚪</span>
+              <span>Quitter la partie</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* =========================================================
@@ -1372,7 +1499,14 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
                 style={{ color: p.id === socket?.id ? 'var(--primary)' : 'var(--text-main)' }}
               >
                 {isLeader && <div className="leader-crown">👑</div>}
-                <div className="name">{formatPlayerName(p.name)} {p.id === socket?.id ? '(Vous)' : ''}</div>
+                <div 
+                  className="name" 
+                  onClick={() => setSelectedProfileUser(p)} 
+                  style={{ cursor: 'pointer', textDecoration: 'underline' }} 
+                  title="Voir le profil du joueur"
+                >
+                  {formatPlayerName(p.name)} {p.id === socket?.id ? '(Vous)' : ''}
+                </div>
                 <div className="score">{p.score}</div>
               </div>
             );
@@ -1592,6 +1726,16 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           </span>
         ))}
       </div>
+
+      {/* Floating User Profile Modal */}
+      {selectedProfileUser && (
+        <UserProfileModal
+          targetPlayerId={selectedProfileUser._id || selectedProfileUser.firebaseId || selectedProfileUser.name}
+          targetPlayerFallback={selectedProfileUser}
+          currentUser={user}
+          onClose={() => setSelectedProfileUser(null)}
+        />
+      )}
 
     </div>
   );

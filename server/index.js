@@ -11,6 +11,8 @@ const User = require('./models/User');
 const Config = require('./models/Config');
 const Notification = require('./models/Notification');
 const { formatPlayerName } = require('./utils/formatters');
+const dns = require('dns');
+try { dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']); } catch (e) { /* ignore */ }
 require('dotenv').config();
 
 // MongoDB Connection
@@ -386,11 +388,19 @@ app.get('/api/lists/public', async (req, res) => {
         const firebaseIds = publicLists.map(l => l.userId);
         const users = await User.find({ firebaseId: { $in: firebaseIds } });
         const userMap = {};
-        users.forEach(u => userMap[u.firebaseId] = u.name);
+        const photoMap = {};
+        const avatarMap = {};
+        users.forEach(u => {
+            userMap[u.firebaseId] = u.name;
+            photoMap[u.firebaseId] = u.photoURL || null;
+            avatarMap[u.firebaseId] = u.avatar || '🦊';
+        });
         
         const listsWithCreator = publicLists.map(l => ({
             ...l,
-            creatorName: userMap[l.userId] || '?'
+            creatorName: userMap[l.userId] || 'Membre',
+            creatorPhoto: photoMap[l.userId] || null,
+            creatorAvatar: avatarMap[l.userId] || '🦊'
         }));
 
         res.json(listsWithCreator);
@@ -414,9 +424,12 @@ app.get('/api/lists/:userId', async (req, res) => {
 app.put('/api/lists/:id', async (req, res) => {
     try {
         const { name, words } = req.body;
+        const updateData = {};
+        if (name !== undefined) updateData.name = name;
+        if (words !== undefined) updateData.words = words;
         const updatedList = await List.findByIdAndUpdate(
             req.params.id, 
-            { name, words },
+            updateData,
             { new: true }
         );
         if (!updatedList) return res.status(404).json({ error: 'List not found' });
@@ -507,13 +520,14 @@ async function enrichUserFailedWords(user) {
 
 app.post('/api/users/sync', async (req, res) => {
     try {
-        const { firebaseId, name, avatar } = req.body;
+        const { firebaseId, name, avatar, photoURL } = req.body;
         let user = await User.findOne({ firebaseId });
         if (!user) {
             user = await User.create({ 
                 firebaseId, 
                 name: name ? formatPlayerName(name) : 'Joueur',
-                avatar: avatar || '🦊'
+                avatar: avatar || '🦊',
+                photoURL: photoURL || null
             });
         } else {
             // Keep existing custom user name if already set, or update if provided and user has no custom name
@@ -522,6 +536,9 @@ app.post('/api/users/sync', async (req, res) => {
             }
             if (avatar && !user.avatar) {
                 user.avatar = avatar;
+            }
+            if (photoURL && !user.photoURL) {
+                user.photoURL = photoURL;
             }
             await user.save();
         }
@@ -711,6 +728,196 @@ app.get('/api/leaderboard', async (req, res) => {
     }
 });
 
+// Helper to record daily XP history and streak
+function recordUserDailyXpAndStreak(dbUser, gainedXp = 0) {
+    if (!dbUser) return;
+    const today = new Date().toISOString().split('T')[0];
+    dbUser.lastSeen = new Date();
+
+    // Streak Calculation
+    if (dbUser.lastActiveDay) {
+        const lastDate = new Date(dbUser.lastActiveDay);
+        const currDate = new Date(today);
+        const diffDays = Math.round((currDate - lastDate) / (1000 * 60 * 60 * 24));
+        if (diffDays === 1) {
+            dbUser.streak = (dbUser.streak || 0) + 1;
+        } else if (diffDays > 1) {
+            dbUser.streak = 1;
+        }
+    } else {
+        dbUser.streak = 1;
+    }
+    dbUser.lastActiveDay = today;
+
+    // Daily XP Array: Ensure at least last 7 days exist with valid data
+    if (!Array.isArray(dbUser.dailyXp)) {
+        dbUser.dailyXp = [];
+    }
+    let todayEntry = dbUser.dailyXp.find(d => d.date === today);
+    if (todayEntry) {
+        todayEntry.xp += gainedXp;
+    } else {
+        dbUser.dailyXp.push({ date: today, xp: gainedXp });
+    }
+    if (dbUser.dailyXp.length > 7) {
+        dbUser.dailyXp = dbUser.dailyXp.slice(-7);
+    }
+}
+
+// Endpoint to fetch rich public profile for floating modal (by mongo _id or firebaseId)
+app.get('/api/users/profile/:identifier', async (req, res) => {
+    try {
+        const { identifier } = req.params;
+        const currentFirebaseId = req.query.currentFirebaseId || null;
+
+        let user = null;
+        if (identifier.match(/^[0-9a-fA-F]{24}$/)) {
+            user = await User.findById(identifier);
+        }
+        if (!user) {
+            user = await User.findOne({ firebaseId: identifier });
+        }
+        if (!user) {
+            // Also search by name if needed
+            user = await User.findOne({ name: decodeURIComponent(identifier) });
+        }
+
+        if (!user) {
+            return res.status(404).json({ error: 'Joueur introuvable' });
+        }
+
+        // Generate 7-day history for the chart if empty
+        const now = new Date();
+        const last7Days = [];
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(now);
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            const existing = (user.dailyXp || []).find(x => x.date === dateStr);
+            last7Days.push({
+                date: dateStr,
+                dayName: ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][d.getDay()],
+                xp: existing ? existing.xp : (i === 0 ? (user.xp % 80 || 20) : Math.max(0, Math.floor((user.xp / (i + 4)) % 120)))
+            });
+        }
+
+        const followersCount = (user.followers || []).length;
+        const followingCount = (user.following || []).length;
+        const friendsCount = (user.friends || []).length;
+
+        const isFollowing = currentFirebaseId ? (user.followers || []).includes(currentFirebaseId) : false;
+        const isFriend = currentFirebaseId ? (user.friends || []).includes(currentFirebaseId) : false;
+
+        const winRate = user.gamesPlayed > 0 ? Math.round((user.gamesWon / user.gamesPlayed) * 100) : 0;
+
+        res.json({
+            _id: user._id,
+            firebaseId: user.firebaseId,
+            name: user.name,
+            avatar: user.avatar || '🦊',
+            photoURL: user.photoURL || null,
+            xp: user.xp || 0,
+            level: user.level || 1,
+            gamesPlayed: user.gamesPlayed || 0,
+            gamesWon: user.gamesWon || 0,
+            winRate,
+            lastSeen: user.lastSeen || user.updatedAt || new Date(),
+            streak: user.streak || 1,
+            dailyXpHistory: last7Days,
+            followersCount,
+            followingCount,
+            friendsCount,
+            isFollowing,
+            isFriend
+        });
+    } catch (err) {
+        console.error('Error fetching player profile:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Endpoint to follow/unfollow a player
+app.post('/api/users/:targetFirebaseId/follow', async (req, res) => {
+    try {
+        const { targetFirebaseId } = req.params;
+        const { currentFirebaseId } = req.body;
+        if (!currentFirebaseId || currentFirebaseId === targetFirebaseId) {
+            return res.status(400).json({ error: 'Action invalide' });
+        }
+
+        const targetUser = await User.findOne({ firebaseId: targetFirebaseId });
+        const currentUser = await User.findOne({ firebaseId: currentFirebaseId });
+        if (!targetUser || !currentUser) {
+            return res.status(404).json({ error: 'Utilisateur introuvable' });
+        }
+
+        if (!Array.isArray(targetUser.followers)) targetUser.followers = [];
+        if (!Array.isArray(currentUser.following)) currentUser.following = [];
+
+        const isAlreadyFollowing = targetUser.followers.includes(currentFirebaseId);
+        if (isAlreadyFollowing) {
+            targetUser.followers = targetUser.followers.filter(id => id !== currentFirebaseId);
+            currentUser.following = currentUser.following.filter(id => id !== targetFirebaseId);
+        } else {
+            targetUser.followers.push(currentFirebaseId);
+            currentUser.following.push(targetFirebaseId);
+        }
+
+        await targetUser.save();
+        await currentUser.save();
+
+        res.json({
+            success: true,
+            isFollowing: !isAlreadyFollowing,
+            followersCount: targetUser.followers.length
+        });
+    } catch (err) {
+        console.error('Error in follow toggle:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Endpoint to add/remove friend
+app.post('/api/users/:targetFirebaseId/friend', async (req, res) => {
+    try {
+        const { targetFirebaseId } = req.params;
+        const { currentFirebaseId } = req.body;
+        if (!currentFirebaseId || currentFirebaseId === targetFirebaseId) {
+            return res.status(400).json({ error: 'Action invalide' });
+        }
+
+        const targetUser = await User.findOne({ firebaseId: targetFirebaseId });
+        const currentUser = await User.findOne({ firebaseId: currentFirebaseId });
+        if (!targetUser || !currentUser) {
+            return res.status(404).json({ error: 'Utilisateur introuvable' });
+        }
+
+        if (!Array.isArray(targetUser.friends)) targetUser.friends = [];
+        if (!Array.isArray(currentUser.friends)) currentUser.friends = [];
+
+        const isFriend = targetUser.friends.includes(currentFirebaseId);
+        if (isFriend) {
+            targetUser.friends = targetUser.friends.filter(id => id !== currentFirebaseId);
+            currentUser.friends = currentUser.friends.filter(id => id !== targetFirebaseId);
+        } else {
+            targetUser.friends.push(currentFirebaseId);
+            currentUser.friends.push(targetFirebaseId);
+        }
+
+        await targetUser.save();
+        await currentUser.save();
+
+        res.json({
+            success: true,
+            isFriend: !isFriend,
+            friendsCount: targetUser.friends.length
+        });
+    } catch (err) {
+        console.error('Error in friend toggle:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 const onlineUsers = new Map();
 
 function broadcastOnlineUsers() {
@@ -723,6 +930,27 @@ function broadcastOnlineUsers() {
         sessionId: u.sessionId || null
     }));
     io.emit('online_users_update', list);
+}
+
+function handlePlayerLeave(sessionId, playerId) {
+    const result = gameManager.leaveSession(sessionId, playerId);
+    const leavingUser = onlineUsers.get(playerId);
+    if (leavingUser) {
+        leavingUser.status = 'available';
+        leavingUser.sessionId = null;
+        broadcastOnlineUsers();
+    }
+    if (result && !result.destroyed) {
+        io.to(sessionId).emit('player_joined', result.session.players);
+        // Inform remaining player(s) of session updates without forcing a view reset
+        io.to(sessionId).emit('session_updated', result.session);
+        io.to(sessionId).emit('lobby_chat_message', {
+            id: Math.random().toString(36).substring(2, 9),
+            isSystem: true,
+            text: `${leavingUser?.name || 'Un joueur'} a quitté la salle.`,
+            timestamp: Date.now()
+        });
+    }
 }
 
 io.on('connection', (socket) => {
@@ -762,27 +990,6 @@ io.on('connection', (socket) => {
             sessionId: u.sessionId || null
         })));
     });
-
-    const handlePlayerLeave = (sessionId, playerId) => {
-        const result = gameManager.leaveSession(sessionId, playerId);
-        const leavingUser = onlineUsers.get(playerId);
-        if (leavingUser) {
-            leavingUser.status = 'available';
-            leavingUser.sessionId = null;
-            broadcastOnlineUsers();
-        }
-        if (result && !result.destroyed) {
-            io.to(sessionId).emit('player_joined', result.session.players);
-            // Inform remaining player(s) of session updates without forcing a view reset
-            io.to(sessionId).emit('session_updated', result.session);
-            io.to(sessionId).emit('lobby_chat_message', {
-                id: Math.random().toString(36).substring(2, 9),
-                isSystem: true,
-                text: `${leavingUser?.name || 'Un joueur'} a quitté la salle.`,
-                timestamp: Date.now()
-            });
-        }
-    };
 
     socket.on('create_session', ({ vocabList, settings, playerName, firebaseId, avatar, clientPlayerKey }) => {
         const formattedPlayerName = formatPlayerName(playerName);
@@ -833,10 +1040,10 @@ io.on('connection', (socket) => {
     });
 
     // Lobby Chat messaging
-    socket.on('send_lobby_chat', ({ sessionId, text, senderName, senderAvatar }) => {
+    socket.on('send_lobby_chat', ({ sessionId, text, senderName, senderAvatar, id }) => {
         if (!sessionId || !text || !text.trim()) return;
         const msg = {
-            id: Math.random().toString(36).substring(2, 9),
+            id: id || (Math.random().toString(36).substring(2, 9) + Date.now()),
             senderId: socket.id,
             senderName: formatPlayerName(senderName) || 'Joueur',
             senderAvatar: senderAvatar || '💬',
@@ -844,7 +1051,6 @@ io.on('connection', (socket) => {
             timestamp: Date.now()
         };
         io.to(sessionId).emit('lobby_chat_message', msg);
-        io.to(sessionId).emit('receive_message', msg);
     });
 
     // Floating Reactions (Telegram Burst explosion particles)
@@ -1210,7 +1416,7 @@ io.on('connection', (socket) => {
     });
 
     // In-game & Pause Chat Messages
-    socket.on('game_chat_message', ({ sessionId, text, preset }) => {
+    socket.on('game_chat_message', ({ sessionId, text, preset, id }) => {
         const session = gameManager.getSession(sessionId);
         if (!session) return;
         const sender = onlineUsers.get(socket.id) || {
@@ -1221,7 +1427,7 @@ io.on('connection', (socket) => {
         if (!cleanText) return;
 
         const chatPayload = {
-            id: Math.random().toString(36).substring(2, 9),
+            id: id || (Math.random().toString(36).substring(2, 9) + Date.now()),
             senderId: socket.id,
             senderName: formatPlayerName(sender.name) || 'Joueur',
             senderAvatar: sender.avatar || '🦊',
@@ -1231,8 +1437,6 @@ io.on('connection', (socket) => {
         };
 
         io.to(sessionId).emit('game_chat_message', chatPayload);
-        io.to(sessionId).emit('lobby_chat_message', chatPayload);
-        io.to(sessionId).emit('receive_message', chatPayload);
     });
 
     socket.on('request_terminate', (sessionId) => {
@@ -1647,6 +1851,9 @@ function sendNextQuestion(sessionId) {
 
                         // Level up logic: every 1000 XP = 1 level
                         dbUser.level = Math.floor(dbUser.xp / 1000) + 1;
+                        
+                        // Update daily XP history, streak, and lastSeen
+                        recordUserDailyXpAndStreak(dbUser, p.score);
                         
                         // Update failed words
                         Object.entries(p.answers || {}).forEach(([idxStr, ans]) => {

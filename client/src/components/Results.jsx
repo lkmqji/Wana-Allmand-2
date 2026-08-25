@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { formatPlayerName, getClientPlayerKey, extractEmoji, generateBurstParticles } from '../utils/formatters';
 import { useSoundEffects } from '../context/AudioContext';
+import UserProfileModal from './UserProfileModal';
 
 const PRESET_RESULTS_CHAT = [
   "GG! 🏆",
@@ -16,6 +17,7 @@ const PRESET_REACTIONS = ['🔥', '⚡', '🏆', '⚔️', '💪', '👏'];
 export default function Results({ players = {}, setView, socket, session, isHost, playerName, avatar, user, chatMessages = [], setChatMessages }) {
   const { playVictory, playDefeat, playMessageSent, playReactionBurst, isMusicMuted, toggleMusicMute } = useSoundEffects();
   const [currentPlayers, setCurrentPlayers] = useState(players || {});
+  const [selectedProfilePlayer, setSelectedProfilePlayer] = useState(null);
   
   // Telegram Burst reactions state & 5s cooldown
   const [reactionCooldown, setReactionCooldown] = useState(0);
@@ -140,17 +142,22 @@ export default function Results({ players = {}, setView, socket, session, isHost
       if (setChatMessages) {
         setChatMessages(prev => {
           if (msg.id && prev.some(m => m.id === msg.id)) return prev;
+          if (prev.some(m => m.senderId === msg.senderId && m.text === msg.text && Math.abs(m.timestamp - (msg.timestamp || Date.now())) < 2000)) {
+            return prev;
+          }
           return [...prev, msg];
         });
       }
 
-      // Add to floating bubbles (visible for 3.5s in top-right)
-      const bubbleId = msg.id || (Date.now() + '-' + Math.random());
-      const bubbleMsg = { ...msg, id: bubbleId };
-      setFloatingBubbles(prev => [...prev.slice(-3), bubbleMsg]);
-      setTimeout(() => {
-        setFloatingBubbles(prev => prev.filter(b => b.id !== bubbleId));
-      }, 3500);
+      // Add to floating bubbles only for other player (local sender bubble already rendered)
+      if (msg.senderId !== socket.id) {
+        const bubbleId = msg.id || (Date.now() + '-' + Math.random());
+        const bubbleMsg = { ...msg, id: bubbleId };
+        setFloatingBubbles(prev => [...prev.slice(-3), bubbleMsg]);
+        setTimeout(() => {
+          setFloatingBubbles(prev => prev.filter(b => b.id !== bubbleId));
+        }, 3500);
+      }
     };
 
     const handleRetryProposal = (proposal) => {
@@ -287,7 +294,8 @@ export default function Results({ players = {}, setView, socket, session, isHost
       sessionId: session.id,
       text: content,
       senderName: currentName,
-      senderAvatar: avatar || '🦊'
+      senderAvatar: avatar || '🦊',
+      id: bubbleId
     });
     if (typeof textToSend !== 'string') {
       setChatInput('');
@@ -547,14 +555,14 @@ export default function Results({ players = {}, setView, socket, session, isHost
           TASK 3 : REDESIGN DU PODIUM ESPORT & MOBILE COMPACT ROW
          ========================================================= */}
       <div className="card card-arena" style={{
-        padding: '1.2rem 1rem',
-        marginBottom: '1.2rem',
+        padding: '0.8rem 0.9rem',
+        marginBottom: '0.85rem',
         position: 'relative',
         overflow: 'hidden'
       }}>
         
         {/* Top Arena Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem', padding: '0 0.4rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem', padding: '0 0.2rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '1.3rem' }}>🏆</span>
             <span style={{ fontWeight: 900, fontSize: '0.95rem', letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
@@ -673,7 +681,12 @@ export default function Results({ players = {}, setView, socket, session, isHost
               const isMe = p.id === socket.id;
 
               return (
-                <div className={`results-esport-podium ${isPWinner ? 'results-esport-winner' : isPLoser ? 'results-esport-loser' : 'results-esport-draw'}`}>
+                <div 
+                  onClick={() => setSelectedProfilePlayer(p)}
+                  className={`results-esport-podium ${isPWinner ? 'results-esport-winner' : isPLoser ? 'results-esport-loser' : 'results-esport-draw'}`}
+                  style={{ cursor: 'pointer' }}
+                  title="Voir le profil du joueur"
+                >
                   <div className="results-podium-left">
                     <span style={{ fontSize: '1.2rem' }}>{isPWinner ? '🥇' : isDraw ? '🤝' : '🥈'}</span>
                     <div className="esport-avatar-ring">
@@ -683,7 +696,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
 
                   <div className="results-podium-center">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ fontWeight: 900, fontSize: '1rem', color: 'var(--text-main)' }}>
+                      <span style={{ fontWeight: 900, fontSize: '1rem', color: 'var(--text-main)', textDecoration: 'underline' }}>
                         {formatPlayerName(p.name)}
                       </span>
                       {isMe && <span style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 800 }}>(Vous)</span>}
@@ -742,7 +755,12 @@ export default function Results({ players = {}, setView, socket, session, isHost
               const isMe = p.id === socket.id;
 
               return (
-                <div className={`results-esport-podium ${isPWinner ? 'results-esport-winner' : isPLoser ? 'results-esport-loser' : 'results-esport-draw'}`}>
+                <div 
+                  onClick={() => setSelectedProfilePlayer(p)}
+                  className={`results-esport-podium ${isPWinner ? 'results-esport-winner' : isPLoser ? 'results-esport-loser' : 'results-esport-draw'}`}
+                  style={{ cursor: 'pointer' }}
+                  title="Voir le profil du joueur"
+                >
                   <div className="results-podium-left">
                     <span style={{ fontSize: '1.2rem' }}>{isPWinner ? '🥇' : isDraw ? '🤝' : '🥈'}</span>
                     <div className="esport-avatar-ring">
@@ -752,7 +770,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
 
                   <div className="results-podium-center">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ fontWeight: 900, fontSize: '1rem', color: 'var(--text-main)' }}>
+                      <span style={{ fontWeight: 900, fontSize: '1rem', color: 'var(--text-main)', textDecoration: 'underline' }}>
                         {formatPlayerName(p.name)}
                       </span>
                       {isMe && <span style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 800 }}>(Vous)</span>}
@@ -882,7 +900,8 @@ export default function Results({ players = {}, setView, socket, session, isHost
         <div 
           ref={chatListRef}
           style={{
-            height: '100px',
+            height: '180px',
+            minHeight: '140px',
             overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column',
@@ -891,7 +910,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
             marginBottom: '0.5rem',
             background: 'var(--bg-main)',
             borderRadius: '10px',
-            padding: '0.5rem',
+            padding: '0.6rem',
             border: '1px solid var(--border-color)'
           }}
         >
@@ -1163,6 +1182,16 @@ export default function Results({ players = {}, setView, socket, session, isHost
             </div>
           </div>
         </div>
+      )}
+
+      {/* Floating User Profile Modal */}
+      {selectedProfilePlayer && (
+        <UserProfileModal
+          targetPlayerId={selectedProfilePlayer._id || selectedProfilePlayer.firebaseId || selectedProfilePlayer.name}
+          targetPlayerFallback={selectedProfilePlayer}
+          currentUser={user}
+          onClose={() => setSelectedProfilePlayer(null)}
+        />
       )}
 
     </div>

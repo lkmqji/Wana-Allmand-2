@@ -3,6 +3,8 @@ import { exampleLists, getAllDefaultWords } from '../data/exampleLists';
 import { formatPlayerName, extractEmoji, generateBurstParticles } from '../utils/formatters';
 import { useSoundEffects } from '../context/AudioContext';
 import ListPreviewModal from './ListPreviewModal';
+import PlayDropdown from './PlayDropdown';
+import UserProfileModal from './UserProfileModal';
 
 export default function Lobby({ 
   socket, 
@@ -19,6 +21,7 @@ export default function Lobby({
   onStartSurvival 
 }) {
   const { playAlert, playMessageSent, playReactionBurst } = useSoundEffects();
+  const [selectedProfileUser, setSelectedProfileUser] = useState(null);
   // Tabs: 'chat', 'online', 'words', 'settings'
   const [activeTab, setActiveTab] = useState('chat');
   const [searchQuery, setSearchQuery] = useState('');
@@ -282,14 +285,14 @@ export default function Lobby({
     setView('home');
   };
 
-  const handleStart = () => {
+  const handleStart = (forceSurvival = false) => {
     const validWords = words.filter(w => w.question?.trim() && w.answer?.trim());
     if (validWords.length === 0) {
       alert("Ajoutez au moins 1 mot valide avant de lancer la partie !");
       return;
     }
 
-    if (playerCount === 1 && isSurvivalSolo && onStartSurvival) {
+    if (playerCount === 1 && (forceSurvival === true || isSurvivalSolo) && onStartSurvival) {
       onStartSurvival(validWords, session?.name || 'Session Solo');
       return;
     }
@@ -319,11 +322,14 @@ export default function Lobby({
 
     playMessageSent();
     const displayName = formatPlayerName(playerName || user?.displayName || 'Moi');
+    const msgId = Date.now() + '-' + Math.random().toString(36).substring(2, 9);
+    
     socket.emit('send_lobby_chat', {
       sessionId: session?.id,
       text: inputMsg.trim(),
       senderName: displayName,
-      senderAvatar: avatar || '🦊'
+      senderAvatar: avatar || '🦊',
+      id: msgId
     });
     setInputMsg('');
   };
@@ -421,16 +427,28 @@ export default function Lobby({
     });
   };
 
-  // 2. Shuffle all words at once
+  // 2. Shuffle / Generate fresh random words from library
   const handleShuffleWords = () => {
-    if (words.length <= 1) return;
-    const shuffled = [...words].sort(() => Math.random() - 0.5).map((w, idx) => ({ ...w, id: idx + 1 }));
+    const allWords = [];
+    exampleLists.forEach(list => allWords.push(...(list.words || [])));
+    publicLists.forEach(list => allWords.push(...(list.words || [])));
+    
+    const pool = allWords.length > 0 ? allWords : words;
+    if (pool.length === 0) return;
+
+    const targetCount = words.length > 0 ? words.length : 10;
+    const shuffled = [...pool].sort(() => 0.5 - Math.random()).slice(0, targetCount).map((w, idx) => ({
+      id: idx + 1,
+      question: (w.question || w.frenchPrompt || w.french || '').trim(),
+      answer: (w.answer || w.germanWord || w.german || w.word || '').trim()
+    })).filter(w => w.question && w.answer);
+
     setWords(shuffled);
     wordsRef.current = shuffled;
     socket.emit('update_session_words', {
       sessionId: session?.id,
       vocabList: shuffled,
-      changeDescription: `L'hôte a mélangé la liste des mots (${shuffled.length} mots) 🎲`
+      changeDescription: `L'hôte a généré ${shuffled.length} nouveaux mots aléatoires 🎲`
     });
   };
 
@@ -612,17 +630,33 @@ export default function Lobby({
           position: 'relative'
         }}>
           
-          {/* LEFT: HOST PLAYER (TASK 1: PERFECT VERTICAL STACK & CENTERING) */}
-          <div className="esport-podium host-active">
+          {/* LEFT: HOST PLAYER (DISTINCT CARD BOX) */}
+          <div 
+            onClick={() => setSelectedProfileUser(hostPlayerObj)}
+            className="esport-podium host-active" 
+            style={{
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.18) 0%, rgba(20, 10, 30, 0.75) 100%)',
+              border: '1.5px solid rgba(99, 102, 241, 0.5)',
+              borderRadius: '16px',
+              padding: '0.85rem 0.6rem',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+              flex: 1,
+              cursor: 'pointer'
+            }}
+            title="Voir le profil du joueur"
+          >
             <div style={{
-              background: 'rgba(99, 102, 241, 0.2)',
+              background: 'rgba(99, 102, 241, 0.25)',
               border: '1px solid var(--primary)',
-              color: 'var(--primary)',
+              color: '#c7d2fe',
               fontSize: '0.65rem',
               fontWeight: 900,
-              padding: '0.12rem 0.5rem',
+              padding: '0.15rem 0.55rem',
               borderRadius: '6px',
               letterSpacing: '0.5px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
               lineHeight: 1
             }}>
               👑 HÔTE
@@ -648,7 +682,8 @@ export default function Lobby({
                 color: 'var(--text-main)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
+                textDecoration: 'underline'
               }}>
                 {formatPlayerName(hostPlayerObj.name)}
               </span>
@@ -681,7 +716,7 @@ export default function Lobby({
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            minWidth: '70px',
+            minWidth: '60px',
             zIndex: 10
           }}>
             <div className="vs-badge">
@@ -699,16 +734,29 @@ export default function Lobby({
             </span>
           </div>
 
-          {/* RIGHT: OPPONENT PLAYER OR WAITING SLOT (TASK 1: PERFECT VERTICAL STACK & CENTERING) */}
+          {/* RIGHT: OPPONENT PLAYER OR WAITING SLOT (DISTINCT CARD BOX) */}
           {opponentPlayerObj ? (
-            <div className="esport-podium opponent-active">
+            <div 
+              onClick={() => setSelectedProfileUser(opponentPlayerObj)}
+              className="esport-podium opponent-active" 
+              style={{
+                background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.14) 0%, rgba(20, 10, 30, 0.75) 100%)',
+                border: '1.5px solid rgba(236, 72, 153, 0.45)',
+                borderRadius: '16px',
+                padding: '0.85rem 0.6rem',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+                flex: 1,
+                cursor: 'pointer'
+              }}
+              title="Voir le profil du joueur"
+            >
               <div style={{
-                background: 'rgba(236, 72, 153, 0.2)',
+                background: 'rgba(236, 72, 153, 0.25)',
                 border: '1px solid var(--secondary)',
-                color: 'var(--secondary)',
+                color: '#fbcfe8',
                 fontSize: '0.65rem',
                 fontWeight: 900,
-                padding: '0.12rem 0.5rem',
+                padding: '0.15rem 0.55rem',
                 borderRadius: '6px',
                 letterSpacing: '0.5px',
                 display: 'inline-flex',
@@ -719,7 +767,10 @@ export default function Lobby({
                 <span>⚔️ CHALLENGER</span>
                 {isHost && opponentPlayerObj.id !== socket.id && (
                   <button
-                    onClick={() => socket.emit('kick_player', { sessionId: session.id, playerId: opponentPlayerObj.id })}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      socket.emit('kick_player', { sessionId: session.id, playerId: opponentPlayerObj.id });
+                    }}
                     style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 900, padding: 0, marginLeft: '2px' }}
                     title="Expulser"
                   >
@@ -748,7 +799,8 @@ export default function Lobby({
                   color: 'var(--text-main)',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
+                  whiteSpace: 'nowrap',
+                  textDecoration: 'underline'
                 }}>
                   {formatPlayerName(opponentPlayerObj.name)}
                 </span>
@@ -775,7 +827,14 @@ export default function Lobby({
               </div>
             </div>
           ) : (
-            <div className="esport-podium" style={{ borderStyle: 'dashed', opacity: 0.9 }}>
+            <div className="esport-podium" style={{
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1.5px dashed var(--border-color)',
+              borderRadius: '16px',
+              padding: '0.85rem 0.6rem',
+              opacity: 0.9,
+              flex: 1
+            }}>
               <div style={{
                 background: 'rgba(255, 255, 255, 0.05)',
                 border: '1px solid var(--border-color)',
@@ -825,75 +884,60 @@ export default function Lobby({
          ========================================================= */}
       <div className="card card-secondary-elevated" style={{ padding: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
         
-        {/* Solo Mode Option: Survival Mode Toggle */}
-        {playerCount === 1 && isHost && (
-          <div 
-            onClick={() => setIsSurvivalSolo(!isSurvivalSolo)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              background: isSurvivalSolo ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.04)',
-              border: `1.5px solid ${isSurvivalSolo ? '#ef4444' : 'var(--border-color)'}`,
-              borderRadius: '12px',
-              padding: '0.65rem 0.9rem',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: isSurvivalSolo ? '0 0 15px rgba(239, 68, 68, 0.25)' : 'none'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-              <span style={{ fontSize: '1.3rem' }}>🔥</span>
-              <div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: isSurvivalSolo ? '#fca5a5' : 'var(--text-main)' }}>
-                  Jouer en Mode Survie (3 Vies, Chrono rapide)
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  Mécanique des 3 cœurs ❤️❤️❤️, rythme soutenu & correction active
-                </div>
-              </div>
-            </div>
-            <input 
-              type="checkbox"
-              checked={isSurvivalSolo}
-              onChange={(e) => {
-                e.stopPropagation();
-                setIsSurvivalSolo(e.target.checked);
-              }}
-              style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ef4444' }}
-            />
-          </div>
-        )}
-
         {/* Action Controls Bar */}
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <button
             onClick={handleLeave}
             className="btn btn-secondary"
-            style={{ width: 'auto', padding: '0.65rem 1rem', fontSize: '0.85rem' }}
+            style={{
+              width: 'auto',
+              padding: '0.65rem 1rem',
+              fontSize: '0.85rem',
+              fontWeight: 800,
+              color: '#f87171',
+              borderColor: 'rgba(239, 68, 68, 0.45)',
+              background: 'rgba(239, 68, 68, 0.12)',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.25)';
+              e.currentTarget.style.borderColor = '#ef4444';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
+              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.45)';
+            }}
           >
             ← Quitter
           </button>
 
           {isHost ? (
-            <button
-              className={isSurvivalSolo && playerCount === 1 ? "btn btn-primary" : "btn btn-success"}
-              onClick={handleStart}
-              style={{
-                flex: 1,
-                padding: '0.7rem 1.2rem',
-                fontSize: '0.95rem',
-                fontWeight: 900,
-                letterSpacing: '0.5px',
-                background: isSurvivalSolo && playerCount === 1 ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : undefined,
-                borderColor: isSurvivalSolo && playerCount === 1 ? '#b91c1c' : undefined,
-                boxShadow: isSurvivalSolo && playerCount === 1 ? '0 4px 0 #991b1b, 0 0 16px rgba(239, 68, 68, 0.4)' : undefined
-              }}
-            >
-              {playerCount === 1 
-                ? (isSurvivalSolo ? '🔥 Lancer en Mode Survie !' : '🚀 Jouer en Solo') 
-                : '⚔️ DÉMARRER LE DUEL !'}
-            </button>
+            playerCount === 1 ? (
+              <div style={{ flex: 1 }}>
+                <PlayDropdown
+                  selectedMode={isSurvivalSolo ? 'survival' : 'classic'}
+                  onSelectMode={(mode) => setIsSurvivalSolo(mode === 'survival')}
+                  onPlay={() => handleStart(false)}
+                  onPlaySurvival={onStartSurvival ? () => handleStart(true) : null}
+                  modeOnly={true}
+                  label={isSurvivalSolo ? '🔥 LANCER EN SURVIE' : '🚀 JOUER EN SOLO'}
+                />
+              </div>
+            ) : (
+              <button
+                className="btn btn-success"
+                onClick={() => handleStart(false)}
+                style={{
+                  flex: 1,
+                  padding: '0.7rem 1.2rem',
+                  fontSize: '0.95rem',
+                  fontWeight: 900,
+                  letterSpacing: '0.5px'
+                }}
+              >
+                ⚔️ DÉMARRER LE DUEL !
+              </button>
+            )
           ) : (
             <div style={{
               flex: 1,
@@ -911,7 +955,7 @@ export default function Lobby({
           )}
         </div>
 
-        {/* Floating Toast inside Lobby when looking at other tabs (Task 2 & 5) */}
+        {/* Floating Toast inside Lobby when looking at other tabs */}
         {lobbyChatToast && activeTab !== 'chat' && (
           <div 
             className="discord-chat-toast"
@@ -945,14 +989,8 @@ export default function Lobby({
           </div>
         )}
 
-        {/* Navigation Tabs Header */}
-        <div style={{
-          display: 'flex',
-          gap: '0.4rem',
-          borderBottom: '2px solid var(--border-color)',
-          paddingBottom: '0.4rem',
-          overflowX: 'auto'
-        }}>
+        {/* Navigation Tabs Header enclosed in a dedicated sleek compact box */}
+        <div className="lobby-tabs-header">
           {/* Tab: Chat */}
           <button
             type="button"
@@ -962,102 +1000,138 @@ export default function Lobby({
               setLobbyChatToast(null);
             }}
             style={{
-              padding: '0.35rem 0.7rem',
-              fontSize: '0.82rem',
-              borderRadius: '10px',
+              flex: 'none',
+              padding: activeTab === 'chat' ? '0.28rem 0.65rem' : '0.28rem 0.45rem',
+              fontSize: '0.75rem',
+              borderRadius: '8px',
               border: 'none',
-              background: activeTab === 'chat' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-              color: activeTab === 'chat' ? 'var(--primary)' : 'var(--text-muted)',
+              background: activeTab === 'chat' ? 'var(--primary)' : 'transparent',
+              color: activeTab === 'chat' ? '#ffffff' : 'var(--text-muted)',
               cursor: 'pointer',
-              fontWeight: 700,
-              display: 'flex',
+              fontWeight: 800,
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.35rem',
+              justifyContent: 'center',
+              gap: '0.3rem',
               whiteSpace: 'nowrap',
-              position: 'relative'
+              position: 'relative',
+              transition: 'all 0.18s ease'
             }}
+            title={`Chat (${messages.length})`}
           >
-            <span>💬</span> Chat ({messages.length})
+            <span style={{ fontSize: '0.85rem' }}>💬</span>
+            {activeTab === 'chat' && <span>Chat ({messages.length})</span>}
             {unreadChatCount > 0 && activeTab !== 'chat' && (
               <span style={{
+                position: 'absolute',
+                top: '2px',
+                right: '3px',
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
                 background: 'var(--danger)',
-                color: '#ffffff',
-                fontSize: '0.68rem',
-                fontWeight: 900,
-                borderRadius: '10px',
-                padding: '0.1rem 0.4rem',
-                lineHeight: 1,
-                marginLeft: '3px'
-              }}>
-                +{unreadChatCount}
-              </span>
+                boxShadow: '0 0 6px #ef4444'
+              }} />
             )}
           </button>
 
           {/* Tab: Joueurs en ligne */}
           <button
+            type="button"
             onClick={() => {
               setActiveTab('online');
               socket.emit('get_online_users');
             }}
             style={{
-              padding: '0.35rem 0.7rem',
-              fontSize: '0.82rem',
-              borderRadius: '10px',
+              flex: 'none',
+              padding: activeTab === 'online' ? '0.28rem 0.65rem' : '0.28rem 0.45rem',
+              fontSize: '0.75rem',
+              borderRadius: '8px',
               border: 'none',
-              background: activeTab === 'online' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-              color: activeTab === 'online' ? 'var(--primary)' : 'var(--text-muted)',
+              background: activeTab === 'online' ? 'var(--primary)' : 'transparent',
+              color: activeTab === 'online' ? '#ffffff' : 'var(--text-muted)',
               cursor: 'pointer',
-              fontWeight: 700,
-              display: 'flex',
+              fontWeight: 800,
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.35rem',
-              whiteSpace: 'nowrap'
+              justifyContent: 'center',
+              gap: '0.3rem',
+              whiteSpace: 'nowrap',
+              position: 'relative',
+              transition: 'all 0.18s ease'
             }}
+            title={`Inviter (${filteredOnlineUsers.length})`}
           >
-            <span>👥</span> Inviter ({filteredOnlineUsers.length})
+            <span style={{ fontSize: '0.85rem' }}>👥</span>
+            {activeTab === 'online' && <span>Inviter ({filteredOnlineUsers.length})</span>}
+            {filteredOnlineUsers.length > 0 && activeTab !== 'online' && (
+              <span style={{
+                position: 'absolute',
+                top: '2px',
+                right: '3px',
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: 'var(--success)',
+                boxShadow: '0 0 6px #22c55e'
+              }} />
+            )}
           </button>
 
           {/* Tab: Liste des mots */}
           <button
+            type="button"
             onClick={() => setActiveTab('words')}
             style={{
-              padding: '0.35rem 0.7rem',
-              fontSize: '0.82rem',
-              borderRadius: '10px',
+              flex: 'none',
+              padding: activeTab === 'words' ? '0.28rem 0.65rem' : '0.28rem 0.45rem',
+              fontSize: '0.75rem',
+              borderRadius: '8px',
               border: 'none',
-              background: activeTab === 'words' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-              color: activeTab === 'words' ? 'var(--primary)' : 'var(--text-muted)',
+              background: activeTab === 'words' ? 'var(--primary)' : 'transparent',
+              color: activeTab === 'words' ? '#ffffff' : 'var(--text-muted)',
               cursor: 'pointer',
-              fontWeight: 700,
-              display: 'flex',
+              fontWeight: 800,
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.35rem',
-              whiteSpace: 'nowrap'
+              justifyContent: 'center',
+              gap: '0.3rem',
+              whiteSpace: 'nowrap',
+              position: 'relative',
+              transition: 'all 0.18s ease'
             }}
+            title={`Mots (${words.length})`}
           >
-            <span>📝</span> Mots ({words.length})
+            <span style={{ fontSize: '0.85rem' }}>📝</span>
+            {activeTab === 'words' && <span>Mots ({words.length})</span>}
           </button>
 
           {/* Tab: Paramètres */}
           <button
+            type="button"
             onClick={() => setActiveTab('settings')}
             style={{
-              padding: '0.35rem 0.7rem',
-              fontSize: '0.82rem',
-              borderRadius: '10px',
+              flex: 'none',
+              padding: activeTab === 'settings' ? '0.28rem 0.65rem' : '0.28rem 0.45rem',
+              fontSize: '0.75rem',
+              borderRadius: '8px',
               border: 'none',
-              background: activeTab === 'settings' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-              color: activeTab === 'settings' ? 'var(--primary)' : 'var(--text-muted)',
+              background: activeTab === 'settings' ? 'var(--primary)' : 'transparent',
+              color: activeTab === 'settings' ? '#ffffff' : 'var(--text-muted)',
               cursor: 'pointer',
-              fontWeight: 700,
-              display: 'flex',
+              fontWeight: 800,
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.35rem',
-              whiteSpace: 'nowrap'
+              justifyContent: 'center',
+              gap: '0.3rem',
+              whiteSpace: 'nowrap',
+              position: 'relative',
+              transition: 'all 0.18s ease'
             }}
+            title={`Paramètres (${settings.timePerWord}s)`}
           >
-            <span>⚙️</span> Paramètres ({settings.timePerWord}s)
+            <span style={{ fontSize: '0.85rem' }}>⚙️</span>
+            {activeTab === 'settings' && <span>Paramètres ({settings.timePerWord}s)</span>}
           </button>
         </div>
 
@@ -1334,10 +1408,14 @@ export default function Lobby({
                         gap: '0.6rem'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <div 
+                        onClick={() => setSelectedProfileUser(u)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+                        title="Voir le profil du joueur"
+                      >
                         <span style={{ fontSize: '1.2rem' }}>{u.avatar || '👤'}</span>
                         <div>
-                          <div style={{ fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                          <div style={{ fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)', textDecoration: 'underline' }}>
                             {formatPlayerName(u.name)}
                           </div>
                           <div style={{ fontSize: '0.7rem', color: isBusy ? 'var(--warning)' : 'var(--success)' }}>
@@ -1566,10 +1644,25 @@ export default function Lobby({
                         </div>
                       </div>
                     ) : (
-                      /* Display Mode (Styled like the photo) */
+                      /* Display Mode: Word Number badge on the left before words */
                       <>
+                        {/* Left word number badge */}
+                        <span style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          color: 'var(--text-muted)',
+                          padding: '0.22rem 0.55rem',
+                          borderRadius: '8px',
+                          whiteSpace: 'nowrap',
+                          alignSelf: 'center',
+                          flexShrink: 0
+                        }}>
+                          #{idx + 1}
+                        </span>
+
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fca5a5', wordBreak: 'break-word', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fca5a5', wordBreak: 'break-word', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             <span>🇩🇪</span>
                             <span>{w.answer || '—'}</span>
                           </div>
@@ -1580,17 +1673,6 @@ export default function Lobby({
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-                          <span style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 800,
-                            background: 'rgba(255, 255, 255, 0.08)',
-                            color: 'var(--text-muted)',
-                            padding: '0.2rem 0.55rem',
-                            borderRadius: '6px',
-                            whiteSpace: 'nowrap'
-                          }}>
-                            #{idx + 1}
-                          </span>
 
                           {isHost && (
                             <>
@@ -2104,10 +2186,42 @@ export default function Lobby({
                           gap: '0.5rem'
                         }}
                       >
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{list.name}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                            Par {list.creatorName || 'Membre'} • {list.words.length} mots
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1, minWidth: 0 }}>
+                          {list.creatorPhoto ? (
+                            <img
+                              src={list.creatorPhoto}
+                              alt={list.creatorName || 'Créateur'}
+                              style={{
+                                width: '26px',
+                                height: '26px',
+                                borderRadius: '50%',
+                                objectFit: 'cover',
+                                border: '1.5px solid var(--warning)',
+                                flexShrink: 0
+                              }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: '26px',
+                                height: '26px',
+                                borderRadius: '50%',
+                                background: 'rgba(234, 179, 8, 0.15)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '0.85rem',
+                                flexShrink: 0
+                              }}
+                            >
+                              {list.creatorAvatar || '👤'}
+                            </div>
+                          )}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{list.name}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              Par {list.creatorName || 'Membre'} • {list.words.length} mots
+                            </div>
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
@@ -2155,6 +2269,16 @@ export default function Lobby({
           list={previewCommunityList}
           onClose={() => setPreviewCommunityList(null)}
           onPlay={handleLoadPredefinedList}
+        />
+      )}
+
+      {/* Floating User Profile Modal */}
+      {selectedProfileUser && (
+        <UserProfileModal
+          targetPlayerId={selectedProfileUser._id || selectedProfileUser.firebaseId || selectedProfileUser.name}
+          targetPlayerFallback={selectedProfileUser}
+          currentUser={user}
+          onClose={() => setSelectedProfileUser(null)}
         />
       )}
 

@@ -1,21 +1,52 @@
 import React, { useState, useEffect } from 'react';
 import { getListEmoji } from './ListCard';
+import PlayDropdown from './PlayDropdown';
 
-export default function ListPreviewModal({ list, onClose, onPlay, isEditable = false, onUpdateWords }) {
+export default function ListPreviewModal({ 
+  list, 
+  onClose, 
+  onPlay, 
+  onPlaySurvival,
+  isEditable = false, 
+  onUpdateWords,
+  onRenameList,
+  onTogglePublic
+}) {
   const [searchWord, setSearchWord] = useState('');
   const [words, setWords] = useState(list?.words || []);
   const [editingWordIdx, setEditingWordIdx] = useState(null);
   const [newWordDraft, setNewWordDraft] = useState({ question: '', answer: '' });
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [currentTitle, setCurrentTitle] = useState(list?.title || list?.name || 'Liste de vocabulaire');
+  const [isPublicState, setIsPublicState] = useState(Boolean(list?.isPublic));
 
   useEffect(() => {
     setWords(list?.words || []);
+    setCurrentTitle(list?.title || list?.name || 'Liste de vocabulaire');
+    setIsPublicState(Boolean(list?.isPublic));
   }, [list]);
 
   if (!list) return null;
 
-  const title = list.title || list.name || 'Liste de vocabulaire';
-  const emoji = getListEmoji(title, list.emoji);
+  const emoji = getListEmoji(currentTitle, list.emoji);
+
+  const handleSaveTitleSubmit = (e) => {
+    e?.preventDefault();
+    if (!currentTitle.trim()) return;
+    setIsEditingTitle(false);
+    if (onRenameList) {
+      onRenameList(currentTitle.trim());
+    }
+  };
+
+  const handleTogglePublicClick = () => {
+    const nextStatus = !isPublicState;
+    setIsPublicState(nextStatus);
+    if (onTogglePublic) {
+      onTogglePublic(nextStatus);
+    }
+  };
 
   const filteredWords = words.map((w, idx) => ({ ...w, originalIdx: idx })).filter(w => {
     if (!searchWord.trim()) return true;
@@ -104,25 +135,164 @@ export default function ListPreviewModal({ list, onClose, onPlay, isEditable = f
         }}
       >
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid rgba(239, 68, 68, 0.2)', paddingBottom: '0.8rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span style={{ fontSize: '2rem' }}>{emoji}</span>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#ffffff', fontWeight: 800 }}>
-                {title}
-              </h3>
-              <span style={{ fontSize: '0.82rem', color: '#fca5a5', fontWeight: 600 }}>
-                {words.length} {words.length > 1 ? 'mots' : 'mot'} au total
-                {list.creatorName && ` • Par ${list.creatorName}`}
-              </span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', borderBottom: '1px solid rgba(239, 68, 68, 0.2)', paddingBottom: '0.8rem', gap: '0.8rem' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flex: 1, minWidth: 0 }}>
+            <span style={{ fontSize: '2rem', flexShrink: 0 }}>{emoji}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {isEditingTitle ? (
+                <form onSubmit={handleSaveTitleSubmit} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.3rem' }}>
+                  <input
+                    type="text"
+                    value={currentTitle}
+                    onChange={(e) => setCurrentTitle(e.target.value)}
+                    className="input-field"
+                    style={{ padding: '0.3rem 0.6rem', fontSize: '1.05rem', fontWeight: 800, borderRadius: '8px' }}
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    style={{ background: 'var(--success)', border: 'none', borderRadius: '6px', color: '#fff', padding: '0.35rem 0.6rem', cursor: 'pointer', fontWeight: 800, fontSize: '0.85rem' }}
+                  >
+                    ✓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentTitle(list?.title || list?.name || '');
+                      setIsEditingTitle(false);
+                    }}
+                    style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '6px', color: '#cbd5e1', padding: '0.35rem 0.6rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                  >
+                    ✕
+                  </button>
+                </form>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.22rem', color: '#ffffff', fontWeight: 800, wordBreak: 'break-word' }}>
+                    {currentTitle}
+                  </h3>
+                  {isEditable && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingTitle(true)}
+                      title="Renommer la liste"
+                      style={{
+                        background: 'rgba(99, 102, 241, 0.15)',
+                        border: '1px solid rgba(99, 102, 241, 0.35)',
+                        borderRadius: '6px',
+                        padding: '0.2rem 0.35rem',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                        color: '#a5b4fc',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        lineHeight: 1,
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(99, 102, 241, 0.3)';
+                        e.currentTarget.style.borderColor = 'var(--primary)';
+                        e.currentTarget.style.transform = 'scale(1.1)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)';
+                        e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.35)';
+                        e.currentTarget.style.transform = 'scale(1)';
+                      }}
+                    >
+                      ✏️
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Creator info with Google photo / Avatar + words count */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.3rem', flexWrap: 'wrap' }}>
+                {list.creatorPhoto ? (
+                  <img
+                    src={list.creatorPhoto}
+                    alt={list.creatorName || 'Créateur'}
+                    style={{
+                      width: '20px',
+                      height: '20px',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      border: '1.5px solid var(--primary)'
+                    }}
+                  />
+                ) : list.creatorAvatar ? (
+                  <span style={{ fontSize: '0.9rem' }}>{list.creatorAvatar}</span>
+                ) : null}
+
+                <span style={{ fontSize: '0.82rem', color: '#fca5a5', fontWeight: 600 }}>
+                  {words.length} {words.length > 1 ? 'mots' : 'mot'} au total
+                  {list.creatorName && ` • Par ${list.creatorName}`}
+                </span>
+              </div>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.6rem', cursor: 'pointer', lineHeight: 1 }}
-          >
-            ×
-          </button>
+
+          {/* Right Header Actions: Public/Private World Toggle + Close button */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }}>
+            {isEditable ? (
+              <button
+                type="button"
+                onClick={handleTogglePublicClick}
+                title={isPublicState ? "Liste Publique — Cliquer pour rendre Privée" : "Liste Privée — Cliquer pour rendre Publique"}
+                style={{
+                  background: isPublicState ? 'rgba(234, 179, 8, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                  border: `1.5px solid ${isPublicState ? 'rgba(234, 179, 8, 0.5)' : 'rgba(255, 255, 255, 0.2)'}`,
+                  borderRadius: '10px',
+                  padding: '0.35rem 0.6rem',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  color: isPublicState ? '#facc15' : 'var(--text-muted)',
+                  fontWeight: 800,
+                  transition: 'all 0.18s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                  e.currentTarget.style.borderColor = isPublicState ? '#facc15' : 'var(--primary)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.borderColor = isPublicState ? 'rgba(234, 179, 8, 0.5)' : 'rgba(255, 255, 255, 0.2)';
+                }}
+              >
+                <span>{isPublicState ? '🌍' : '🔒'}</span>
+                <span>{isPublicState ? 'Public' : 'Privé'}</span>
+              </button>
+            ) : (
+              <div
+                style={{
+                  background: 'rgba(234, 179, 8, 0.12)',
+                  border: '1px solid rgba(234, 179, 8, 0.4)',
+                  borderRadius: '10px',
+                  padding: '0.3rem 0.55rem',
+                  fontSize: '0.78rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  color: '#facc15',
+                  fontWeight: 700
+                }}
+              >
+                <span>🌍</span>
+                <span>Public</span>
+              </div>
+            )}
+
+            <button
+              onClick={onClose}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.6rem', cursor: 'pointer', lineHeight: 1 }}
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         {/* Toolbar: Search + Add Word button if editable */}
@@ -223,7 +393,7 @@ export default function ListPreviewModal({ list, onClose, onPlay, isEditable = f
           </form>
         )}
 
-        {/* Words List in identical card style as photo */}
+        {/* Words List with Numbers on the LEFT before words */}
         <div style={{ overflowY: 'auto', flex: 1, paddingRight: '0.3rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.3rem', maxHeight: '48vh' }}>
           {filteredWords.length === 0 ? (
             <div className="text-center text-muted" style={{ padding: '2rem' }}>
@@ -245,7 +415,7 @@ export default function ListPreviewModal({ list, onClose, onPlay, isEditable = f
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    gap: '1rem',
+                    gap: '0.85rem',
                     transition: 'all 0.2s ease'
                   }}
                 >
@@ -257,98 +427,103 @@ export default function ListPreviewModal({ list, onClose, onPlay, isEditable = f
                     />
                   ) : (
                     <>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fca5a5', wordBreak: 'break-word', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <span>🇩🇪</span>
-                          <span>{w.answer || '—'}</span>
-                        </div>
-                        <div style={{ fontSize: '0.88rem', color: '#cbd5e1', marginTop: '0.25rem', wordBreak: 'break-word', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <span>🇫🇷</span>
-                          <span>{w.question || '—'}</span>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                      {/* Left section: Index badge FIRST, followed by German and French translations */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flex: 1, minWidth: 0 }}>
                         <span style={{
-                          fontSize: '0.78rem',
+                          fontSize: '0.82rem',
                           fontWeight: 800,
                           background: 'rgba(239, 68, 68, 0.2)',
                           color: '#f87171',
-                          padding: '0.25rem 0.6rem',
+                          padding: '0.3rem 0.6rem',
                           borderRadius: '8px',
-                          whiteSpace: 'nowrap'
+                          whiteSpace: 'nowrap',
+                          minWidth: '34px',
+                          textAlign: 'center',
+                          flexShrink: 0
                         }}>
                           #{idx + 1}
                         </span>
 
-                        {isEditable && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => setEditingWordIdx(idx)}
-                              style={{
-                                background: 'rgba(99, 102, 241, 0.15)',
-                                border: '1px solid rgba(99, 102, 241, 0.4)',
-                                color: '#a5b4fc',
-                                borderRadius: '8px',
-                                padding: '0.35rem 0.55rem',
-                                cursor: 'pointer',
-                                fontSize: '0.85rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'all 0.2s',
-                                lineHeight: 1
-                              }}
-                              title="Modifier ce mot"
-                              onMouseOver={e => {
-                                e.currentTarget.style.background = 'rgba(99, 102, 241, 0.35)';
-                                e.currentTarget.style.borderColor = 'var(--primary)';
-                                e.currentTarget.style.transform = 'scale(1.08)';
-                              }}
-                              onMouseOut={e => {
-                                e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)';
-                                e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.4)';
-                                e.currentTarget.style.transform = 'scale(1)';
-                              }}
-                            >
-                              ✏️
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteWord(idx)}
-                              style={{
-                                background: 'rgba(239, 68, 68, 0.12)',
-                                border: '1px solid rgba(239, 68, 68, 0.35)',
-                                color: '#f87171',
-                                borderRadius: '8px',
-                                padding: '0.35rem 0.55rem',
-                                cursor: 'pointer',
-                                fontSize: '0.85rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'all 0.2s',
-                                lineHeight: 1
-                              }}
-                              title="Supprimer ce mot"
-                              onMouseOver={e => {
-                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.35)';
-                                e.currentTarget.style.borderColor = '#ef4444';
-                                e.currentTarget.style.transform = 'scale(1.08)';
-                              }}
-                              onMouseOut={e => {
-                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
-                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.35)';
-                                e.currentTarget.style.transform = 'scale(1)';
-                              }}
-                            >
-                              🗑️
-                            </button>
-                          </>
-                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fca5a5', wordBreak: 'break-word', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span>🇩🇪</span>
+                            <span>{w.answer || '—'}</span>
+                          </div>
+                          <div style={{ fontSize: '0.88rem', color: '#cbd5e1', marginTop: '0.25rem', wordBreak: 'break-word', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span>🇫🇷</span>
+                            <span>{w.question || '—'}</span>
+                          </div>
+                        </div>
                       </div>
+
+                      {/* Right section: Action buttons if editable */}
+                      {isEditable && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            onClick={() => setEditingWordIdx(idx)}
+                            style={{
+                              background: 'rgba(99, 102, 241, 0.15)',
+                              border: '1px solid rgba(99, 102, 241, 0.4)',
+                              color: '#a5b4fc',
+                              borderRadius: '8px',
+                              padding: '0.35rem 0.55rem',
+                              cursor: 'pointer',
+                              fontSize: '0.85rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s',
+                              lineHeight: 1
+                            }}
+                            title="Modifier ce mot"
+                            onMouseOver={e => {
+                              e.currentTarget.style.background = 'rgba(99, 102, 241, 0.35)';
+                              e.currentTarget.style.borderColor = 'var(--primary)';
+                              e.currentTarget.style.transform = 'scale(1.08)';
+                            }}
+                            onMouseOut={e => {
+                              e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)';
+                              e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.4)';
+                              e.currentTarget.style.transform = 'scale(1)';
+                            }}
+                          >
+                            ✏️
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteWord(idx)}
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.12)',
+                              border: '1px solid rgba(239, 68, 68, 0.35)',
+                              color: '#f87171',
+                              borderRadius: '8px',
+                              padding: '0.35rem 0.55rem',
+                              cursor: 'pointer',
+                              fontSize: '0.85rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s',
+                              lineHeight: 1
+                            }}
+                            title="Supprimer ce mot"
+                            onMouseOver={e => {
+                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.35)';
+                              e.currentTarget.style.borderColor = '#ef4444';
+                              e.currentTarget.style.transform = 'scale(1.08)';
+                            }}
+                            onMouseOut={e => {
+                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
+                              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+                              e.currentTarget.style.transform = 'scale(1)';
+                            }}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -357,28 +532,30 @@ export default function ListPreviewModal({ list, onClose, onPlay, isEditable = f
           )}
         </div>
 
-        {/* Footer Actions */}
+        {/* Footer Actions with PlayDropdown */}
         <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
           <button
             type="button"
             className="btn btn-secondary"
             onClick={onClose}
-            style={{ flex: 1, padding: '0.85rem', fontSize: '0.95rem' }}
+            style={{ flex: 1, padding: '0.75rem', fontSize: '0.9rem' }}
           >
             Fermer
           </button>
           {onPlay && (
-            <button
-              type="button"
-              className="btn btn-success"
-              onClick={() => {
-                onClose();
-                onPlay(words);
-              }}
-              style={{ flex: 2, padding: '0.85rem', fontSize: '0.95rem', fontWeight: 800 }}
-            >
-              ⚔️ JOUER CETTE LISTE
-            </button>
+            <div style={{ flex: 2 }}>
+              <PlayDropdown
+                onPlay={() => {
+                  onClose();
+                  onPlay(words);
+                }}
+                onPlaySurvival={onPlaySurvival ? () => {
+                  onClose();
+                  onPlaySurvival(words, title);
+                } : null}
+                label="⚔️ JOUER CETTE LISTE"
+              />
+            </div>
           )}
         </div>
       </div>

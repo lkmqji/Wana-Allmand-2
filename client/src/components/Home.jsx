@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { exampleLists } from '../data/exampleLists';
 import { formatPlayerName, getClientPlayerKey } from '../utils/formatters';
 import { resolveWordPair } from '../utils/dictionary';
-import ListCard from './ListCard';
+import ListCard, { getListEmoji } from './ListCard';
 import Profil from './Profil';
 import ListPreviewModal from './ListPreviewModal';
+import PlayDropdown from './PlayDropdown';
+import UserProfileModal from './UserProfileModal';
 
 const listsCache = {
   public: null,
@@ -48,6 +50,7 @@ export default function Home({
   const [listSubTab, setListSubTab] = useState('my_lists'); // 'my_lists' | 'failed_words'
   const [showMistakesModal, setShowMistakesModal] = useState(false);
   const [previewList, setPreviewList] = useState(null);
+  const [selectedProfileUser, setSelectedProfileUser] = useState(null);
   const [editingMistakeIdx, setEditingMistakeIdx] = useState(null);
   const [editingMistakeModalIdx, setEditingMistakeModalIdx] = useState(null);
   const [mainStep, setMainStep] = useState(1); // 1 = Prepare, 2 = Join
@@ -87,8 +90,18 @@ export default function Home({
   });
 
   const handleStartDirectSession = (wordList) => {
-    const validWords = (wordList || []).filter(w => w.question?.trim() && w.answer?.trim());
+    const validWords = (wordList || []).map(w => {
+      const q = (w.question || w.frenchPrompt || w.french || '').trim();
+      const a = (w.answer || w.germanWord || w.german || w.word || '').trim();
+      return { ...w, question: q, answer: a };
+    }).filter(w => w.question && w.answer);
+
     if (validWords.length === 0) return alert("Aucun mot valide dans cette liste !");
+
+    if (socket && !socket.connected) {
+      socket.connect();
+    }
+
     const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Hôte`;
     socket.emit('create_session', {
       vocabList: validWords.map((w, idx) => ({ ...w, id: idx + 1 })),
@@ -385,6 +398,25 @@ export default function Home({
     }
   };
 
+  const handleRenameList = async (listId, newName) => {
+    if (!listId || !newName?.trim()) return;
+    const cleanName = newName.trim();
+    setArchivedLists(prev => prev.map(l => l._id === listId ? { ...l, name: cleanName, title: cleanName } : l));
+    setPublicLists(prev => prev.map(l => l._id === listId ? { ...l, name: cleanName, title: cleanName } : l));
+    setPreviewList(prev => prev && prev._id === listId ? { ...prev, name: cleanName, title: cleanName } : prev);
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      await fetch(`${API_URL}/api/lists/${listId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: cleanName })
+      });
+    } catch (e) {
+      console.error('Error renaming list:', e);
+    }
+  };
+
   const togglePublicList = async (listId, currentStatus) => {
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -396,6 +428,7 @@ export default function Home({
       if (res.ok) {
         const updatedList = await res.json();
         setArchivedLists(prev => prev.map(l => l._id === listId ? updatedList : l));
+        setPreviewList(prev => prev && prev._id === listId ? { ...prev, isPublic: !currentStatus } : prev);
         // Update publicLists state if necessary
         if (!currentStatus) {
           setPublicLists(prev => [updatedList, ...prev]);
@@ -821,10 +854,9 @@ export default function Home({
                       onToggleSelect={() => toggleListSelection(list._id)}
                       onPlay={() => handleStartDirectSession(list.words)}
                       onPlaySurvival={onStartSurvival ? () => onStartSurvival(list.words, list.name) : null}
-                      onEdit={() => handleEditList(list)}
                       onPreview={() => setPreviewList({ ...list, isEditable: true })}
                       onTogglePublic={() => togglePublicList(list._id, list.isPublic)}
-                      onDelete={() => deleteList(list._id)}
+                      onRename={(listToRename, newName) => handleRenameList(listToRename._id, newName)}
                     />
                   ))}
                 </div>
@@ -1090,28 +1122,40 @@ export default function Home({
           <h3 className="text-muted" style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Listes par défaut</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
             {exampleLists.map(list => (
-              <div key={list.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                  <h4>{list.title}</h4>
-                  <p className="text-muted" style={{ fontSize: '0.85rem' }}>{list.subtitle} • {list.count}</p>
+              <div 
+                key={list.id} 
+                className="card list-card" 
+                onClick={() => setPreviewList({ ...list, isEditable: false })}
+                style={{ display: 'flex', flexDirection: 'column', gap: '1rem', cursor: 'pointer', position: 'relative' }}
+                title="Cliquer pour voir les mots de la liste"
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div className="list-card-emoji" style={{ fontSize: '1.4rem' }}>
+                    {getListEmoji(list.title)}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>{list.title}</h4>
+                    <p className="text-muted" style={{ margin: '0.2rem 0 0 0', fontSize: '0.82rem' }}>
+                      👑 Wana Officiel • {list.subtitle || list.count}
+                    </p>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
                   <button
                     type="button"
                     onClick={() => setPreviewList({ ...list, isEditable: false })}
                     className="btn btn-secondary"
-                    style={{ flex: 1, padding: '0.55rem', fontSize: '0.85rem', fontWeight: 600 }}
+                    style={{ flex: 1, padding: '0.65rem', fontSize: '0.86rem', fontWeight: 600 }}
                   >
                     👁️ Voir
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => handleStartDirectSession(list.words)}
-                    className="btn btn-success"
-                    style={{ flex: 1, padding: '0.55rem', fontSize: '0.85rem', fontWeight: 700 }}
-                  >
-                    ⚔️ JOUER
-                  </button>
+                  <div style={{ flex: 1 }}>
+                    <PlayDropdown
+                      onPlay={() => handleStartDirectSession(list.words)}
+                      onPlaySurvival={onStartSurvival ? () => onStartSurvival(list.words, list.title) : null}
+                      label="⚔️ JOUER"
+                    />
+                  </div>
                 </div>
               </div>
             ))}
@@ -1119,39 +1163,124 @@ export default function Home({
 
           <h3 className="text-muted" style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Listes Publiques (Communauté)</h3>
           {publicLists.length === 0 ? (
-             <div className="card text-muted text-center">Aucune liste publique.</div>
+             <div className="card text-muted text-center">Aucune liste publique pour le moment.</div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.1rem' }}>
               {publicLists.map(list => (
-                <div key={list._id} className="card" style={{ borderColor: 'var(--warning)', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                  <div>
-                    <h4>
-                      {list.creatorName && (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginRight: '0.5rem', background: 'rgba(255,255,255,0.1)', padding: '0.2rem 0.4rem', borderRadius: '4px' }}>
-                          {list.creatorName.substring(0, 2).toUpperCase()}
+                <div 
+                  key={list._id} 
+                  className="card list-card" 
+                  onClick={() => setPreviewList({ ...list, isEditable: false })}
+                  style={{ 
+                    borderColor: 'rgba(234, 179, 8, 0.45)', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '0.9rem',
+                    cursor: 'pointer',
+                    position: 'relative'
+                  }}
+                  title="Cliquer pour voir les mots de la liste"
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    {/* Google profile photo or creator avatar */}
+                    {list.creatorPhoto ? (
+                      <img
+                        src={list.creatorPhoto}
+                        alt={list.creatorName || 'Créateur'}
+                        style={{
+                          width: '38px',
+                          height: '38px',
+                          borderRadius: '50%',
+                          objectFit: 'cover',
+                          border: '2px solid var(--warning)',
+                          boxShadow: '0 0 10px rgba(234, 179, 8, 0.3)',
+                          flexShrink: 0
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: '38px',
+                          height: '38px',
+                          borderRadius: '50%',
+                          background: 'rgba(234, 179, 8, 0.15)',
+                          border: '2px solid var(--warning)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '1.2rem',
+                          flexShrink: 0
+                        }}
+                      >
+                        {list.creatorAvatar || '👤'}
+                      </div>
+                    )}
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h4 style={{ 
+                        margin: 0, 
+                        fontSize: '1.05rem', 
+                        fontWeight: 800,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        color: 'var(--text-main)'
+                      }}>
+                        {list.name}
+                      </h4>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                        <span 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedProfileUser({
+                              firebaseId: list.creatorFirebaseId || null,
+                              name: list.creatorName || 'Membre'
+                            });
+                          }}
+                          style={{ fontSize: '0.82rem', color: '#facc15', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
+                          title="Voir le profil du créateur"
+                        >
+                          Par {list.creatorName || 'Membre'}
                         </span>
-                      )}
-                      {list.name}
-                    </h4>
-                    <p className="text-muted" style={{ fontSize: '0.85rem', marginTop: '0.3rem' }}>{list.words.length} mots</p>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>•</span>
+                        <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+                          {list.words?.length || 0} mots
+                        </span>
+                      </div>
+                    </div>
+
+                    <span 
+                      style={{ 
+                        fontSize: '0.75rem', 
+                        background: 'rgba(234, 179, 8, 0.15)', 
+                        color: '#facc15', 
+                        border: '1px solid rgba(234, 179, 8, 0.4)', 
+                        padding: '0.2rem 0.45rem', 
+                        borderRadius: '8px', 
+                        fontWeight: 800,
+                        flexShrink: 0
+                      }}
+                    >
+                      🌍 Public
+                    </span>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto' }}>
+
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
                     <button
                       type="button"
                       onClick={() => setPreviewList({ ...list, isEditable: false })}
                       className="btn btn-secondary"
-                      style={{ flex: 1, padding: '0.55rem', fontSize: '0.85rem', fontWeight: 600 }}
+                      style={{ flex: 1, padding: '0.65rem', fontSize: '0.86rem', fontWeight: 600 }}
                     >
                       👁️ Voir
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handleStartDirectSession(list.words)}
-                      className="btn btn-secondary"
-                      style={{ flex: 1, padding: '0.55rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--warning)', borderColor: 'var(--warning)' }}
-                    >
-                      ⚔️ JOUER
-                    </button>
+                    <div style={{ flex: 1 }}>
+                      <PlayDropdown
+                        onPlay={() => handleStartDirectSession(list.words)}
+                        onPlaySurvival={onStartSurvival ? () => onStartSurvival(list.words, list.name) : null}
+                        label="⚔️ JOUER"
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1160,7 +1289,7 @@ export default function Home({
         </>
       )}
 
-      {/* ------------------- STATS TAB ------------------- */}
+      {/* ------------------- STATS / CLASSEMENT TAB ------------------- */}
       {activeTab === 'stats' && (
         <>
           <h2 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1179,20 +1308,108 @@ export default function Home({
               ))}
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {leaderboard.slice(0, 10).map((player, idx) => (
-                <div key={player._id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: idx === 0 ? 'rgba(255, 215, 0, 0.15)' : idx === 1 ? 'rgba(192, 192, 192, 0.15)' : idx === 2 ? 'rgba(205, 127, 50, 0.15)' : 'var(--bg-surface)' }}>
-                  <span style={{ fontSize: '2rem', fontWeight: 'bold', color: idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : 'var(--text-muted)', minWidth: '40px', textAlign: 'center' }}>
-                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
-                  </span>
-                  <div style={{ flex: 1 }}>
-                    <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{formatPlayerName(player.name)}</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              {leaderboard.slice(0, 15).map((player, idx) => {
+                const isTop3 = idx < 3;
+                return (
+                  <div 
+                    key={player._id || idx} 
+                    onClick={() => setSelectedProfileUser(player)}
+                    className="card" 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: isTop3 ? '1rem' : '0.65rem', 
+                      padding: isTop3 ? '0.9rem 1.1rem' : '0.45rem 0.85rem',
+                      background: idx === 0 
+                        ? 'linear-gradient(135deg, rgba(255, 215, 0, 0.18), var(--bg-surface))' 
+                        : idx === 1 
+                        ? 'linear-gradient(135deg, rgba(192, 192, 192, 0.18), var(--bg-surface))' 
+                        : idx === 2 
+                        ? 'linear-gradient(135deg, rgba(205, 127, 50, 0.18), var(--bg-surface))' 
+                        : 'rgba(255, 255, 255, 0.025)',
+                      border: isTop3 
+                        ? (idx === 0 ? '1.5px solid rgba(255, 215, 0, 0.5)' : idx === 1 ? '1.5px solid rgba(192, 192, 192, 0.5)' : '1.5px solid rgba(205, 127, 50, 0.5)') 
+                        : '1px solid var(--border-color)',
+                      borderRadius: isTop3 ? '16px' : '12px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--primary)';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = isTop3 
+                        ? (idx === 0 ? 'rgba(255, 215, 0, 0.5)' : idx === 1 ? 'rgba(192, 192, 192, 0.5)' : 'rgba(205, 127, 50, 0.5)') 
+                        : 'var(--border-color)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                    title="Cliquer pour voir le profil détaillé"
+                  >
+                    {/* Rank Badge */}
+                    <span style={{ 
+                      fontSize: isTop3 ? '1.8rem' : '0.85rem', 
+                      fontWeight: 900, 
+                      color: idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : 'var(--text-muted)', 
+                      minWidth: isTop3 ? '36px' : '28px', 
+                      textAlign: 'center',
+                      lineHeight: 1
+                    }}>
+                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                    </span>
+
+                    {/* Avatar */}
+                    {player.photoURL ? (
+                      <img 
+                        src={player.photoURL} 
+                        alt={player.name} 
+                        style={{ 
+                          width: isTop3 ? '38px' : '28px', 
+                          height: isTop3 ? '38px' : '28px', 
+                          borderRadius: '50%', 
+                          objectFit: 'cover',
+                          border: `1.5px solid ${isTop3 ? 'var(--primary)' : 'var(--border-color)'}`
+                        }} 
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <span style={{ fontSize: isTop3 ? '1.5rem' : '1.1rem', lineHeight: 1 }}>
+                        {player.avatar || '🦊'}
+                      </span>
+                    )}
+
+                    {/* Player Name */}
+                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                      <h3 style={{ 
+                        margin: 0, 
+                        fontSize: isTop3 ? '1.1rem' : '0.92rem', 
+                        fontWeight: isTop3 ? 800 : 700,
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis', 
+                        whiteSpace: 'nowrap' 
+                      }}>
+                        {formatPlayerName(player.name)}
+                      </h3>
+                      {isTop3 && (
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          Niveau {player.level || Math.floor((player.xp || 0) / 1000) + 1}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Score / XP */}
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <span style={{ fontSize: isTop3 ? '1.3rem' : '0.95rem', fontWeight: 900, color: 'var(--primary)' }}>
+                        {player.xp || 0}
+                      </span>
+                      <span style={{ fontSize: isTop3 ? '0.8rem' : '0.72rem', color: 'var(--text-muted)', marginLeft: '3px' }}>
+                        pts
+                      </span>
+                    </div>
                   </div>
-                  <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)' }}>
-                    {player.xp || 0} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>pts</span>
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>
@@ -1570,8 +1787,21 @@ export default function Home({
           list={previewList}
           isEditable={Boolean(previewList.isEditable)}
           onUpdateWords={(newWords) => handleUpdateListWords(previewList._id, newWords)}
+          onRenameList={(newName) => handleRenameList(previewList._id, newName)}
+          onTogglePublic={() => togglePublicList(previewList._id, previewList.isPublic)}
           onClose={() => setPreviewList(null)}
           onPlay={handleStartDirectSession}
+          onPlaySurvival={onStartSurvival ? (words, name) => onStartSurvival(words, name) : null}
+        />
+      )}
+
+      {/* Floating User Profile Modal */}
+      {selectedProfileUser && (
+        <UserProfileModal
+          targetPlayerId={selectedProfileUser._id || selectedProfileUser.firebaseId || selectedProfileUser.name}
+          targetPlayerFallback={selectedProfileUser}
+          currentUser={user}
+          onClose={() => setSelectedProfileUser(null)}
         />
       )}
 

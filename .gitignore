@@ -1,0 +1,30 @@
+# Dépendances Node (très lourdes, ne jamais uploader)
+node_modules/
+*/node_modules/
+package-lock.json.bak
+
+# Sécurité & Clés secrètes (ne jamais uploader sur GitHub public)
+.env
+.env.*
+*.env
+env/
+server/.env
+client/.env
+
+# Dossiers de build et cache
+dist/
+build/
+.cache/
+.vite/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Fichiers système & éditeurs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

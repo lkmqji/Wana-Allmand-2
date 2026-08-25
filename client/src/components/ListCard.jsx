@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
+import PlayDropdown from './PlayDropdown';
 
 // Helper to determine or auto-suggest a 40px Emoji based on list title
 export function getListEmoji(title = '', explicitEmoji = null) {
   if (explicitEmoji) return explicitEmoji;
-  const t = title.toLowerCase();
+  const t = (title || '').toLowerCase();
   if (t.includes('essen') || t.includes('nourriture') || t.includes('repas') || t.includes('fruit') || t.includes('boisson')) return '🍕';
   if (t.includes('haus') || t.includes('maison') || t.includes('wohnen') || t.includes('meuble')) return '🏠';
   if (t.includes('tier') || t.includes('animal') || t.includes('chien') || t.includes('chat')) return '🐾';
@@ -25,18 +26,48 @@ export default function ListCard({
   onToggleSelect,
   onPlay,
   onPlaySurvival,
-  onEdit,
   onPreview,
   onTogglePublic,
-  onDelete
+  onRename
 }) {
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [tempTitle, setTempTitle] = useState(list?.name || '');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
   const emoji = getListEmoji(list.name, list.emoji);
   const wordCount = list.words?.length || 0;
   const dateFormatted = list.createdAt ? new Date(list.createdAt).toLocaleDateString() : 'Récemment';
 
+  const handleCardClick = (e) => {
+    // Open preview modal when clicking anywhere on the card
+    if (onPreview) {
+      onPreview();
+    }
+  };
+
+  const handleSaveTitle = (e) => {
+    e?.stopPropagation();
+    if (tempTitle.trim() && tempTitle.trim() !== list.name) {
+      if (onRename) {
+        onRename(list, tempTitle.trim());
+      }
+    }
+    setIsEditingTitle(false);
+  };
+
   return (
-    <div className={`list-card ${isSelected ? 'selected' : ''}`}>
-      {/* Header: 40px Emoji + Title + Selection Checkbox */}
+    <div
+      className={`list-card ${isSelected ? 'selected' : ''}`}
+      onClick={handleCardClick}
+      style={{
+        cursor: 'pointer',
+        transition: 'all 0.22s ease',
+        position: 'relative',
+        zIndex: isDropdownOpen ? 200 : 1
+      }}
+      title="Cliquer pour voir les mots de la liste"
+    >
+      {/* Header: 40px Emoji + Title with Pen Edit + World Status + Selection Checkbox */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.8rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
           {/* 40px Theme Emoji */}
@@ -45,18 +76,103 @@ export default function ListCard({
           </div>
           
           <div style={{ flex: 1, minWidth: 0 }}>
-            <h4 style={{ 
-              margin: 0, 
-              fontSize: '1.05rem', 
-              fontWeight: 800,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              color: 'var(--text-main)'
-            }}>
-              {list.name}
-            </h4>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
+            {isEditingTitle ? (
+              <form
+                onSubmit={handleSaveTitle}
+                onClick={(e) => e.stopPropagation()}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', width: '100%' }}
+              >
+                <input
+                  type="text"
+                  value={tempTitle}
+                  onChange={(e) => setTempTitle(e.target.value)}
+                  className="input-field"
+                  style={{
+                    padding: '0.25rem 0.5rem',
+                    fontSize: '0.92rem',
+                    fontWeight: 700,
+                    borderRadius: '8px',
+                    width: '100%'
+                  }}
+                  autoFocus
+                  onBlur={handleSaveTitle}
+                />
+                <button
+                  type="submit"
+                  style={{
+                    background: 'var(--success)',
+                    border: 'none',
+                    borderRadius: '6px',
+                    color: '#fff',
+                    padding: '0.3rem 0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '0.78rem',
+                    fontWeight: 800
+                  }}
+                >
+                  ✓
+                </button>
+              </form>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <h4
+                  style={{ 
+                    margin: 0, 
+                    fontSize: '1.05rem', 
+                    fontWeight: 800,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    color: 'var(--text-main)'
+                  }}
+                  title={list.name}
+                >
+                  {list.name}
+                </h4>
+
+                {/* Small Pen Edit Icon to Rename list */}
+                {(onRename || onPreview) && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTempTitle(list.name || '');
+                      setIsEditingTitle(true);
+                    }}
+                    title="Renommer cette liste"
+                    style={{
+                      background: 'rgba(99, 102, 241, 0.12)',
+                      border: '1px solid rgba(99, 102, 241, 0.35)',
+                      borderRadius: '6px',
+                      padding: '0.2rem 0.35rem',
+                      cursor: 'pointer',
+                      fontSize: '0.72rem',
+                      color: '#a5b4fc',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      lineHeight: 1,
+                      flexShrink: 0,
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(99, 102, 241, 0.3)';
+                      e.currentTarget.style.borderColor = 'var(--primary)';
+                      e.currentTarget.style.transform = 'scale(1.1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(99, 102, 241, 0.12)';
+                      e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.35)';
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                  >
+                    ✏️
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
               <span className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 600 }}>
                 {wordCount} {wordCount > 1 ? 'mots' : 'mot'}
               </span>
@@ -70,147 +186,98 @@ export default function ListCard({
 
         {/* Checkbox for merging/selecting */}
         {onToggleSelect && (
-          <input
-            type="checkbox"
-            checked={Boolean(isSelected)}
-            onChange={onToggleSelect}
-            aria-label="Sélectionner la liste"
-            style={{ 
-              width: '20px', 
-              height: '20px', 
-              cursor: 'pointer',
-              accentColor: 'var(--primary)',
-              marginTop: '4px'
-            }}
-          />
+          <div style={{ flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+            <input
+              type="checkbox"
+              checked={Boolean(isSelected)}
+              onChange={onToggleSelect}
+              onClick={(e) => e.stopPropagation()}
+              aria-label="Sélectionner la liste"
+              style={{ 
+                width: '20px', 
+                height: '20px', 
+                cursor: 'pointer',
+                accentColor: 'var(--primary)',
+                marginTop: '2px'
+              }}
+            />
+          </div>
         )}
       </div>
 
-      {/* Secondary Controls Bar (Preview, Edit, Privacy Status, Delete) */}
-      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+      {/* Action Row: [ 1/5 Icon-Only Public/Privé ] + [ 4/5 Voir la liste ] */}
+      <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', width: '100%' }} onClick={(e) => e.stopPropagation()}>
+        {onTogglePublic && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onTogglePublic();
+            }}
+            title={list.isPublic ? "Liste Publique (partagée) — Cliquer pour rendre Privée" : "Liste Privée — Cliquer pour rendre Publique"}
+            className="btn btn-secondary"
+            style={{
+              flex: '0 0 46px',
+              width: '46px',
+              padding: '0.55rem 0',
+              fontSize: '1.1rem',
+              borderRadius: '10px',
+              borderColor: list.isPublic ? 'rgba(234, 179, 8, 0.5)' : 'rgba(255, 255, 255, 0.15)',
+              color: list.isPublic ? '#facc15' : 'var(--text-muted)',
+              background: list.isPublic ? 'rgba(234, 179, 8, 0.12)' : 'rgba(255, 255, 255, 0.05)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.18s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.06)';
+              e.currentTarget.style.borderColor = list.isPublic ? '#facc15' : 'var(--primary)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.borderColor = list.isPublic ? 'rgba(234, 179, 8, 0.5)' : 'rgba(255, 255, 255, 0.15)';
+            }}
+          >
+            <span>{list.isPublic ? '🌍' : '🔒'}</span>
+          </button>
+        )}
+
         {onPreview && (
           <button
+            type="button"
             onClick={onPreview}
             className="btn btn-secondary"
             style={{ 
               flex: 1, 
-              minWidth: '70px',
-              padding: '0.45rem 0.5rem', 
-              fontSize: '0.8rem', 
-              fontWeight: 600,
+              padding: '0.55rem 0.8rem', 
+              fontSize: '0.86rem', 
+              fontWeight: 700,
               borderRadius: '10px',
               borderColor: 'rgba(99, 102, 241, 0.4)',
-              color: 'var(--text-main)'
+              color: 'var(--text-main)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.45rem',
+              transition: 'all 0.2s ease'
             }}
-            title="Visualiser les mots de la liste"
+            title="Visualiser et gérer les mots de la liste"
           >
-            👁️ Voir
-          </button>
-        )}
-
-        {onEdit && (
-          <button
-            onClick={onEdit}
-            className="btn btn-secondary"
-            style={{ 
-              flex: 1, 
-              minWidth: '70px',
-              padding: '0.45rem 0.5rem', 
-              fontSize: '0.8rem', 
-              fontWeight: 600,
-              borderRadius: '10px'
-            }}
-            title="Modifier le contenu de la liste"
-          >
-            ✏️ Éditer
-          </button>
-        )}
-
-        {onTogglePublic && (
-          <button
-            onClick={onTogglePublic}
-            className="btn btn-secondary"
-            style={{ 
-              flex: 1, 
-              minWidth: '70px',
-              padding: '0.45rem 0.5rem', 
-              fontSize: '0.8rem', 
-              fontWeight: 600,
-              borderRadius: '10px',
-              borderColor: list.isPublic ? 'var(--warning)' : 'var(--border-color)',
-              color: list.isPublic ? 'var(--warning)' : 'var(--text-muted)'
-            }}
-            title={list.isPublic ? 'Rendre privée' : 'Partager avec la communauté'}
-          >
-            {list.isPublic ? '🌍 Public' : '🔒 Privé'}
-          </button>
-        )}
-
-        {onDelete && (
-          <button
-            onClick={onDelete}
-            className="btn btn-secondary"
-            style={{ 
-              width: 'auto', 
-              padding: '0.45rem 0.65rem', 
-              fontSize: '0.85rem', 
-              borderRadius: '10px',
-              borderColor: 'rgba(239, 68, 68, 0.4)',
-              color: 'var(--danger)'
-            }}
-            title="Supprimer cette liste"
-          >
-            🗑️
+            <span>👁️</span> Voir la liste
           </button>
         )}
       </div>
 
-      {/* Primary Action Buttons (JOUER + MODE SURVIE) */}
-      <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
-        <button
-          onClick={onPlay}
-          className="btn btn-success"
-          style={{
-            flex: 1,
-            padding: '0.7rem 0.5rem',
-            fontSize: '0.9rem',
-            fontWeight: 800,
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.4rem',
-            letterSpacing: '0.5px'
-          }}
-          title="Lancer une partie classique"
-        >
-          <span>⚔️</span> JOUER
-        </button>
-
-        {onPlaySurvival && (
-          <button
-            onClick={onPlaySurvival}
-            className="btn btn-primary"
-            style={{
-              flex: 1,
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              borderColor: '#b91c1c',
-              boxShadow: '0 4px 0 #991b1b, 0 0 16px rgba(239, 68, 68, 0.35)',
-              padding: '0.7rem 0.5rem',
-              fontSize: '0.9rem',
-              fontWeight: 800,
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.4rem',
-              letterSpacing: '0.5px'
-            }}
-            title="Jouer cette liste en Mode Survie (3 vies, chrono rapide)"
-          >
-            <span>🔥</span> SURVIE
-          </button>
-        )}
+      {/* Primary Action Button: Dropdown for game modes (Classique / Survie) */}
+      <div style={{ width: '100%' }} onClick={(e) => e.stopPropagation()}>
+        <PlayDropdown
+          onPlay={onPlay}
+          onPlaySurvival={onPlaySurvival}
+          onOpenChange={setIsDropdownOpen}
+          label="⚔️ JOUER"
+        />
       </div>
     </div>
   );

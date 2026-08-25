@@ -1,17 +1,19 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { formatPlayerName } from '../utils/formatters';
 import { useSoundEffects } from '../context/AudioContext';
+import UserProfileModal from './UserProfileModal';
 
 export default function RightPanel({
   view,
   activeTab,
-  leaderboard,
+  leaderboard = [],
   user,
   playerName,
   avatar,
   onQuickSolo
 }) {
   const { playLevelUp } = useSoundEffects();
+  const [selectedProfileUser, setSelectedProfileUser] = useState(null);
 
   const userRankIndex = leaderboard.findIndex(p => 
     (user?.uid && p.firebaseId === user.uid) || 
@@ -65,7 +67,17 @@ export default function RightPanel({
           boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
         }}>
           {/* Player Header with Avatar & Rank */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+          <div 
+            onClick={() => setSelectedProfileUser({
+              firebaseId: user?.uid || null,
+              name: playerName || user?.displayName || 'Joueur',
+              avatar: avatar || '🦊',
+              photoURL: user?.photoURL || null,
+              xp: userXP
+            })}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer' }}
+            title="Cliquer pour voir ton profil complet"
+          >
             <div style={{
               width: '54px',
               height: '54px',
@@ -91,7 +103,7 @@ export default function RightPanel({
               )}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'underline' }}>
                 {formatPlayerName(playerName || user?.displayName || 'Joueur')}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '2px' }}>
@@ -237,13 +249,29 @@ export default function RightPanel({
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
           {leaderboard.slice(0, 5).map((player, idx) => (
-            <div key={player._id || idx} className="card" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.7rem 0.8rem', background: idx === 0 ? 'rgba(251, 191, 36, 0.1)' : 'var(--bg-surface)' }}>
+            <div 
+              key={player._id || idx} 
+              onClick={() => setSelectedProfileUser(player)}
+              className="card" 
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.7rem 0.8rem', background: idx === 0 ? 'rgba(251, 191, 36, 0.1)' : 'var(--bg-surface)', cursor: 'pointer' }}
+              title="Cliquer pour voir le profil détaillé"
+            >
               <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: idx === 0 ? '#f59e0b' : 'var(--text-muted)', minWidth: '24px' }}>#{idx + 1}</span>
-              <span style={{ flex: 1, fontWeight: 'bold', fontSize: '0.88rem' }}>{formatPlayerName(player.name)}</span>
+              <span style={{ flex: 1, fontWeight: 'bold', fontSize: '0.88rem', textDecoration: 'underline' }}>{formatPlayerName(player.name)}</span>
               <span style={{ color: 'var(--primary)', fontWeight: 'bold', fontSize: '0.85rem' }}>{player.xp || 0} pts</span>
             </div>
           ))}
         </div>
+      )}
+
+      {/* Floating User Profile Modal */}
+      {selectedProfileUser && (
+        <UserProfileModal
+          targetPlayerId={selectedProfileUser._id || selectedProfileUser.firebaseId || selectedProfileUser.name}
+          targetPlayerFallback={selectedProfileUser}
+          currentUser={user}
+          onClose={() => setSelectedProfileUser(null)}
+        />
       )}
     </div>
   );
