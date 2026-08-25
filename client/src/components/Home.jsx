@@ -383,13 +383,16 @@ export default function Home({
   };
 
   const deleteList = async (listId) => {
-    if (!window.confirm('Supprimer définitivement cette liste ?')) return;
+    if (!listId) return;
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       const res = await fetch(`${API_URL}/api/lists/${listId}`, { method: 'DELETE' });
       if (res.ok) {
         setArchivedLists(prev => prev.filter(l => l._id !== listId));
         setSelectedListIds(prev => { const next = new Set(prev); next.delete(listId); return next; });
+        if (previewList && previewList._id === listId) {
+          setPreviewList(null);
+        }
       } else {
         alert('Erreur lors de la suppression.');
       }
@@ -860,6 +863,7 @@ export default function Home({
                       onPreview={() => setPreviewList({ ...list, isEditable: true })}
                       onTogglePublic={() => togglePublicList(list._id, list.isPublic)}
                       onRename={(listToRename, newName) => handleRenameList(listToRename._id, newName)}
+                      onDelete={() => deleteList(list._id)}
                     />
                   ))}
                 </div>
@@ -1814,6 +1818,7 @@ export default function Home({
           onUpdateWords={(newWords) => handleUpdateListWords(previewList._id, newWords)}
           onRenameList={(newName) => handleRenameList(previewList._id, newName)}
           onTogglePublic={() => togglePublicList(previewList._id, previewList.isPublic)}
+          onDeleteList={() => deleteList(previewList._id)}
           onClose={() => setPreviewList(null)}
           onPlay={handleStartDirectSession}
           onPlaySurvival={onStartSurvival ? (words, name) => onStartSurvival(words, name) : null}

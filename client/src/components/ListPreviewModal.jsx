@@ -10,7 +10,8 @@ export default function ListPreviewModal({
   isEditable = false, 
   onUpdateWords,
   onRenameList,
-  onTogglePublic
+  onTogglePublic,
+  onDeleteList
 }) {
   const [searchWord, setSearchWord] = useState('');
   const [words, setWords] = useState(list?.words || []);
@@ -18,6 +19,8 @@ export default function ListPreviewModal({
   const [newWordDraft, setNewWordDraft] = useState({ question: '', answer: '' });
   const [showAddForm, setShowAddForm] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [showDeleteListConfirm, setShowDeleteListConfirm] = useState(false);
+  const [isDeletingList, setIsDeletingList] = useState(false);
   const [currentTitle, setCurrentTitle] = useState(list?.title || list?.name || 'Liste de vocabulaire');
   const [isPublicState, setIsPublicState] = useState(Boolean(list?.isPublic));
 
@@ -196,37 +199,73 @@ export default function ListPreviewModal({
                     {currentTitle}
                   </h3>
                   {isEditable && (
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingTitle(true)}
-                      title="Renommer la liste"
-                      style={{
-                        background: 'rgba(99, 102, 241, 0.15)',
-                        border: '1px solid rgba(99, 102, 241, 0.35)',
-                        borderRadius: '6px',
-                        padding: '0.2rem 0.35rem',
-                        cursor: 'pointer',
-                        fontSize: '0.75rem',
-                        color: '#a5b4fc',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        lineHeight: 1,
-                        transition: 'all 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(99, 102, 241, 0.3)';
-                        e.currentTarget.style.borderColor = 'var(--primary)';
-                        e.currentTarget.style.transform = 'scale(1.1)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)';
-                        e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.35)';
-                        e.currentTarget.style.transform = 'scale(1)';
-                      }}
-                    >
-                      ✏️
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingTitle(true)}
+                        title="Renommer la liste"
+                        style={{
+                          background: 'rgba(99, 102, 241, 0.15)',
+                          border: '1px solid rgba(99, 102, 241, 0.35)',
+                          borderRadius: '6px',
+                          padding: '0.2rem 0.35rem',
+                          cursor: 'pointer',
+                          fontSize: '0.75rem',
+                          color: '#a5b4fc',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          lineHeight: 1,
+                          transition: 'all 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(99, 102, 241, 0.3)';
+                          e.currentTarget.style.borderColor = 'var(--primary)';
+                          e.currentTarget.style.transform = 'scale(1.1)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)';
+                          e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.35)';
+                          e.currentTarget.style.transform = 'scale(1)';
+                        }}
+                      >
+                        ✏️
+                      </button>
+
+                      {onDeleteList && (
+                        <button
+                          type="button"
+                          onClick={() => setShowDeleteListConfirm(true)}
+                          title="Supprimer la liste"
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            border: '1px solid rgba(239, 68, 68, 0.35)',
+                            borderRadius: '6px',
+                            padding: '0.2rem 0.35rem',
+                            cursor: 'pointer',
+                            fontSize: '0.75rem',
+                            color: '#f87171',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            lineHeight: 1,
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.3)';
+                            e.currentTarget.style.borderColor = '#ef4444';
+                            e.currentTarget.style.transform = 'scale(1.1)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
+                            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+                            e.currentTarget.style.transform = 'scale(1)';
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -637,6 +676,147 @@ export default function ListPreviewModal({
           )}
         </div>
       </div>
+
+      {/* Confirmation Modal Popup for Deleting List inside Preview */}
+      {showDeleteListConfirm && (
+        <div
+          className="modal-overlay"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowDeleteListConfirm(false);
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '1rem'
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '430px',
+              width: '100%',
+              background: 'linear-gradient(145deg, #1b0d10 0%, #0d0608 100%)',
+              border: '1.5px solid rgba(239, 68, 68, 0.5)',
+              borderRadius: '22px',
+              padding: '1.8rem',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.85), 0 0 35px rgba(239, 68, 68, 0.25)',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '1rem',
+              animation: 'popIn 0.2s ease-out'
+            }}
+          >
+            <div
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '2px solid rgba(239, 68, 68, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.75rem',
+                boxShadow: '0 0 20px rgba(239, 68, 68, 0.3)'
+              }}
+            >
+              🗑️
+            </div>
+
+            <div>
+              <h3 style={{ margin: '0 0 0.5rem 0', color: '#ffffff', fontSize: '1.25rem', fontWeight: 800 }}>
+                Supprimer la liste ?
+              </h3>
+              <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.92rem', lineHeight: '1.45' }}>
+                Êtes-vous sûr de vouloir supprimer définitivement la liste <strong style={{ color: '#ffffff' }}>« {currentTitle} »</strong> ({words.length} {words.length > 1 ? 'mots' : 'mot'}) ?
+              </p>
+              <div
+                style={{
+                  marginTop: '0.75rem',
+                  padding: '0.5rem 0.8rem',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  color: '#fca5a5',
+                  fontSize: '0.82rem',
+                  fontWeight: 600
+                }}
+              >
+                ⚠️ Cette action est irréversible.
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.8rem', width: '100%', marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDeleteListConfirm(false);
+                }}
+                className="btn btn-secondary"
+                style={{
+                  flex: 1,
+                  padding: '0.7rem 1rem',
+                  borderRadius: '12px',
+                  fontSize: '0.92rem',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingList}
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  setIsDeletingList(true);
+                  try {
+                    if (onDeleteList) {
+                      await onDeleteList();
+                    }
+                    if (onClose) {
+                      onClose();
+                    }
+                  } finally {
+                    setIsDeletingList(false);
+                    setShowDeleteListConfirm(false);
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  padding: '0.7rem 1rem',
+                  borderRadius: '12px',
+                  fontSize: '0.92rem',
+                  fontWeight: 800,
+                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                  color: '#ffffff',
+                  border: 'none',
+                  boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4)',
+                  cursor: isDeletingList ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {isDeletingList ? 'Suppression...' : '🗑️ Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
