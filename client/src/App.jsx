@@ -89,6 +89,28 @@ function App() {
   const { playMessageReceived, playNotification, setIsInGame } = useAudio();
   const [hasEnteredApp, setHasEnteredApp] = useState(false);
 
+  // Handle mobile sleep mode / robust wake-up to force socket reconnection
+  useEffect(() => {
+    const handleWakeUp = () => {
+      // Si la page redevient visible/active
+      if (document.visibilityState === 'visible' || !document.hidden) {
+        if (socket.disconnected) {
+          socket.connect();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleWakeUp);
+    window.addEventListener('focus', handleWakeUp);
+    window.addEventListener('pageshow', handleWakeUp); // Fallback iOS
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleWakeUp);
+      window.removeEventListener('focus', handleWakeUp);
+      window.removeEventListener('pageshow', handleWakeUp);
+    };
+  }, []);
+
   // Global Application Config (cached in localStorage to prevent white flashes)
   const [config, setConfig] = useState(() => {
     try {

@@ -14,7 +14,7 @@ export function useSocketEvent(socket, eventName, handler) {
   handlerRef.current = handler;
 
   useEffect(() => {
-    if (!socket || !eventName || typeof handler !== 'function') return;
+    if (!socket || !eventName) return;
 
     const listener = (...args) => {
       if (typeof handlerRef.current === 'function') {

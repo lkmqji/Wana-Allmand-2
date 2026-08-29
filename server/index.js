@@ -26,7 +26,9 @@ const io = new Server(server, {
     cors: {
         origin: "*", // allow all for MVP
         methods: ["GET", "POST"]
-    }
+    },
+    pingInterval: 25000,
+    pingTimeout: 60000
 });
 
 app.use(cors());

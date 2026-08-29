@@ -75,4 +75,9 @@
   - Restauration de l'état propre initial du projet Web/PWA.
 
 
-
+## Entrée : 2026-08-29 20:52:00 (UTC+01:00)
+- **Renforcement de la résilience réseau (Mobile, 4G et Mise en veille)** :
+  - Client (`App.jsx`) : Ajout d'une détection robuste des sorties de veille (`visibilitychange`, `focus`, `pageshow`) pour forcer la reconnexion automatique du socket via `socket.connect()` s'il a été déconnecté.
+  - Serveur (`server/index.js`) : Augmentation de la tolérance aux micro-coupures réseau (4G/Tunnels) en ajustant le `pingInterval` à 25s et le `pingTimeout` à 60s.
+  - Client (`useSocketEvent.js`) : Retrait de la condition bloquante (`typeof handler !== 'function'`) au montage du hook, permettant à l'écouteur d'être attaché même si le `handler` initial n'est pas encore défini.
+  - Audit : Vérification complète de l'absence de fuites d'écouteurs "fantômes" `socket.on` dans `App.jsx` ; aucun nettoyage n'était manquant.
