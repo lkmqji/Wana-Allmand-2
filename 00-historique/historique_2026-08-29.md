@@ -61,3 +61,9 @@
   - Ajout de 3 boutons cliquables colorés (`der`, `die`, `das`) sous le champ de saisie dans [VengeanceMode.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/VengeanceMode.jsx). Un clic insère ou remplace l'article actuel tout en conservant le focus sur le champ pour continuer à taper sans interruption.
 - **Ajout des caractères spéciaux allemands les plus utilisés (ä, ö, ü, ß, Ä, Ö, Ü)** :
   - Ajout d'une barre de touches virtuelles tactiles pour insérer instantanément `ä`, `ö`, `ü`, `ß`, `Ä`, `Ö`, `Ü` à l'endroit précis du curseur dans [VengeanceMode.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/VengeanceMode.jsx).
+
+## Entrée : 2026-08-29 20:08:00 (UTC+01:00)
+- **Conservation exclusive des minuscules pour les caractères spéciaux (VengeanceMode.jsx)** :
+  - Suppression des versions majuscules `Ä`, `Ö`, `Ü` dans la barre virtuelle du Mode Vengeance pour ne conserver que les caractères minuscules usuels : `ä`, `ö`, `ü`, `ß`.
+- **Ajout des boutons rapides des pronoms/articles et caractères spéciaux dans la carte de Duel principale (Game.jsx)** :
+  - Intégration de la barre de boutons rapides (`der`, `die`, `das` et `ä`, `ö`, `ü`, `ß`) directement sous le champ de saisie dans le composant [Game.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/Game.jsx) (`GameInputForm`). Un simple clic insère ou remplace l'article ou le caractère spécial tout en maintenant le focus actif pour une frappe ultra-rapide.

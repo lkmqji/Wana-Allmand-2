@@ -114,58 +114,151 @@ const GameInputForm = React.memo(function GameInputForm({
     setLocalAnswer('');
   };
 
+  // Quick insertion/replacement for German articles (der, die, das)
+  const handleArticleClick = (article) => {
+    if (disabled) return;
+    const current = localAnswer;
+    const articlesList = ['der', 'die', 'das', 'den', 'dem', 'des', 'ein', 'eine', 'einen'];
+    const parts = current.trimStart().split(/\s+/);
+
+    let newVal = '';
+    if (parts.length > 0 && articlesList.includes(parts[0].toLowerCase())) {
+      // Replace existing article
+      const rest = parts.slice(1).join(' ');
+      newVal = `${article} ${rest}`.trimEnd() + (current.endsWith(' ') ? ' ' : (rest ? '' : ' '));
+    } else {
+      // Prepend article
+      newVal = current ? `${article} ${current.trimStart()}` : `${article} `;
+    }
+
+    setLocalAnswer(newVal);
+    if (inputRef && inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
+  // Quick insertion for German special characters (ä, ö, ü, ß)
+  const handleSpecialCharClick = (char) => {
+    if (disabled) return;
+    if (inputRef && inputRef.current) {
+      const input = inputRef.current;
+      const start = input.selectionStart ?? localAnswer.length;
+      const end = input.selectionEnd ?? localAnswer.length;
+      const nextVal = localAnswer.substring(0, start) + char + localAnswer.substring(end);
+      setLocalAnswer(nextVal);
+      setTimeout(() => {
+        input.focus();
+        input.setSelectionRange(start + char.length, start + char.length);
+      }, 0);
+    } else {
+      setLocalAnswer(prev => prev + char);
+    }
+  };
+
   return (
-    <form onSubmit={handleSubmit} style={{ margin: '0 auto 1.5rem auto', width: '100%', maxWidth: '400px', position: 'relative' }}>
-      <input
-        ref={inputRef}
-        autoFocus
-        type="text"
-        className="input-field"
-        value={localAnswer}
-        onChange={(e) => setLocalAnswer(e.target.value)}
-        placeholder={placeholder}
-        disabled={disabled}
-        style={{ 
-          textAlign: 'left', 
-          fontSize: '1.25rem', 
-          padding: '1rem 3.5rem 1rem 1.5rem', 
-          borderRadius: '30px',
-          borderColor: isFrozen ? '#38bdf8' : 'var(--border-color)',
-          width: '100%',
-          transform: 'translateZ(0)',
-          willChange: 'border-color'
-        }}
-        autoComplete="off"
-      />
-      <button 
-        type="submit" 
-        style={{ 
-          position: 'absolute',
-          right: '6px',
-          top: '50%',
-          transform: 'translateY(-50%) translateZ(0)',
-          width: '44px',
-          height: '44px',
-          borderRadius: '50%',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: 0,
-          background: 'var(--primary)',
-          border: 'none',
-          cursor: 'pointer',
-          opacity: (disabled || !localAnswer.trim()) ? 0.5 : 1,
-          transition: 'all 0.2s',
-          flexShrink: 0,
-          willChange: 'opacity, transform'
-        }}
-        disabled={disabled || !localAnswer.trim()}
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-          <polyline points="12 5 19 12 12 19"></polyline>
-        </svg>
-      </button>
+    <form onSubmit={handleSubmit} style={{ margin: '0 auto 1.5rem auto', width: '100%', maxWidth: '420px', position: 'relative' }}>
+      <div style={{ position: 'relative', width: '100%' }}>
+        <input
+          ref={inputRef}
+          autoFocus
+          type="text"
+          className="input-field"
+          value={localAnswer}
+          onChange={(e) => setLocalAnswer(e.target.value)}
+          placeholder={placeholder}
+          disabled={disabled}
+          style={{ 
+            textAlign: 'left', 
+            fontSize: '1.25rem', 
+            padding: '1rem 3.5rem 1rem 1.5rem', 
+            borderRadius: '30px',
+            borderColor: isFrozen ? '#38bdf8' : 'var(--border-color)',
+            width: '100%',
+            transform: 'translateZ(0)',
+            willChange: 'border-color'
+          }}
+          autoComplete="off"
+        />
+        <button 
+          type="submit" 
+          style={{ 
+            position: 'absolute',
+            right: '6px',
+            top: '50%',
+            transform: 'translateY(-50%) translateZ(0)',
+            width: '44px',
+            height: '44px',
+            borderRadius: '50%',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 0,
+            background: 'var(--primary)',
+            border: 'none',
+            cursor: 'pointer',
+            opacity: (disabled || !localAnswer.trim()) ? 0.5 : 1,
+            transition: 'all 0.2s',
+            flexShrink: 0,
+            willChange: 'opacity, transform'
+          }}
+          disabled={disabled || !localAnswer.trim()}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </button>
+      </div>
+
+      {/* Quick German Articles & Special Characters Toolbar */}
+      <div className="vengeance-keyboard-toolbar" style={{ marginTop: '0.6rem' }}>
+        {/* 3 Clickable Articles: der, die, das */}
+        <div className="vengeance-articles-row">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => handleArticleClick('der')}
+            className="vengeance-article-btn art-der"
+            title="Insérer / Remplacer par l'article 'der'"
+          >
+            der
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => handleArticleClick('die')}
+            className="vengeance-article-btn art-die"
+            title="Insérer / Remplacer par l'article 'die'"
+          >
+            die
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => handleArticleClick('das')}
+            className="vengeance-article-btn art-das"
+            title="Insérer / Remplacer par l'article 'das'"
+          >
+            das
+          </button>
+        </div>
+
+        {/* Special German Characters: ä, ö, ü, ß */}
+        <div className="vengeance-chars-row">
+          {['ä', 'ö', 'ü', 'ß'].map(char => (
+            <button
+              key={char}
+              type="button"
+              disabled={disabled}
+              onClick={() => handleSpecialCharClick(char)}
+              className="vengeance-char-btn"
+              title={`Insérer ${char}`}
+            >
+              {char}
+            </button>
+          ))}
+        </div>
+      </div>
     </form>
   );
 });

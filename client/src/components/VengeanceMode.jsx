@@ -1439,9 +1439,9 @@ export default function VengeanceMode({
               </button>
             </div>
 
-            {/* Special German Characters: ä, ö, ü, ß, Ä, Ö, Ü */}
+            {/* Special German Characters: ä, ö, ü, ß */}
             <div className="vengeance-chars-row">
-              {['ä', 'ö', 'ü', 'ß', 'Ä', 'Ö', 'Ü'].map(char => (
+              {['ä', 'ö', 'ü', 'ß'].map(char => (
                 <button
                   key={char}
                   type="button"
