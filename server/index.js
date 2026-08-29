@@ -1582,12 +1582,20 @@ io.on('connection', (socket) => {
 
         // Update socket mapping
         if (foundPlayerId !== socket.id) {
+            const oldSocket = io.sockets.sockets.get(foundPlayerId);
+            
             delete session.players[foundPlayerId];
             foundPlayer.id = socket.id;
             if (clientPlayerKey) foundPlayer.clientPlayerKey = clientPlayerKey;
             foundPlayer.disconnected = false;
             delete foundPlayer.disconnectedAt;
             session.players[socket.id] = foundPlayer;
+
+            // Disconnect old phantom socket now that it's out of the session
+            if (oldSocket) {
+                console.log(`Force disconnecting phantom socket: ${foundPlayerId}`);
+                oldSocket.disconnect(true);
+            }
 
             if (session.hostId === foundPlayerId) session.hostId = socket.id;
             if (session.guestId === foundPlayerId) session.guestId = socket.id;

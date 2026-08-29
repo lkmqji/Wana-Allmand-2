@@ -89,27 +89,7 @@ function App() {
   const { playMessageReceived, playNotification, setIsInGame } = useAudio();
   const [hasEnteredApp, setHasEnteredApp] = useState(false);
 
-  // Handle mobile sleep mode / robust wake-up to force socket reconnection
-  useEffect(() => {
-    const handleWakeUp = () => {
-      // Si la page redevient visible/active
-      if (document.visibilityState === 'visible' || !document.hidden) {
-        if (socket.disconnected) {
-          socket.connect();
-        }
-      }
-    };
 
-    document.addEventListener('visibilitychange', handleWakeUp);
-    window.addEventListener('focus', handleWakeUp);
-    window.addEventListener('pageshow', handleWakeUp); // Fallback iOS
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleWakeUp);
-      window.removeEventListener('focus', handleWakeUp);
-      window.removeEventListener('pageshow', handleWakeUp);
-    };
-  }, []);
 
   // Global Application Config (cached in localStorage to prevent white flashes)
   const [config, setConfig] = useState(() => {
@@ -179,6 +159,58 @@ function App() {
     return localStorage.getItem('wana_avatar') || '🦊';
   });
   const [user, setUser] = useState(null);
+
+  // Handle mobile sleep mode / robust wake-up to force socket reconnection
+  useEffect(() => {
+    const handleWakeUp = () => {
+      // Si la page redevient visible/active
+      if (document.visibilityState === 'visible' || !document.hidden) {
+        if (socket.disconnected) {
+          socket.connect();
+        }
+        
+        // Re-sync user status with server when waking up
+        const currentName = playerName || (user ? user.displayName : null) || (isGuest ? 'Invité' : '');
+        if (currentName) {
+          socket.emit('register_online_user', {
+            firebaseId: user?.uid || null,
+            name: `${avatar || '🦊'} ${currentName}`,
+            avatar: avatar || '🦊'
+          });
+          socket.emit('get_online_users');
+        }
+
+        // Try to rejoin session if we have one
+        try {
+          const saved = localStorage.getItem('wana_active_session');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed?.sessionId) {
+              socket.emit('rejoin_session', {
+                sessionId: parsed.sessionId,
+                clientPlayerKey: parsed.clientPlayerKey,
+                firebaseId: user?.uid || null,
+                playerName: currentName || 'Joueur',
+                avatar: avatar || '🦊'
+              });
+            }
+          }
+        } catch (e) {
+          console.error('Error auto-rejoining on wakeup:', e);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleWakeUp);
+    window.addEventListener('focus', handleWakeUp);
+    window.addEventListener('pageshow', handleWakeUp); // Fallback iOS
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleWakeUp);
+      window.removeEventListener('focus', handleWakeUp);
+      window.removeEventListener('pageshow', handleWakeUp);
+    };
+  }, [user, playerName, avatar, isGuest]);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
