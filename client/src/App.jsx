@@ -18,6 +18,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { formatPlayerName, getClientPlayerKey } from './utils/formatters';
 import { useSoundEffects, useAudio } from './context/AudioContext';
 import { sfx } from './utils/sfxManager';
+import { Agentation } from 'agentation';
 
 // Strict Standalone PWA detection helper with Desktop (PC/Mac) bypass
 const evaluateStandalone = () => {
@@ -1284,6 +1285,9 @@ function App() {
 
       {/* Admin Panel - Only accessible by the confirmed admin */}
       {showAdmin && isAdmin && <Admin user={user} onClose={() => setShowAdmin(false)} />}
+
+      {/* Agentation visual feedback - Only active for the confirmed administrator */}
+      {isAdmin && <Agentation />}
     </>
   );
 }

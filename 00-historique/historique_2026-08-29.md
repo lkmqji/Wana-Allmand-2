@@ -33,3 +33,14 @@
   - Découplage de la réinitialisation de `timeLeft` dans [VengeanceMode.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/VengeanceMode.jsx) : le chronomètre ne se réinitialise désormais qu'au changement réel de mot (`currentWordKey`) ou au démarrage de la partie.
   - Stabilisation des fonctions de rappel (`onTimeout`, `playTimeWarning`) via `useRef` pour éviter la réexécution de l'intervalle lors des rendus.
   - Utilisation de `inputValRef` dans `handleTimeout` pour éliminer la dépendance directe à `inputVal` et garantir l'indépendance totale entre la saisie clavier et le décompte du temps.
+
+## Entrée : 2026-08-29 19:39:15 (UTC+01:00)
+- **Lancement des services locaux** :
+  - Installation des dépendances du client (`client/node_modules`) et du serveur (`server/node_modules`).
+  - Démarrage du serveur Backend Node.js / Express / Socket.IO sur le port `3001` (`http://localhost:3001`).
+  - Démarrage du serveur de développement Frontend Vite sur le port `5174` (`http://localhost:5174/`).
+
+## Entrée : 2026-08-29 19:40:00 (UTC+01:00)
+- **Activation du bouton de commentaire Agentation réservée à l'administrateur** :
+  - Déplacement de `<Agentation />` depuis [main.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/main.jsx) vers [App.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/App.jsx).
+  - Conditionnement de l'affichage d'`Agentation` exclusivement au statut administrateur (`isAdmin`) afin qu'il reste actif en tout temps (en mode production comme en mode développement) uniquement pour l'administrateur identifié, et masqué pour tous les autres utilisateurs.

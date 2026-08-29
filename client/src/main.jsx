@@ -4,7 +4,6 @@ import './index.css'
 import App from './App.jsx'
 import { AudioProvider } from './context/AudioContext'
 import { registerSW } from 'virtual:pwa-register'
-import { Agentation } from 'agentation'
 
 // Force PWA Service Worker auto-update immediately
 registerSW({ immediate: true })
@@ -91,7 +90,6 @@ createRoot(document.getElementById('root')).render(
     <ErrorBoundary>
       <AudioProvider>
         <App />
-        {import.meta.env.DEV && <Agentation />}
       </AudioProvider>
     </ErrorBoundary>
   </StrictMode>,
