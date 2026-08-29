@@ -7,18 +7,18 @@ export const TugOfWarBeam = ({
   const normalizedPercent = Math.max(5, Math.min(95, 50 + (beamPosition / 2)));
 
   return (
-    <div style={{ position: 'relative', width: '100%', padding: '1rem 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div style={{ position: 'relative', width: '100%', padding: '0.35rem 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       {/* Pipeline d'énergie */}
       <div 
         style={{
           position: 'relative',
           width: '100%',
-          height: '42px',
+          height: '32px',
           backgroundColor: 'rgba(6, 8, 14, 0.85)',
           borderRadius: '9999px',
           border: '1.5px solid rgba(255, 255, 255, 0.2)',
           overflow: 'hidden',
-          boxShadow: 'inset 0 0 25px rgba(0, 0, 0, 0.9), 0 8px 30px rgba(0, 0, 0, 0.5)',
+          boxShadow: 'inset 0 0 20px rgba(0, 0, 0, 0.9), 0 4px 20px rgba(0, 0, 0, 0.5)',
           backdropFilter: 'blur(12px)'
         }}
       >
@@ -57,11 +57,11 @@ export const TugOfWarBeam = ({
             top: '50%',
             left: `${normalizedPercent}%`,
             transform: 'translate(-50%, -50%)',
-            width: '32px',
-            height: '32px',
+            width: '26px',
+            height: '26px',
             borderRadius: '50%',
             backgroundColor: '#ffffff',
-            boxShadow: '0 0 25px #ffffff, 0 0 45px #00f2fe, 0 0 60px #ff0055',
+            boxShadow: '0 0 20px #ffffff, 0 0 35px #00f2fe, 0 0 50px #ff0055',
             zIndex: 10,
             display: 'flex',
             alignItems: 'center',
@@ -71,8 +71,8 @@ export const TugOfWarBeam = ({
         >
           <div 
             style={{
-              width: '12px',
-              height: '12px',
+              width: '10px',
+              height: '10px',
               borderRadius: '50%',
               backgroundColor: '#a5f3fc',
               animation: 'pulseGlow 1.2s infinite ease-in-out'
@@ -99,8 +99,8 @@ export const TugOfWarBeam = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '0.4rem 0.5rem 0',
-          fontSize: '0.8rem',
+          padding: '0.25rem 0.4rem 0',
+          fontSize: '0.75rem',
           fontFamily: "'JetBrains Mono', monospace",
           fontWeight: 800
         }}

@@ -1402,8 +1402,8 @@ function App() {
       {/* Admin Panel - Only accessible by the confirmed admin */}
       {showAdmin && isAdmin && <Admin user={user} onClose={() => setShowAdmin(false)} />}
 
-      {/* Agentation visual feedback - Only active for the confirmed administrator */}
-      {isAdmin && <Agentation />}
+      {/* Agentation visual feedback - Active in local dev OR for the confirmed administrator */}
+      {(import.meta.env.DEV || isAdmin || standaloneDebug.isLocalDev) && <Agentation />}
     </>
   );
 }

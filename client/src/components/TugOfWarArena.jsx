@@ -212,24 +212,25 @@ export const TugOfWarArena = ({
   return (
     <div 
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
+        justifyContent: 'flex-start',
+        padding: '0.5rem 0.75rem',
         background: 'radial-gradient(circle at 50% 20%, rgba(30, 41, 69, 0.6) 0%, #06080e 70%)',
         color: '#f1f5f9',
         fontFamily: "'Outfit', sans-serif",
         position: 'relative',
-        overflow: 'hidden'
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch'
       }}
     >
       {/* Canvas Particules 60fps */}
       <ParticleBurst trigger={particleEvent.id} type={particleEvent.type} />
 
-      <div style={{ width: '100%', maxWidth: '680px', position: 'relative', zIndex: 10 }}>
+      <div style={{ width: '100%', maxWidth: '640px', position: 'relative', zIndex: 10 }}>
         
         {/* En-tête de Duel (Joueur vs Adversaire & Contrôles) */}
         <div 
@@ -238,9 +239,9 @@ export const TugOfWarArena = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '0.75rem 1rem',
-            borderRadius: '20px',
-            marginBottom: '1rem',
+            padding: '0.45rem 0.8rem',
+            borderRadius: '16px',
+            marginBottom: '0.4rem',
             border: '1px solid rgba(255, 255, 255, 0.15)',
             background: 'rgba(18, 24, 38, 0.75)',
             backdropFilter: 'blur(20px)'
@@ -470,89 +471,38 @@ export const TugOfWarArena = ({
             className="glass-panel"
             style={{
               position: 'relative',
-              marginTop: '1.2rem',
-              padding: '1.8rem 1.5rem',
-              borderRadius: '24px',
+              marginTop: '0.35rem',
+              padding: '0.9rem 0.85rem',
+              borderRadius: '20px',
               border: '1.5px solid rgba(0, 242, 254, 0.35)',
-              background: 'rgba(18, 24, 38, 0.8)',
+              background: 'rgba(18, 24, 38, 0.82)',
               backdropFilter: 'blur(20px)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               textAlign: 'center',
-              boxShadow: '0 12px 40px rgba(0, 242, 254, 0.15)'
+              boxShadow: '0 8px 30px rgba(0, 242, 254, 0.12)'
             }}
           >
             {/* Effet visuel des lettres erronées qui tombent */}
             <TypoFallingVFX dropped={droppedLetters} />
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", color: '#00f2fe', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
-                ⚡ Frappe vite pour tirer le rayon !
-              </span>
-              <span style={{ fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", color: '#94a3b8', fontWeight: 800 }}>
-                Mot {(currentWordIndex % activeWords.length) + 1} / {activeWords.length}
-              </span>
-            </div>
-
-            {/* Question (Français) */}
+            {/* Question (Français) - Cadrée, non étirée et compacte */}
             <h3 
               style={{
-                fontFamily: "'Syne', 'Outfit', sans-serif",
-                fontWeight: 900,
-                fontSize: '2.2rem',
+                fontFamily: "'Outfit', sans-serif",
+                fontWeight: 800,
+                fontSize: 'clamp(1.15rem, 3.2vw, 1.55rem)',
+                lineHeight: 1.25,
                 color: '#ffffff',
-                margin: '0.4rem 0 1.2rem 0',
-                letterSpacing: '-0.5px'
+                margin: '0.1rem auto 0.75rem auto',
+                maxWidth: '500px',
+                width: '100%',
+                wordBreak: 'break-word'
               }}
             >
               {currentWord.question}
             </h3>
-
-            {/* Barres d'aide rapide (Articles & Caractères Allemands) */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', justifyContent: 'center', marginBottom: '1rem', width: '100%', maxWidth: '440px' }}>
-              {['der', 'die', 'das', 'ein', 'eine'].map(art => (
-                <button
-                  key={art}
-                  type="button"
-                  onClick={() => handleArticleClick(art)}
-                  style={{
-                    padding: '0.25rem 0.6rem',
-                    background: 'rgba(0, 242, 254, 0.12)',
-                    border: '1px solid rgba(0, 242, 254, 0.3)',
-                    borderRadius: '8px',
-                    color: '#00f2fe',
-                    fontSize: '0.75rem',
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  {art}
-                </button>
-              ))}
-              <div style={{ width: '1px', background: 'rgba(255, 255, 255, 0.15)', margin: '0 0.2rem' }} />
-              {['ä', 'ö', 'ü', 'ß'].map(char => (
-                <button
-                  key={char}
-                  type="button"
-                  onClick={() => handleSpecialCharClick(char)}
-                  style={{
-                    padding: '0.25rem 0.55rem',
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    borderRadius: '8px',
-                    color: '#f8fafc',
-                    fontSize: '0.8rem',
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  {char}
-                </button>
-              ))}
-            </div>
 
             {/* Formulaire de Saisie */}
             <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: '440px', position: 'relative' }}>
@@ -561,7 +511,7 @@ export const TugOfWarArena = ({
                 type="text"
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
-                placeholder="Tape la traduction en allemand..."
+                placeholder="Traduction en allemand..."
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="off"
@@ -571,14 +521,14 @@ export const TugOfWarArena = ({
                   textAlign: 'center',
                   fontFamily: "'Outfit', sans-serif",
                   fontWeight: 800,
-                  fontSize: '1.35rem',
-                  padding: '0.9rem 3.2rem 0.9rem 1.2rem',
-                  borderRadius: '18px',
+                  fontSize: '1.15rem',
+                  padding: '0.65rem 2.8rem 0.65rem 0.9rem',
+                  borderRadius: '16px',
                   backgroundColor: 'rgba(6, 8, 14, 0.75)',
                   border: '1.5px solid rgba(0, 242, 254, 0.5)',
                   color: '#ffffff',
                   outline: 'none',
-                  boxShadow: 'inset 0 2px 10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 242, 254, 0.25)',
+                  boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 242, 254, 0.2)',
                   transition: 'all 0.15s ease'
                 }}
               />
@@ -586,27 +536,100 @@ export const TugOfWarArena = ({
                 type="submit"
                 style={{
                   position: 'absolute',
-                  right: '8px',
+                  right: '6px',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: '12px',
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '10px',
                   background: 'linear-gradient(135deg, #00f2fe 0%, #3b82f6 100%)',
                   border: 'none',
                   color: '#000000',
                   fontWeight: 900,
-                  fontSize: '1rem',
+                  fontSize: '0.95rem',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 0 15px rgba(0, 242, 254, 0.6)'
+                  boxShadow: '0 0 12px rgba(0, 242, 254, 0.6)'
                 }}
               >
                 ⚡
               </button>
             </form>
+
+            {/* Barres d'aide rapide (Articles en haut, Caractères Allemands en dessous) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', alignItems: 'center', marginTop: '0.65rem', width: '100%', maxWidth: '440px' }}>
+              {/* Ligne 1 : Articles */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', justifyContent: 'center' }}>
+                {['der', 'die', 'das', 'ein', 'eine'].map(art => (
+                  <button
+                    key={art}
+                    type="button"
+                    onClick={() => handleArticleClick(art)}
+                    style={{
+                      padding: '0.25rem 0.6rem',
+                      background: 'rgba(0, 242, 254, 0.12)',
+                      border: '1px solid rgba(0, 242, 254, 0.3)',
+                      borderRadius: '8px',
+                      color: '#00f2fe',
+                      fontSize: '0.76rem',
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(0, 242, 254, 0.25)';
+                      e.currentTarget.style.borderColor = '#00f2fe';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(0, 242, 254, 0.12)';
+                      e.currentTarget.style.borderColor = 'rgba(0, 242, 254, 0.3)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    {art}
+                  </button>
+                ))}
+              </div>
+
+              {/* Ligne 2 : Caractères Spéciaux Allemands (en bas) */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', justifyContent: 'center' }}>
+                {['ä', 'ö', 'ü', 'ß'].map(char => (
+                  <button
+                    key={char}
+                    type="button"
+                    onClick={() => handleSpecialCharClick(char)}
+                    style={{
+                      padding: '0.25rem 0.6rem',
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: '8px',
+                      color: '#f8fafc',
+                      fontSize: '0.8rem',
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    {char}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
