@@ -445,6 +445,8 @@ body {
               box-shadow 0.12s var(--spring-snappy, cubic-bezier(0.16, 1, 0.3, 1)),
               filter 0.12s ease;
   will-change: transform, box-shadow;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 /* Primary Button (3D Soft Neumorphic & Depth) */
@@ -557,15 +559,18 @@ body {
   box-shadow: none !important;
 }
 
-/* Error Shake Animation (Task 1) */
+/* Error Shake Animation (Task 1) - GPU Hardware Accelerated */
 @keyframes errorShake {
-  0%, 100% { transform: translateX(0); }
-  15%, 45%, 75% { transform: translateX(-8px) rotate(-1deg); }
-  30%, 60%, 90% { transform: translateX(8px) rotate(1deg); }
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  15%, 45%, 75% { transform: translate3d(-8px, 0, 0) rotate(-1deg); }
+  30%, 60%, 90% { transform: translate3d(8px, 0, 0) rotate(1deg); }
 }
 
 .error-shake {
   animation: errorShake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both !important;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 /* Cards */
@@ -1524,13 +1529,16 @@ h1, h2, h3, h4 {
 ========================================= */
 
 @keyframes shake {
-  0%, 100% { transform: translateX(0) rotate(0deg); }
-  15%, 45%, 75% { transform: translateX(-9px) rotate(-1.5deg); }
-  30%, 60%, 90% { transform: translateX(9px) rotate(1.5deg); }
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  15%, 45%, 75% { transform: translate3d(-9px, 0, 0) rotate(-1.5deg); }
+  30%, 60%, 90% { transform: translate3d(9px, 0, 0) rotate(1.5deg); }
 }
 
 .shake-effect {
   animation: shake 0.45s cubic-bezier(.36,.07,.19,.97) both !important;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 @keyframes fireGlow {
@@ -1707,6 +1715,8 @@ h1, h2, h3, h4 {
   z-index: 10;
   transition: transform 0.2s ease, border-color 0.2s ease;
   box-sizing: border-box;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .vengeance-game-box.correct-flash {
@@ -1726,13 +1736,18 @@ h1, h2, h3, h4 {
   border-radius: 999px;
   overflow: hidden;
   margin-bottom: 1.5rem;
+  transform: translateZ(0);
 }
 
 .vengeance-timer-bar {
   height: 100%;
+  width: 100%;
   background: linear-gradient(90deg, #ef4444, #f97316, #fbbf24);
   border-radius: 999px;
-  transition: width 0.1s linear;
+  transform-origin: left center;
+  transition: transform 0.1s linear;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .vengeance-hearts-row {

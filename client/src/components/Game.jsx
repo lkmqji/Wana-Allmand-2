@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { formatPlayerName, extractEmoji, generateBurstParticles } from '../utils/formatters';
 import { useSoundEffects } from '../context/AudioContext';
 import UserProfileModal from './UserProfileModal';
@@ -21,6 +21,154 @@ const PAUSE_PRESET_PHRASES = [
   "J'arrive !"
 ];
 
+/**
+ * Isolated GameTimerBadge Component
+ * Updates at 10Hz locally without causing the Game or Input components to re-render.
+ */
+const GameTimerBadge = React.memo(function GameTimerBadge({
+  initialDuration = 15,
+  isFrozenOrPaused,
+  hasAnswered,
+  roundResult,
+  onTimeout,
+  timeRef,
+  playTimeWarning
+}) {
+  const [timeRemaining, setTimeRemaining] = useState(initialDuration);
+
+  useEffect(() => {
+    setTimeRemaining(initialDuration);
+    if (timeRef) timeRef.current = initialDuration;
+  }, [initialDuration, timeRef]);
+
+  // Warning sound ticker
+  const rounded = Math.ceil(timeRemaining);
+  useEffect(() => {
+    if (rounded <= 5 && rounded > 0 && !hasAnswered && !roundResult && !isFrozenOrPaused && playTimeWarning) {
+      playTimeWarning();
+    }
+  }, [rounded, hasAnswered, roundResult, isFrozenOrPaused, playTimeWarning]);
+
+  useEffect(() => {
+    let interval;
+    if (timeRemaining > 0 && !hasAnswered && !roundResult && !isFrozenOrPaused) {
+      interval = setInterval(() => {
+        setTimeRemaining(t => {
+          const next = Math.max(0, parseFloat((t - 0.1).toFixed(2)));
+          if (timeRef) timeRef.current = next;
+          if (next <= 0.05) {
+            clearInterval(interval);
+            if (onTimeout) onTimeout();
+            return 0;
+          }
+          return next;
+        });
+      }, 100);
+    }
+    return () => clearInterval(interval);
+  }, [timeRemaining, hasAnswered, roundResult, isFrozenOrPaused, onTimeout, timeRef]);
+
+  if (roundResult) return null;
+
+  const displaySec = Math.ceil(timeRemaining);
+  const isDanger = timeRemaining < 5;
+
+  return (
+    <div
+      className={`timer ${isDanger ? 'danger' : ''}`}
+      style={{
+        position: 'absolute',
+        top: '1rem',
+        left: '1rem',
+        fontSize: '1.2rem',
+        fontWeight: 'bold',
+        margin: 0,
+        color: isDanger ? 'var(--danger)' : 'var(--warning)',
+        willChange: 'transform',
+        transform: 'translateZ(0)'
+      }}
+    >
+      ⏳ {displaySec}s
+    </div>
+  );
+});
+
+/**
+ * Isolated GameInputForm Component
+ * Manages typing input locally with 0ms lag and hardware-accelerated transitions.
+ */
+const GameInputForm = React.memo(function GameInputForm({
+  onSubmit,
+  disabled,
+  placeholder,
+  isFrozen,
+  inputRef
+}) {
+  const [localAnswer, setLocalAnswer] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (disabled) return;
+    onSubmit(localAnswer);
+    setLocalAnswer('');
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ margin: '0 auto 1.5rem auto', width: '100%', maxWidth: '400px', position: 'relative' }}>
+      <input
+        ref={inputRef}
+        autoFocus
+        type="text"
+        className="input-field"
+        value={localAnswer}
+        onChange={(e) => setLocalAnswer(e.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        style={{ 
+          textAlign: 'left', 
+          fontSize: '1.25rem', 
+          padding: '1rem 3.5rem 1rem 1.5rem', 
+          borderRadius: '30px',
+          borderColor: isFrozen ? '#38bdf8' : 'var(--border-color)',
+          width: '100%',
+          transform: 'translateZ(0)',
+          willChange: 'border-color'
+        }}
+        autoComplete="off"
+      />
+      <button 
+        type="submit" 
+        style={{ 
+          position: 'absolute',
+          right: '6px',
+          top: '50%',
+          transform: 'translateY(-50%) translateZ(0)',
+          width: '44px',
+          height: '44px',
+          borderRadius: '50%',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 0,
+          background: 'var(--primary)',
+          border: 'none',
+          cursor: 'pointer',
+          opacity: (disabled || !localAnswer.trim()) ? 0.5 : 1,
+          transition: 'all 0.2s',
+          flexShrink: 0,
+          willChange: 'opacity, transform'
+        }}
+        disabled={disabled || !localAnswer.trim()}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      </button>
+    </form>
+  );
+});
+
 export default function Game({ socket, session, playerName = '', avatar = '🦊', chatMessages = [], setChatMessages }) {
   const {
     playMessageSent,
@@ -40,8 +188,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const [question, setQuestion] = useState('');
   const [questionIndex, setQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(session?.settings?.rounds || 0);
-  const [timeRemaining, setTimeRemaining] = useState(15);
-  const [answer, setAnswer] = useState('');
+  const [initialRoundDuration, setInitialRoundDuration] = useState(15);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [roundResult, setRoundResult] = useState(null); // { players: {}, correctAnswer: '' }
   const [players, setPlayers] = useState(session?.players || {});
@@ -86,7 +233,43 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const [overtakerId, setOvertakerId] = useState(null);
   
   const inputRef = useRef(null);
+  const timeRemainingRef = useRef(15);
+  const hasAnsweredRef = useRef(hasAnswered);
+  const isGameFrozenOrPausedRef = useRef(false);
+  const sessionRef = useRef(session);
+  const toastTimeoutRef = useRef(null);
+  const overtakerTimeoutRef = useRef(null);
+  const flashTimeoutRef = useRef(null);
+  const audioTimeoutRef = useRef(null);
+
   const [flashEffect, setFlashEffect] = useState(null); // 'success' | 'error' | null
+
+  useEffect(() => {
+    hasAnsweredRef.current = hasAnswered;
+  }, [hasAnswered]);
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+
+  const isGameFrozenOrPaused = isPaused || leaveRequestState !== 'none' || disconnectGrace.disconnected;
+
+  useEffect(() => {
+    isGameFrozenOrPausedRef.current = isGameFrozenOrPaused;
+  }, [isGameFrozenOrPaused]);
+
+  // Cancel any active SpeechSynthesis on unmount to avoid memory/audio leaks
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      if (overtakerTimeoutRef.current) clearTimeout(overtakerTimeoutRef.current);
+      if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
+      if (audioTimeoutRef.current) clearTimeout(audioTimeoutRef.current);
+    };
+  }, []);
 
   // Force auto-focus on input whenever a new word is displayed or round becomes active (Task 3)
   useEffect(() => {
@@ -99,13 +282,16 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
 
   const showToast = (text, type = 'info') => {
     setToastMessage({ text, type });
-    setTimeout(() => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => {
       setToastMessage(null);
     }, 3500);
   };
 
   const playAudio = (text) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
     try {
+      window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'de-DE'; // German
       window.speechSynthesis.speak(utterance);
@@ -113,56 +299,6 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       console.error(e);
     }
   };
-
-  const playFeedbackSound = (isSuccess) => {
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
-      const osc = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      osc.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      
-      if (isSuccess) {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(500, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(1000, ctx.currentTime + 0.1);
-        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-      } else {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(300, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2);
-        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-      }
-      osc.start();
-      osc.stop(ctx.currentTime + 0.3);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  // Timer: frozen when game is paused, disconnected, or when leave request is active
-  const isGameFrozenOrPaused = isPaused || leaveRequestState !== 'none' || disconnectGrace.disconnected;
-
-  useEffect(() => {
-    let interval;
-    if (timeRemaining > 0 && !hasAnswered && !roundResult && !isGameFrozenOrPaused) {
-      interval = setInterval(() => {
-        setTimeRemaining(t => {
-          if (t <= 0.1) {
-            clearInterval(interval);
-            submitAnswer('');
-            return 0;
-          }
-          return t - 0.1;
-        });
-      }, 100);
-    }
-    return () => clearInterval(interval);
-  }, [timeRemaining, hasAnswered, roundResult, isGameFrozenOrPaused]);
 
   // Disconnect Grace 30s timer ticker
   useEffect(() => {
@@ -203,7 +339,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     if (currentLeader && leaderId !== currentLeader) {
       if (leaderId !== null) {
         setOvertakerId(currentLeader);
-        setTimeout(() => setOvertakerId(null), 1500);
+        if (overtakerTimeoutRef.current) clearTimeout(overtakerTimeoutRef.current);
+        overtakerTimeoutRef.current = setTimeout(() => setOvertakerId(null), 1500);
       }
       setLeaderId(currentLeader);
     }
@@ -231,15 +368,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     if (question && !roundResult && !isPaused) {
       playCountdownGo();
     }
-  }, [questionIndex, question]);
-
-  // Time warning (<= 5 seconds) tension sound ticker
-  const roundedTime = Math.ceil(timeRemaining);
-  useEffect(() => {
-    if (roundedTime <= 5 && roundedTime > 0 && !hasAnswered && !roundResult && !isGameFrozenOrPaused) {
-      playTimeWarning();
-    }
-  }, [roundedTime, hasAnswered, roundResult, isGameFrozenOrPaused, playTimeWarning]);
+  }, [questionIndex, question, roundResult, isPaused, playCountdownGo]);
 
   // Socket Events
   useEffect(() => {
@@ -247,9 +376,10 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       setQuestion(data.question);
       setQuestionIndex(data.questionIndex);
       setTotalQuestions(data.totalQuestions);
-      setTimeRemaining(data.duration);
-      setAnswer('');
+      setInitialRoundDuration(data.duration || 15);
+      timeRemainingRef.current = data.duration || 15;
       setHasAnswered(false);
+      hasAnsweredRef.current = false;
       setJokerHint('');
       setRoundResult(null);
       setIAmReady(false);
@@ -258,11 +388,13 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       setPauseData(null);
       setLeaveRequestState('none');
       setDisconnectGrace({ disconnected: false, playerName: '', secondsRemaining: 30 });
-      setTimeout(() => inputRef.current?.focus(), 100);
+      if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
+      focusTimeoutRef.current = setTimeout(() => inputRef.current?.focus(), 100);
     };
 
     const onRoundResults = (result) => {
       setHasAnswered(true);
+      hasAnsweredRef.current = true;
       setRoundResult(result);
       setPlayers(result.players);
       
@@ -278,14 +410,16 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             } else {
               playError();
             }
-            setTimeout(() => setFlashEffect(null), 1000);
+            if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
+            flashTimeoutRef.current = setTimeout(() => setFlashEffect(null), 1000);
           }
           return prevIndex;
         });
       }
 
       if (result.correctAnswer) {
-        setTimeout(() => playAudio(result.correctAnswer), 500);
+        if (audioTimeoutRef.current) clearTimeout(audioTimeoutRef.current);
+        audioTimeoutRef.current = setTimeout(() => playAudio(result.correctAnswer), 500);
       }
     };
 
@@ -298,7 +432,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     };
 
     const onOpponentAnswered = (data) => {
-      if (data?.playerId !== socket.id && !hasAnswered) {
+      if (data?.playerId !== socket.id && !hasAnsweredRef.current) {
         playOpponentAnswered();
       }
     };
@@ -307,7 +441,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       setIsPaused(true);
       setPauseData(data);
       if (typeof data.timeRemaining === 'number') {
-        setTimeRemaining(data.timeRemaining);
+        timeRemainingRef.current = data.timeRemaining;
+        setInitialRoundDuration(data.timeRemaining);
       }
     };
 
@@ -317,7 +452,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       setLeaveRequestState('none');
       setDisconnectGrace({ disconnected: false, playerName: '', secondsRemaining: 30 });
       if (typeof data?.timeRemaining === 'number') {
-        setTimeRemaining(data.timeRemaining);
+        timeRemainingRef.current = data.timeRemaining;
+        setInitialRoundDuration(data.timeRemaining);
       }
     };
 
@@ -371,7 +507,6 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           return [...prev, msg];
         });
       }
-      // Only display floating bubble if not from local player (local bubble already rendered optimistically)
       if (msg.senderId !== socket?.id) {
         setFloatingBubbles(prev => [...prev.slice(-3), msg]);
         setTimeout(() => {
@@ -437,17 +572,18 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       socket.off('floating_reaction_burst', handleReactionBurst);
       socket.off('floating_reaction', handleReactionBurst);
     };
-  }, [socket, hasAnswered, playCountdownGo, playSuccess, playError, playFreeze, playOpponentAnswered, playCountdownTick, playReactionBurst]);
+  }, [socket, playCountdownGo, playSuccess, playError, playFreeze, playOpponentAnswered, playCountdownTick, playReactionBurst]);
 
-  const submitAnswer = (ans = answer) => {
-    if (hasAnswered || isGameFrozenOrPaused) return;
+  const submitAnswer = useCallback((ans = '') => {
+    if (hasAnsweredRef.current || isGameFrozenOrPausedRef.current) return;
     setHasAnswered(true);
+    hasAnsweredRef.current = true;
     socket.emit('submit_answer', {
-      sessionId: session?.id,
+      sessionId: sessionRef.current?.id,
       answer: ans,
-      timeRemaining
+      timeRemaining: timeRemainingRef.current
     });
-  };
+  }, [socket]);
 
   const handleUseJoker = () => {
     if (jokers > 0 && !hasAnswered && !isGameFrozenOrPaused) {
@@ -1521,11 +1657,15 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             {questionIndex + 1} / {totalQuestions}
           </div>
 
-          {!roundResult && (
-            <div className={`timer ${timeRemaining < 5 ? 'danger' : ''}`} style={{ position: 'absolute', top: '1rem', left: '1rem', fontSize: '1.2rem', fontWeight: 'bold', margin: 0, color: timeRemaining < 5 ? 'var(--danger)' : 'var(--warning)' }}>
-              ⏳ {Math.ceil(timeRemaining)}s
-            </div>
-          )}
+          <GameTimerBadge
+            initialDuration={initialRoundDuration}
+            isFrozenOrPaused={isGameFrozenOrPaused}
+            hasAnswered={hasAnswered}
+            roundResult={roundResult}
+            onTimeout={() => submitAnswer('')}
+            timeRef={timeRemainingRef}
+            playTimeWarning={playTimeWarning}
+          />
           
           {/* Mot à traduire */}
           <div style={{ marginTop: '1.5rem' }}>
@@ -1539,56 +1679,14 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
 
           {!roundResult ? (
             <div style={{ display: 'block', marginTop: '2.5rem' }}>
-              {/* Champ de saisie avec flèche */}
-              <form onSubmit={handleSubmit} style={{ margin: '0 auto 1.5rem auto', width: '100%', maxWidth: '400px', position: 'relative' }}>
-                <input
-                  ref={inputRef}
-                  autoFocus
-                  type="text"
-                  className="input-field"
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  placeholder={isFrozen ? "GELÉ..." : "Ex: der Tisch"}
-                  disabled={hasAnswered || isFrozen || isGameFrozenOrPaused}
-                  style={{ 
-                    textAlign: 'left', 
-                    fontSize: '1.25rem', 
-                    padding: '1rem 3.5rem 1rem 1.5rem', 
-                    borderRadius: '30px',
-                    borderColor: isFrozen ? '#38bdf8' : 'var(--border-color)',
-                    width: '100%',
-                  }}
-                  autoComplete="off"
-                />
-                <button 
-                  type="submit" 
-                  style={{ 
-                    position: 'absolute',
-                    right: '6px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: '44px',
-                    height: '44px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    padding: 0,
-                    background: 'var(--primary)',
-                    border: 'none',
-                    cursor: 'pointer',
-                    opacity: (hasAnswered || !answer.trim() || isFrozen || isGameFrozenOrPaused) ? 0.5 : 1,
-                    transition: 'all 0.2s',
-                    flexShrink: 0,
-                  }}
-                  disabled={hasAnswered || !answer.trim() || isFrozen || isGameFrozenOrPaused}
-                >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                    <polyline points="12 5 19 12 12 19"></polyline>
-                  </svg>
-                </button>
-              </form>
+              {/* Champ de saisie instantané avec flèche */}
+              <GameInputForm
+                onSubmit={submitAnswer}
+                disabled={hasAnswered || isFrozen || isGameFrozenOrPaused}
+                placeholder={isFrozen ? "GELÉ..." : "Ex: der Tisch"}
+                isFrozen={isFrozen}
+                inputRef={inputRef}
+              />
 
               {/* Joker Button */}
               <div style={{ position: 'relative', display: 'inline-block' }}>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import { exampleLists } from '../data/exampleLists';
 import { resolveWordPair } from '../utils/dictionary';
@@ -160,6 +160,80 @@ function renderFaultComparison(wrongAttempt, expected) {
   );
 }
 
+/**
+ * Isolated VengeanceTimerBar Component
+ * Updates at 10Hz without forcing full VengeanceMode and input re-renders.
+ * Uses GPU transform: scaleX() for ultra-smooth 60/120fps hardware acceleration.
+ */
+const VengeanceTimerBar = React.memo(function VengeanceTimerBar({
+  isPlaying,
+  isCompleted,
+  currentWordId,
+  isAnswering,
+  mustTypeCorrection,
+  onTimeout,
+  playTimeWarning
+}) {
+  const [timeLeft, setTimeLeft] = useState(ROUND_DURATION);
+
+  useEffect(() => {
+    if (!isPlaying || isCompleted || !currentWordId || isAnswering || mustTypeCorrection) {
+      return;
+    }
+
+    setTimeLeft(ROUND_DURATION);
+
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 0.1) {
+          clearInterval(interval);
+          if (onTimeout) onTimeout();
+          return 0;
+        }
+        return Math.max(0, parseFloat((prev - 0.1).toFixed(2)));
+      });
+    }, 100);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [isPlaying, isCompleted, currentWordId, isAnswering, mustTypeCorrection, onTimeout]);
+
+  // Warning sound ticker
+  const rounded = Math.ceil(timeLeft);
+  useEffect(() => {
+    if (
+      isPlaying &&
+      rounded <= 5 &&
+      rounded > 0 &&
+      !isAnswering &&
+      !isCompleted &&
+      !mustTypeCorrection &&
+      currentWordId &&
+      playTimeWarning
+    ) {
+      playTimeWarning();
+    }
+  }, [isPlaying, rounded, isAnswering, isCompleted, mustTypeCorrection, currentWordId, playTimeWarning]);
+
+  const progress = mustTypeCorrection ? 1 : Math.max(0, Math.min(1, timeLeft / ROUND_DURATION));
+  const isDanger = timeLeft < 3;
+
+  return (
+    <div className="vengeance-timer-track">
+      <div
+        className="vengeance-timer-bar"
+        style={{
+          transform: `scaleX(${progress}) translateZ(0)`,
+          background: mustTypeCorrection
+            ? 'rgba(239, 68, 68, 0.5)'
+            : (isDanger ? '#ef4444' : 'linear-gradient(90deg, #ef4444, #f97316, #fbbf24)')
+        }}
+      />
+    </div>
+  );
+});
+
 export default function VengeanceMode({
   failedWords = [],
   user,
@@ -235,7 +309,6 @@ export default function VengeanceMode({
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [inputVal, setInputVal] = useState('');
-  const [timeLeft, setTimeLeft] = useState(ROUND_DURATION);
   const [isAnswering, setIsAnswering] = useState(false);
   const [feedback, setFeedback] = useState(null);
   
@@ -250,16 +323,34 @@ export default function VengeanceMode({
   const [isCompleted, setIsCompleted] = useState(false);
 
   const inputRef = useRef(null);
-  const timerRef = useRef(null);
+  const shakeTimeoutRef = useRef(null);
+  const feedbackTimeoutRef = useRef(null);
+  const explodeTimeoutRef = useRef(null);
+  const confettiTimeoutRef = useRef(null);
+  const focusTimeoutRef = useRef(null);
 
   const currentWord = queue[currentIndex] || null;
+
+  // Cancel SpeechSynthesis and clear all timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      if (shakeTimeoutRef.current) clearTimeout(shakeTimeoutRef.current);
+      if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+      if (explodeTimeoutRef.current) clearTimeout(explodeTimeoutRef.current);
+      if (confettiTimeoutRef.current) clearTimeout(confettiTimeoutRef.current);
+      if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
+    };
+  }, []);
 
   // Task 1: ANTI-CHEAT - Only play sound ticker on new word appearance, DO NOT speak German word in advance!
   useEffect(() => {
     if (isPlaying && currentWord && !isCompleted && !feedback && !mustTypeCorrection) {
       playCountdownGo();
     }
-  }, [isPlaying, currentIndex, currentWord?.id, isCompleted, mustTypeCorrection]);
+  }, [isPlaying, currentIndex, currentWord?.id, isCompleted, mustTypeCorrection, feedback, playCountdownGo]);
 
   // Task 1: Speak German word when active correction is triggered (Error pedagogy)
   useEffect(() => {
@@ -300,29 +391,12 @@ export default function VengeanceMode({
     }
   }, [isCompleted, progressStorageKey]);
 
-  // Time warning ticker in Vengeance Mode
-  const roundedVengeanceTime = Math.ceil(timeLeft);
-  useEffect(() => {
-    if (
-      isPlaying &&
-      roundedVengeanceTime <= 5 &&
-      roundedVengeanceTime > 0 &&
-      !isAnswering &&
-      !feedback &&
-      !isCompleted &&
-      !mustTypeCorrection &&
-      currentWord
-    ) {
-      playTimeWarning();
-    }
-  }, [isPlaying, roundedVengeanceTime, isAnswering, feedback, isCompleted, mustTypeCorrection, currentWord, playTimeWarning]);
-
   // Auto-focus input on active screen
   useEffect(() => {
     if (isPlaying && !isAnswering && !isCompleted) {
       inputRef.current?.focus();
-      const t = setTimeout(() => inputRef.current?.focus(), 50);
-      return () => clearTimeout(t);
+      if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
+      focusTimeoutRef.current = setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isPlaying, currentIndex, isAnswering, isCompleted, feedback, mustTypeCorrection, currentWord]);
 
@@ -336,7 +410,8 @@ export default function VengeanceMode({
           origin: { y: 0.55 },
           colors: ['#ef4444', '#f97316', '#fbbf24', '#dc2626', '#ffd700']
         });
-        setTimeout(() => {
+        if (confettiTimeoutRef.current) clearTimeout(confettiTimeoutRef.current);
+        confettiTimeoutRef.current = setTimeout(() => {
           confetti({
             particleCount: 80,
             angle: 60,
@@ -358,44 +433,25 @@ export default function VengeanceMode({
     }
   }, [isCompleted]);
 
-  // Countdown timer
-  useEffect(() => {
-    if (!isPlaying || isCompleted || !currentWord || isAnswering || mustTypeCorrection) return;
-
-    setTimeLeft(ROUND_DURATION);
-
-    const interval = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 0.1) {
-          clearInterval(interval);
-          handleTimeout();
-          return 0;
-        }
-        return Math.max(0, parseFloat((prev - 0.1).toFixed(2)));
-      });
-    }, 100);
-
-    timerRef.current = interval;
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [isPlaying, currentIndex, isAnswering, isCompleted, mustTypeCorrection, queue.length]);
-
-  const handleTimeout = () => {
+  const handleTimeout = useCallback(() => {
     if (isAnswering || !currentWord || mustTypeCorrection) return;
     
     playError();
     setIsShaking(true);
-    setTimeout(() => setIsShaking(false), 500);
+    if (shakeTimeoutRef.current) clearTimeout(shakeTimeoutRef.current);
+    shakeTimeoutRef.current = setTimeout(() => setIsShaking(false), 500);
 
     // Reset hearts to 0
-    const updatedQueue = [...queue];
-    updatedQueue[currentIndex] = {
-      ...updatedQueue[currentIndex],
-      hearts: 0
-    };
-    setQueue(updatedQueue);
+    setQueue(prevQueue => {
+      const updatedQueue = [...prevQueue];
+      if (updatedQueue[currentIndex]) {
+        updatedQueue[currentIndex] = {
+          ...updatedQueue[currentIndex],
+          hearts: 0
+        };
+      }
+      return updatedQueue;
+    });
 
     // Task 1: Pronounce correct German word upon mistake/timeout
     speakGermanWord(currentWord.word, isSoundEnabled);
@@ -405,7 +461,7 @@ export default function VengeanceMode({
     setMustTypeCorrection(true);
     setCorrectionText(currentWord.word);
     setInputVal('');
-  };
+  }, [isAnswering, currentWord, mustTypeCorrection, currentIndex, inputVal, isSoundEnabled, playError]);
 
   const handleSubmit = (e) => {
     if (e) e.preventDefault();
@@ -431,14 +487,13 @@ export default function VengeanceMode({
         // Retype mistake
         setIsShaking(true);
         playError();
-        setTimeout(() => setIsShaking(false), 500);
+        if (shakeTimeoutRef.current) clearTimeout(shakeTimeoutRef.current);
+        shakeTimeoutRef.current = setTimeout(() => setIsShaking(false), 500);
       }
       return;
     }
 
     if (isAnswering) return;
-
-    if (timerRef.current) clearInterval(timerRef.current);
     setIsAnswering(true);
 
     const isCorrect = checkVengeanceAnswer(currentWord.word, inputVal);
@@ -482,7 +537,8 @@ export default function VengeanceMode({
           onPurify(wordToPurify, { xpBonus: 50 });
         }
 
-        setTimeout(() => {
+        if (explodeTimeoutRef.current) clearTimeout(explodeTimeoutRef.current);
+        explodeTimeoutRef.current = setTimeout(() => {
           setIsExploding(false);
           setFeedback(null);
           setInputVal('');
@@ -514,7 +570,8 @@ export default function VengeanceMode({
           expected: currentWord.word
         });
 
-        setTimeout(() => {
+        if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+        feedbackTimeoutRef.current = setTimeout(() => {
           setFeedback(null);
           setInputVal('');
           setIsAnswering(false);
@@ -528,7 +585,8 @@ export default function VengeanceMode({
       setIsAnswering(false);
       setIsShaking(true);
       playError();
-      setTimeout(() => setIsShaking(false), 500);
+      if (shakeTimeoutRef.current) clearTimeout(shakeTimeoutRef.current);
+      shakeTimeoutRef.current = setTimeout(() => setIsShaking(false), 500);
 
       const updatedQueue = [...queue];
       updatedQueue[currentIndex] = {
@@ -1072,16 +1130,16 @@ export default function VengeanceMode({
         className={`vengeance-game-box ${feedback?.type === 'success' || feedback?.type === 'purify' ? 'correct-flash' : ''} ${feedback?.type === 'wrong' || mustTypeCorrection ? 'wrong-flash' : ''} ${isExploding ? 'heart-icon-active' : ''}`}
       >
         
-        {/* Visual Timer Bar */}
-        <div className="vengeance-timer-track">
-          <div
-            className="vengeance-timer-bar"
-            style={{
-              width: mustTypeCorrection ? '100%' : `${timerPercent}%`,
-              background: mustTypeCorrection ? 'rgba(239, 68, 68, 0.5)' : (timeLeft < 3 ? '#ef4444' : 'linear-gradient(90deg, #ef4444, #f97316, #fbbf24)')
-            }}
-          />
-        </div>
+        {/* Visual Timer Bar (GPU Accelerated & Isolated) */}
+        <VengeanceTimerBar
+          isPlaying={isPlaying}
+          isCompleted={isCompleted}
+          currentWordId={currentWord.id}
+          isAnswering={isAnswering}
+          mustTypeCorrection={mustTypeCorrection}
+          onTimeout={handleTimeout}
+          playTimeWarning={playTimeWarning}
+        />
 
         {/* 3 Hearts Meter */}
         <div className="vengeance-hearts-row" title={`Cœurs : ${heartsCount}/3`}>

@@ -158,6 +158,22 @@ class SFXManager {
     return Promise.resolve();
   }
 
+  // Dispose and close AudioContext safely
+  dispose() {
+    if (this.ctx && this.ctx.state !== 'closed') {
+      try {
+        this.ctx.close();
+      } catch (e) {
+        console.debug('Error closing AudioContext:', e);
+      }
+      this.ctx = null;
+      this.masterGainNode = null;
+      this.sfxGainNode = null;
+      this.compressorNode = null;
+      this.audioUnlocked = false;
+    }
+  }
+
   // ==========================================
   // 1. BASE UI SOUNDS
   // ==========================================

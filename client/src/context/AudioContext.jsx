@@ -65,8 +65,18 @@ export function AudioProvider({ children }) {
   const isMusicMutedRef = useRef(isMusicMuted);
   const isInGameRef = useRef(isInGame);
   const isGameMusicMutedRef = useRef(isGameMusicMuted);
+  const masterVolumeRef = useRef(masterVolume);
+  const bgmVolumeRef = useRef(bgmVolume);
   const hasInteractedRef = useRef(false);
   const bgmRef = useRef(null);
+
+  useEffect(() => {
+    masterVolumeRef.current = masterVolume;
+  }, [masterVolume]);
+
+  useEffect(() => {
+    bgmVolumeRef.current = bgmVolume;
+  }, [bgmVolume]);
 
   // Sync isSoundEnabled state to ref and localStorage
   useEffect(() => {
@@ -402,7 +412,7 @@ export function AudioProvider({ children }) {
       // Start BGM if sound is enabled & not muted
       const isMuted = !isSoundEnabledRef.current || isMusicMutedRef.current || (isInGameRef.current && isGameMusicMutedRef.current);
       if (!isMuted && bgmRef.current) {
-        const finalBgmVol = Math.max(0, Math.min(1, masterVolume * bgmVolume * 0.12));
+        const finalBgmVol = Math.max(0, Math.min(1, masterVolumeRef.current * bgmVolumeRef.current * 0.12));
         bgmRef.current.volume = finalBgmVol;
         bgmRef.current.play().catch(e => {
           console.debug('BGM autoplay on interaction notice:', e);
@@ -468,7 +478,7 @@ export function AudioProvider({ children }) {
       document.removeEventListener('mouseover', handleMouseOver);
       document.removeEventListener('click', handleClick);
     };
-  }, [masterVolume, bgmVolume]);
+  }, []);
 
   const value = {
     isSoundEnabled,
