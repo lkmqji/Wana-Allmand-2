@@ -67,3 +67,12 @@
   - Suppression des versions majuscules `Ä`, `Ö`, `Ü` dans la barre virtuelle du Mode Vengeance pour ne conserver que les caractères minuscules usuels : `ä`, `ö`, `ü`, `ß`.
 - **Ajout des boutons rapides des pronoms/articles et caractères spéciaux dans la carte de Duel principale (Game.jsx)** :
   - Intégration de la barre de boutons rapides (`der`, `die`, `das` et `ä`, `ö`, `ü`, `ß`) directement sous le champ de saisie dans le composant [Game.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/Game.jsx) (`GameInputForm`). Un simple clic insère ou remplace l'article ou le caractère spécial tout en maintenant le focus actif pour une frappe ultra-rapide.
+
+## Entrée : 2026-08-29 20:40:00 (UTC+01:00)
+- **Annulation et retour à l'état initial du projet (Revert Android/Capacitor)** :
+  - Suppression complète du dossier [client/android](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/android) et du fichier de configuration [client/capacitor.config.json](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/capacitor.config.json).
+  - Désinstallation des dépendances Capacitor (`@capacitor/core`, `@capacitor/cli`, `@capacitor/android`) et restauration du fichier [client/package.json](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/package.json).
+  - Restauration de l'état propre initial du projet Web/PWA.
+
+
+
