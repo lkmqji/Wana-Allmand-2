@@ -168,26 +168,40 @@ function renderFaultComparison(wrongAttempt, expected) {
 const VengeanceTimerBar = React.memo(function VengeanceTimerBar({
   isPlaying,
   isCompleted,
-  currentWordId,
+  currentWordKey,
   isAnswering,
   mustTypeCorrection,
   onTimeout,
   playTimeWarning
 }) {
   const [timeLeft, setTimeLeft] = useState(ROUND_DURATION);
+  const onTimeoutRef = useRef(onTimeout);
+  const playTimeWarningRef = useRef(playTimeWarning);
 
   useEffect(() => {
-    if (!isPlaying || isCompleted || !currentWordId || isAnswering || mustTypeCorrection) {
+    onTimeoutRef.current = onTimeout;
+  }, [onTimeout]);
+
+  useEffect(() => {
+    playTimeWarningRef.current = playTimeWarning;
+  }, [playTimeWarning]);
+
+  // Reset timer on new question or when game starts
+  useEffect(() => {
+    setTimeLeft(ROUND_DURATION);
+  }, [currentWordKey, isPlaying]);
+
+  // Run countdown interval
+  useEffect(() => {
+    if (!isPlaying || isCompleted || !currentWordKey || isAnswering || mustTypeCorrection) {
       return;
     }
-
-    setTimeLeft(ROUND_DURATION);
 
     const interval = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 0.1) {
           clearInterval(interval);
-          if (onTimeout) onTimeout();
+          if (onTimeoutRef.current) onTimeoutRef.current();
           return 0;
         }
         return Math.max(0, parseFloat((prev - 0.1).toFixed(2)));
@@ -197,7 +211,7 @@ const VengeanceTimerBar = React.memo(function VengeanceTimerBar({
     return () => {
       clearInterval(interval);
     };
-  }, [isPlaying, isCompleted, currentWordId, isAnswering, mustTypeCorrection, onTimeout]);
+  }, [isPlaying, isCompleted, currentWordKey, isAnswering, mustTypeCorrection]);
 
   // Warning sound ticker
   const rounded = Math.ceil(timeLeft);
@@ -209,12 +223,12 @@ const VengeanceTimerBar = React.memo(function VengeanceTimerBar({
       !isAnswering &&
       !isCompleted &&
       !mustTypeCorrection &&
-      currentWordId &&
-      playTimeWarning
+      currentWordKey &&
+      playTimeWarningRef.current
     ) {
-      playTimeWarning();
+      playTimeWarningRef.current();
     }
-  }, [isPlaying, rounded, isAnswering, isCompleted, mustTypeCorrection, currentWordId, playTimeWarning]);
+  }, [isPlaying, rounded, isAnswering, isCompleted, mustTypeCorrection, currentWordKey]);
 
   const progress = mustTypeCorrection ? 1 : Math.max(0, Math.min(1, timeLeft / ROUND_DURATION));
   const isDanger = timeLeft < 3;
@@ -433,6 +447,11 @@ export default function VengeanceMode({
     }
   }, [isCompleted]);
 
+  const inputValRef = useRef(inputVal);
+  useEffect(() => {
+    inputValRef.current = inputVal;
+  }, [inputVal]);
+
   const handleTimeout = useCallback(() => {
     if (isAnswering || !currentWord || mustTypeCorrection) return;
     
@@ -457,11 +476,11 @@ export default function VengeanceMode({
     speakGermanWord(currentWord.word, isSoundEnabled);
 
     // Trigger Active Correction mode with timeout
-    setWrongAttempt(inputVal || '');
+    setWrongAttempt(inputValRef.current || '');
     setMustTypeCorrection(true);
     setCorrectionText(currentWord.word);
     setInputVal('');
-  }, [isAnswering, currentWord, mustTypeCorrection, currentIndex, inputVal, isSoundEnabled, playError]);
+  }, [isAnswering, currentWord, mustTypeCorrection, currentIndex, isSoundEnabled, playError]);
 
   const handleSubmit = (e) => {
     if (e) e.preventDefault();
@@ -1133,7 +1152,7 @@ export default function VengeanceMode({
         <VengeanceTimerBar
           isPlaying={isPlaying}
           isCompleted={isCompleted}
-          currentWordId={currentWord.id}
+          currentWordKey={`${currentWord?.id || 0}_${currentIndex}`}
           isAnswering={isAnswering}
           mustTypeCorrection={mustTypeCorrection}
           onTimeout={handleTimeout}

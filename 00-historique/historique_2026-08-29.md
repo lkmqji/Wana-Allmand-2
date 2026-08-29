@@ -27,3 +27,9 @@
 - **Correction du bug d'affichage dans le Mode Vengeance** :
   - Résolution de l'erreur d'exécution `timeLeft is not defined` dans [VengeanceMode.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/VengeanceMode.jsx).
   - Suppression du reliquat `const timerPercent = (timeLeft / ROUND_DURATION) * 100;` devenu inutile depuis l'isolation du chronomètre dans le sous-composant `VengeanceTimerBar`.
+
+## Entrée : 2026-08-29 19:31:30 (UTC+01:00)
+- **Correction du reset du chronomètre à la frappe dans le Mode Vengeance** :
+  - Découplage de la réinitialisation de `timeLeft` dans [VengeanceMode.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/VengeanceMode.jsx) : le chronomètre ne se réinitialise désormais qu'au changement réel de mot (`currentWordKey`) ou au démarrage de la partie.
+  - Stabilisation des fonctions de rappel (`onTimeout`, `playTimeWarning`) via `useRef` pour éviter la réexécution de l'intervalle lors des rendus.
+  - Utilisation de `inputValRef` dans `handleTimeout` pour éliminer la dépendance directe à `inputVal` et garantir l'indépendance totale entre la saisie clavier et le décompte du temps.
