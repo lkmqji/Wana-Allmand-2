@@ -958,6 +958,11 @@ function handlePlayerLeave(sessionId, playerId) {
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
+    // Heartbeat applicatif (Solution 4)
+    socket.on('ping_app', () => {
+        socket.emit('pong_app');
+    });
+
     // Join personal user room for direct notifications
     socket.on('register_user', (firebaseId) => {
         if (firebaseId) {

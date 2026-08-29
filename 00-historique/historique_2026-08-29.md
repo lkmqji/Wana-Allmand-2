@@ -81,3 +81,10 @@
   - Serveur (`server/index.js`) : Augmentation de la tolÃ©rance aux micro-coupures rÃ©seau (4G/Tunnels) en ajustant le `pingInterval` Ã  25s et le `pingTimeout` Ã  60s.
   - Client (`useSocketEvent.js`) : Retrait de la condition bloquante (`typeof handler !== 'function'`) au montage du hook, permettant Ã  l'Ã©couteur d'Ãªtre attachÃ© mÃªme si le `handler` initial n'est pas encore dÃ©fini.
   - Audit : VÃ©rification complÃ¨te de l'absence de fuites d'Ã©couteurs "fantÃ´mes" `socket.on` dans `App.jsx` ; aucun nettoyage n'Ã©tait manquant.
+
+### 22:04 - Architecture Réseau Mobile Indestructible (Solutions 1, 2, 3, 4)
+- Ajout d'une déconnexion proactive (socket.disconnect()) lorsque l'application passe en arrière-plan pour éviter les sessions corrompues et les joueurs fantômes.
+- Ajout du rafraîchissement asynchrone du jeton Firebase (uth.currentUser.getIdToken(true)) avant de relancer la connexion au retour au premier plan.
+- Création d'un heartbeat applicatif côté client (ping/pong toutes les 25s) pour détecter les micro-coupures et fermer manuellement la socket si 3 pings sont perdus.
+- Ajout de l'écouteur ping_app côté serveur Express.
+- Maintien de la correction du crash 'Cannot access A before initialization' en conservant les états au-dessus du useEffect.

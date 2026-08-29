@@ -164,9 +164,51 @@ function App() {
 
   // Handle mobile sleep mode / robust wake-up to force socket reconnection
   useEffect(() => {
-    const handleWakeUp = () => {
-      // Si la page redevient visible/active
+    let heartbeatInterval;
+    let missedPings = 0;
+
+    // Heartbeat applicatif (Solution 4)
+    const startHeartbeat = () => {
+      clearInterval(heartbeatInterval);
+      missedPings = 0;
+      heartbeatInterval = setInterval(() => {
+        if (socket.connected) {
+          missedPings++;
+          if (missedPings >= 3) {
+            console.warn('Heartbeat failed 3 times, forcing reconnect...');
+            socket.disconnect();
+            setTimeout(() => socket.connect(), 1000);
+            missedPings = 0;
+          } else {
+            socket.emit('ping_app');
+          }
+        }
+      }, 25000);
+    };
+
+    const handlePong = () => {
+      missedPings = 0;
+    };
+
+    const handleWakeUp = async () => {
+      // Si la page passe en arrière-plan (Solution 1)
+      if (document.visibilityState === 'hidden') {
+        socket.disconnect();
+        clearInterval(heartbeatInterval);
+        return;
+      }
+
+      // Si la page redevient visible/active (Solution 3)
       if (document.visibilityState === 'visible' || !document.hidden) {
+        // Rafraîchissement asynchrone du token Firebase avant reconnexion
+        try {
+          if (auth.currentUser) {
+            await auth.currentUser.getIdToken(true);
+          }
+        } catch (e) {
+          console.warn('Error refreshing Firebase token:', e);
+        }
+
         if (socket.disconnected) {
           socket.connect();
         }
@@ -200,14 +242,23 @@ function App() {
         } catch (e) {
           console.error('Error auto-rejoining on wakeup:', e);
         }
+
+        startHeartbeat();
       }
     };
 
+    // Initialize listeners
+    socket.on('pong_app', handlePong);
     document.addEventListener('visibilitychange', handleWakeUp);
     window.addEventListener('focus', handleWakeUp);
     window.addEventListener('pageshow', handleWakeUp); // Fallback iOS
     
+    // Initial heartbeat start
+    startHeartbeat();
+
     return () => {
+      clearInterval(heartbeatInterval);
+      socket.off('pong_app', handlePong);
       document.removeEventListener('visibilitychange', handleWakeUp);
       window.removeEventListener('focus', handleWakeUp);
       window.removeEventListener('pageshow', handleWakeUp);
