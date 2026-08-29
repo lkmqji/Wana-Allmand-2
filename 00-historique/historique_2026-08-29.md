@@ -22,3 +22,8 @@
     - Refonte des animations de secousse (`errorShake` et `shake`) avec `translate3d(x, 0, 0)`, `transform: translateZ(0)` et `will-change: transform`.
     - Accélération matérielle GPU pour les boutons 3D (`.btn`, `.btn-primary`, `.btn-secondary`, `.btn-success`, `.btn-danger`) et les boîtes de jeu Glassmorphism (`.vengeance-game-box`, `.card`).
     - Animation de la jauge de temps de vengeance optimisée en GPU via `transform: scaleX(...)` pour éliminer les reflows/repaints layout à chaque dixième de seconde.
+
+## Entrée : 2026-08-29 19:22:00 (UTC+01:00)
+- **Correction du bug d'affichage dans le Mode Vengeance** :
+  - Résolution de l'erreur d'exécution `timeLeft is not defined` dans [VengeanceMode.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/VengeanceMode.jsx).
+  - Suppression du reliquat `const timerPercent = (timeLeft / ROUND_DURATION) * 100;` devenu inutile depuis l'isolation du chronomètre dans le sous-composant `VengeanceTimerBar`.

@@ -1057,7 +1057,6 @@ export default function VengeanceMode({
   }
 
   const heartsCount = currentWord.hearts || 0;
-  const timerPercent = (timeLeft / ROUND_DURATION) * 100;
 
   return (
     <div className={`vengeance-arena ${isShaking ? 'shake-effect' : ''}`}>
