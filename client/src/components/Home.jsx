@@ -44,6 +44,7 @@ export default function Home({
   onClearPwaCache,
   onStartVengeance,
   onStartSurvival,
+  onStartTugOfWar,
   onDeleteFailedWord,
   onEditFailedWord,
   onClearAllFailedWords
@@ -861,6 +862,7 @@ export default function Home({
                       onToggleSelect={() => toggleListSelection(list._id)}
                       onPlay={() => handleStartDirectSession(list.words)}
                       onPlaySurvival={onStartSurvival ? () => onStartSurvival(list.words, list.name) : null}
+                      onPlayTugOfWar={onStartTugOfWar ? () => onStartTugOfWar(list.words, list.name) : null}
                       onPreview={() => setPreviewList({ ...list, isEditable: true })}
                       onTogglePublic={() => togglePublicList(list._id, list.isPublic)}
                       onRename={(listToRename, newName) => handleRenameList(listToRename._id, newName)}
@@ -1135,6 +1137,7 @@ export default function Home({
                 list={{ ...list, isDefault: true, isOfficial: true }}
                 onPlay={() => handleStartDirectSession(list.words)}
                 onPlaySurvival={onStartSurvival ? () => onStartSurvival(list.words, list.title) : null}
+                onPlayTugOfWar={onStartTugOfWar ? () => onStartTugOfWar(list.words, list.title) : null}
                 onPreview={() => setPreviewList({ ...list, isEditable: false })}
               />
             ))}
@@ -1155,6 +1158,7 @@ export default function Home({
                   list={list}
                   onPlay={() => handleStartDirectSession(list.words)}
                   onPlaySurvival={onStartSurvival ? () => onStartSurvival(list.words, list.name || list.title) : null}
+                  onPlayTugOfWar={onStartTugOfWar ? () => onStartTugOfWar(list.words, list.name || list.title) : null}
                   onPreview={() => setPreviewList({ ...list, isEditable: false })}
                   onSelectCreator={setSelectedProfileUser}
                 />
@@ -1824,6 +1828,7 @@ export default function Home({
           onClose={() => setPreviewList(null)}
           onPlay={handleStartDirectSession}
           onPlaySurvival={onStartSurvival ? (words, name) => onStartSurvival(words, name) : null}
+          onPlayTugOfWar={onStartTugOfWar ? (words, name) => onStartTugOfWar(words, name) : null}
         />
       )}
 

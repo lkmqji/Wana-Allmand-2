@@ -26,6 +26,7 @@ export default function ListCard({
   onToggleSelect,
   onPlay,
   onPlaySurvival,
+  onPlayTugOfWar,
   onPreview,
   onTogglePublic,
   onRename,
@@ -434,6 +435,7 @@ export default function ListCard({
           <PlayDropdown
             onPlay={onPlay}
             onPlaySurvival={onPlaySurvival}
+            onPlayTugOfWar={onPlayTugOfWar}
             onOpenChange={setIsDropdownOpen}
             label="⚔️ JOUER"
           />

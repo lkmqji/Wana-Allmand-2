@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 export default function PlayDropdown({
   onPlay,
   onPlaySurvival,
+  onPlayTugOfWar,
   onSelectMode,
   selectedMode: controlledMode,
   label,
@@ -48,7 +49,9 @@ export default function PlayDropdown({
 
   const handleMainButtonClick = (e) => {
     e.stopPropagation();
-    if (currentMode === 'survival' && onPlaySurvival) {
+    if (currentMode === 'tug_of_war' && onPlayTugOfWar) {
+      onPlayTugOfWar();
+    } else if (currentMode === 'survival' && onPlaySurvival) {
       onPlaySurvival();
     } else if (onPlay) {
       onPlay();
@@ -57,9 +60,7 @@ export default function PlayDropdown({
 
   const handleArrowToggle = (e) => {
     e.stopPropagation();
-    if (onPlaySurvival) {
-      setIsOpen((prev) => !prev);
-    }
+    setIsOpen((prev) => !prev);
   };
 
   const handleSelectClassic = (e) => {
@@ -78,10 +79,46 @@ export default function PlayDropdown({
     if (!modeOnly && onPlaySurvival) onPlaySurvival();
   };
 
+  const handleSelectTugOfWar = (e) => {
+    e.stopPropagation();
+    setIsOpen(false);
+    setInternalMode('tug_of_war');
+    if (onSelectMode) onSelectMode('tug_of_war');
+    if (!modeOnly && onPlayTugOfWar) onPlayTugOfWar();
+  };
+
   // Determine label & styles based on active mode
   const isSurvival = currentMode === 'survival';
-  const displayLabel = label || (isSurvival ? '🔥 LANCER EN SURVIE' : '⚔️ JOUER');
-  const defaultClass = isSurvival ? 'btn btn-primary' : 'btn btn-success';
+  const isTugOfWar = currentMode === 'tug_of_war';
+
+  const displayLabel = label || (
+    isTugOfWar 
+      ? '⚡ TIR À LA CORDE' 
+      : isSurvival 
+        ? '🔥 LANCER EN SURVIE' 
+        : '⚔️ JOUER'
+  );
+
+  let dynamicBg = undefined;
+  let dynamicBorder = undefined;
+  let dynamicShadow = undefined;
+  let textColor = 'inherit';
+
+  if (isTugOfWar) {
+    dynamicBg = 'linear-gradient(135deg, #00f2fe 0%, #0284c7 100%)';
+    dynamicBorder = '#0284c7';
+    dynamicShadow = isOpen ? '0 0 20px rgba(0, 242, 254, 0.6)' : '0 4px 15px rgba(0, 242, 254, 0.35)';
+    textColor = '#000000';
+  } else if (isSurvival) {
+    dynamicBg = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+    dynamicBorder = '#b91c1c';
+    dynamicShadow = isOpen ? '0 0 16px rgba(239, 68, 68, 0.5)' : undefined;
+    textColor = '#ffffff';
+  } else {
+    dynamicShadow = isOpen ? '0 0 16px rgba(34, 197, 94, 0.4)' : undefined;
+  }
+
+  const defaultClass = isTugOfWar ? 'btn btn-info' : (isSurvival ? 'btn btn-primary' : 'btn btn-success');
 
   return (
     <div
@@ -103,10 +140,11 @@ export default function PlayDropdown({
           display: 'flex',
           alignItems: 'stretch',
           cursor: 'pointer',
-          boxShadow: isOpen ? (isSurvival ? '0 0 16px rgba(239, 68, 68, 0.4)' : '0 0 16px rgba(34, 197, 94, 0.4)') : undefined,
-          background: isSurvival ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : undefined,
-          borderColor: isSurvival ? '#b91c1c' : undefined,
+          boxShadow: dynamicShadow,
+          background: dynamicBg,
+          borderColor: dynamicBorder,
           overflow: 'hidden',
+          transition: 'all 0.2s ease',
           ...buttonStyle
         }}
       >
@@ -118,10 +156,10 @@ export default function PlayDropdown({
             flex: 1,
             background: 'transparent',
             border: 'none',
-            color: 'inherit',
+            color: textColor,
             padding: '0.65rem 0.8rem',
             fontSize: '0.88rem',
-            fontWeight: 800,
+            fontWeight: 900,
             letterSpacing: '0.5px',
             cursor: 'pointer',
             display: 'flex',
@@ -129,71 +167,75 @@ export default function PlayDropdown({
             justifyContent: 'center',
             gap: '0.4rem'
           }}
-          title={isSurvival ? "Lancer la session en Mode Survie (3 Vies)" : "Lancer la session en Mode Classique"}
+          title={
+            isTugOfWar 
+              ? "Lancer le Mode Tir à la Corde (Rayon Énergétique vs Bot)" 
+              : isSurvival 
+                ? "Lancer la session en Mode Survie (3 Vies)" 
+                : "Lancer la session en Mode Classique"
+          }
         >
           <span>{displayLabel}</span>
         </button>
 
         {/* Dropdown Selector Arrow with explicit "Mode ▼" affordance */}
-        {onPlaySurvival && (
-          <button
-            type="button"
-            onClick={handleArrowToggle}
+        <button
+          type="button"
+          onClick={handleArrowToggle}
+          style={{
+            background: isOpen ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.2)',
+            border: 'none',
+            borderLeft: isTugOfWar ? '1.5px solid rgba(0, 0, 0, 0.3)' : '1.5px solid rgba(255, 255, 255, 0.25)',
+            color: textColor,
+            padding: '0 0.8rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.35rem',
+            fontSize: '0.78rem',
+            fontWeight: 900,
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(0, 0, 0, 0.45)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = isOpen ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.2)';
+          }}
+          title="Cliquer pour changer de mode (Classique / Survie / Tir à la Corde)"
+        >
+          <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>Mode</span>
+          <span
             style={{
-              background: isOpen ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.2)',
-              border: 'none',
-              borderLeft: '1.5px solid rgba(255, 255, 255, 0.25)',
-              color: 'inherit',
-              padding: '0 0.8rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.35rem',
-              fontSize: '0.78rem',
-              fontWeight: 800,
-              transition: 'all 0.15s ease'
+              fontSize: '0.7rem',
+              display: 'inline-block',
+              transition: 'transform 0.2s ease',
+              transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              opacity: 0.95
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(0, 0, 0, 0.45)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = isOpen ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.2)';
-            }}
-            title="Cliquer pour changer de mode (Classique / Survie)"
           >
-            <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>Mode</span>
-            <span
-              style={{
-                fontSize: '0.7rem',
-                display: 'inline-block',
-                transition: 'transform 0.2s ease',
-                transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                opacity: 0.95
-              }}
-            >
-              ▼
-            </span>
-          </button>
-        )}
+            ▼
+          </span>
+        </button>
       </div>
 
-      {isOpen && onPlaySurvival && (
+      {isOpen && (
         <div
           style={{
             position: 'absolute',
             bottom: 'calc(100% + 8px)',
             left: '50%',
             transform: 'translateX(-50%)',
-            width: 'max(100%, 270px)',
-            minWidth: '270px',
+            width: 'max(100%, 280px)',
+            minWidth: '280px',
             zIndex: 120,
-            background: 'linear-gradient(145deg, #180c10 0%, #0d0608 100%)',
-            border: '1.5px solid rgba(239, 68, 68, 0.45)',
-            borderRadius: '14px',
-            padding: '0.6rem',
-            boxShadow: '0 20px 45px rgba(0, 0, 0, 0.92), 0 0 25px rgba(239, 68, 68, 0.25)',
-            backdropFilter: 'blur(14px)',
+            background: 'linear-gradient(145deg, #101626 0%, #060911 100%)',
+            border: '1.5px solid rgba(0, 242, 254, 0.4)',
+            borderRadius: '16px',
+            padding: '0.65rem',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.95), 0 0 30px rgba(0, 242, 254, 0.25)',
+            backdropFilter: 'blur(16px)',
             display: 'flex',
             flexDirection: 'column',
             gap: '0.45rem',
@@ -211,7 +253,9 @@ export default function PlayDropdown({
             justifyContent: 'space-between'
           }}>
             <span>🎮 CHOISIR UN MODE :</span>
-            <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>{currentMode === 'survival' ? '🔥 Survie actif' : '⚔️ Classique actif'}</span>
+            <span style={{ fontSize: '0.68rem', color: isTugOfWar ? '#00f2fe' : isSurvival ? '#f87171' : '#4ade80' }}>
+              {isTugOfWar ? '⚡ Tir à la Corde' : isSurvival ? '🔥 Survie actif' : '⚔️ Classique actif'}
+            </span>
           </div>
 
           {/* Option 1 : Mode Classique */}
@@ -295,6 +339,48 @@ export default function PlayDropdown({
             </div>
             <span style={{ fontSize: '0.85rem', color: '#f87171', fontWeight: 800 }}>
               {currentMode === 'survival' ? '✓' : '🔥'}
+            </span>
+          </button>
+
+          {/* Option 3 : Mode Tir à la Corde */}
+          <button
+            type="button"
+            onClick={handleSelectTugOfWar}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+              padding: '0.6rem 0.75rem',
+              background: currentMode === 'tug_of_war' ? 'rgba(0, 242, 254, 0.25)' : 'rgba(0, 242, 254, 0.08)',
+              border: currentMode === 'tug_of_war' ? '1.5px solid #00f2fe' : '1px solid rgba(0, 242, 254, 0.3)',
+              borderRadius: '10px',
+              cursor: 'pointer',
+              textAlign: 'left',
+              color: '#ffffff',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(0, 242, 254, 0.3)';
+              e.currentTarget.style.borderColor = '#00f2fe';
+              e.currentTarget.style.transform = 'translateX(2px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = currentMode === 'tug_of_war' ? 'rgba(0, 242, 254, 0.25)' : 'rgba(0, 242, 254, 0.08)';
+              e.currentTarget.style.borderColor = currentMode === 'tug_of_war' ? '#00f2fe' : 'rgba(0, 242, 254, 0.3)';
+              e.currentTarget.style.transform = 'translateX(0)';
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#00f2fe' }}>
+                ⚡ Tir à la Corde
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#7dd3fc', marginTop: '0.1rem' }}>
+                Rayon Énergétique • Clashes
+              </div>
+            </div>
+            <span style={{ fontSize: '0.85rem', color: '#00f2fe', fontWeight: 800 }}>
+              {currentMode === 'tug_of_war' ? '✓' : '⚡'}
             </span>
           </button>
         </div>

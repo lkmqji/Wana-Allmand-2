@@ -121,3 +121,23 @@ ame, xp, lastSeen et index composé { xp: -1, gamesWon: -1 } pour accélérer dr
   - Remplacement de l'allocation d'une matrice 2D par un tableau 1D typé Int32Array à empreinte mémoire minimale (\min(N, M))$ sans pression sur le Garbage Collector.
   - Ajout de chemins rapides (*fast-paths*) pour les correspondances exactes sans calculs.
   - Ajout d'une sortie anticipée basée sur la différence de longueur de chaîne (*length-differential early-exit*) avant d'exécuter la boucle de Levenshtein.
+
+
+### 23:45 - Intégration du Nouveau Mode de Jeu « Tir à la Corde » (Rayon Énergétique)
+- **Ajout du mode de jeu dans le sélecteur du Lobby (`PlayDropdown`)** :
+  - Intégration de l'option « ⚡ Tir à la Corde » (`tug_of_war`) aux côtés du Mode Classique et du Mode Survie.
+  - Thème dynamique Cyan/Bleu électrique avec animations de lueur et label adapté selon le mode actif.
+- **Création du moteur de jeu et des composants visuels (`client/src/components/`)** :
+  - `TugOfWarArena.jsx` : Arène de jeu complète avec boucle de match, gestion des listes de vocabulaire actives, bot réactif IA (Valkyrie-AI), barres d'aide pour caractères spéciaux allemands (`ä, ö, ü, ß`) et articles (`der, die, das`), et modales de fin de match (Victoire/Défaite avec gains d'XP et de Pièces).
+  - `TugOfWarBeam.jsx` : Pipeline d'énergie dynamique Cyan vs Crimson avec nœud central de singularité et pourcentages de force en temps réel.
+  - `ParticleBurst.jsx` : Système de particules 60fps en Canvas avec cristaux en losange rotatifs pour les impacts Emeraude (Perfect), Ambre (Typo) et Cramoisi (Error).
+  - `TypoFallingVFX.jsx` : Effet physique de chute et de rotation des lettres erronées.
+- **Moteur sonore & algorithme de détection (`client/src/utils/`)** :
+  - `soundEngine.js` : Moteur sonore Web Audio API zéro-dépendance (synthèse d'arpèges C5-C6, onde triangle et onde en dent de scie).
+  - `levenshtein.js` : Calcul de distance de Levenshtein avec normalisation allemande (`ä->ae, ö->oe, ü->ue, ß->ss`) et détection des fautes tolérées.
+- **Contrôles de l'application (Pause, Reprendre, Quitter, Menu)** :
+  - Bouton Pause ⏸️ suspendant immédiatement les attaques du bot et affichant les options « Reprendre », « Recommencer » et « Quitter vers le salon / menu ».
+  - Bouton Mute 🔊/🔇 pour couper ou réactiver les effets sonores en direct.
+- **Intégration et Routing (`App.jsx`, `Lobby.jsx`, `Home.jsx`, `ListCard.jsx`, `ListPreviewModal.jsx`)** :
+  - Ajout de l'état `tugOfWarSession` et de la vue `view === 'tug_of_war'` avec redirection vers le salon ou l'accueil en fin de partie.
+  - Support du lancement du mode Tir à la Corde depuis le salon solo, les listes personnelles, les listes publiques et les listes par défaut.

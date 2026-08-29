@@ -7,6 +7,7 @@ export default function ListPreviewModal({
   onClose, 
   onPlay, 
   onPlaySurvival,
+  onPlayTugOfWar,
   isEditable = false, 
   onUpdateWords,
   onRenameList,
@@ -669,6 +670,10 @@ export default function ListPreviewModal({
                 onPlaySurvival={onPlaySurvival ? () => {
                   onClose();
                   onPlaySurvival(words, title);
+                } : null}
+                onPlayTugOfWar={onPlayTugOfWar ? () => {
+                  onClose();
+                  onPlayTugOfWar(words, title);
                 } : null}
                 label="⚔️ JOUER CETTE LISTE"
               />

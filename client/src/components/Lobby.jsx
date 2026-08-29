@@ -18,7 +18,8 @@ export default function Lobby({
   user, 
   chatMessages = [], 
   setChatMessages,
-  onStartSurvival 
+  onStartSurvival,
+  onStartTugOfWar 
 }) {
   const { playAlert, playMessageSent, playReactionBurst } = useSoundEffects();
   const [selectedProfileUser, setSelectedProfileUser] = useState(null);
@@ -28,7 +29,7 @@ export default function Lobby({
   const [invitedSockets, setInvitedSockets] = useState({});
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
-  const [isSurvivalSolo, setIsSurvivalSolo] = useState(false);
+  const [soloMode, setSoloMode] = useState('classic'); // 'classic' | 'survival' | 'tug_of_war'
   const messages = chatMessages;
   const [inputMsg, setInputMsg] = useState('');
   const chatBottomRef = useRef(null);
@@ -285,16 +286,24 @@ export default function Lobby({
     setView('home');
   };
 
-  const handleStart = (forceSurvival = false) => {
-    const validWords = words.filter(w => w.question?.trim() && w.answer?.trim());
+  const handleStart = (explicitMode = null) => {
+    const validWords = words.filter(w => (w.question?.trim() || w.frenchPrompt || w.word) && (w.answer?.trim() || w.germanWord || w.word));
     if (validWords.length === 0) {
       alert("Ajoutez au moins 1 mot valide avant de lancer la partie !");
       return;
     }
 
-    if (playerCount === 1 && (forceSurvival === true || isSurvivalSolo) && onStartSurvival) {
-      onStartSurvival(validWords, session?.name || 'Session Solo');
-      return;
+    const targetMode = explicitMode || soloMode;
+
+    if (playerCount === 1) {
+      if (targetMode === 'tug_of_war' && onStartTugOfWar) {
+        onStartTugOfWar(validWords, session?.name || 'Tir à la Corde');
+        return;
+      }
+      if (targetMode === 'survival' && onStartSurvival) {
+        onStartSurvival(validWords, session?.name || 'Session Solo');
+        return;
+      }
     }
 
     socket.emit('start_game', session?.id);
@@ -915,12 +924,19 @@ export default function Lobby({
             playerCount === 1 ? (
               <div style={{ flex: 1 }}>
                 <PlayDropdown
-                  selectedMode={isSurvivalSolo ? 'survival' : 'classic'}
-                  onSelectMode={(mode) => setIsSurvivalSolo(mode === 'survival')}
-                  onPlay={() => handleStart(false)}
-                  onPlaySurvival={onStartSurvival ? () => handleStart(true) : null}
+                  selectedMode={soloMode}
+                  onSelectMode={(mode) => setSoloMode(mode)}
+                  onPlay={() => handleStart('classic')}
+                  onPlaySurvival={onStartSurvival ? () => handleStart('survival') : null}
+                  onPlayTugOfWar={onStartTugOfWar ? () => handleStart('tug_of_war') : null}
                   modeOnly={true}
-                  label={isSurvivalSolo ? '🔥 LANCER EN SURVIE' : '🚀 JOUER EN SOLO'}
+                  label={
+                    soloMode === 'tug_of_war' 
+                      ? '⚡ TIR À LA CORDE' 
+                      : soloMode === 'survival' 
+                        ? '🔥 LANCER EN SURVIE' 
+                        : '🚀 JOUER EN SOLO'
+                  }
                 />
               </div>
             ) : (

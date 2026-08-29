@@ -5,6 +5,7 @@ import Lobby from './components/Lobby';
 import Game from './components/Game';
 import Results from './components/Results';
 import VengeanceMode from './components/VengeanceMode';
+import TugOfWarArena from './components/TugOfWarArena';
 import Layout from './components/Layout';
 import Admin from './components/Admin';
 import NotificationCenter from './components/NotificationCenter';
@@ -144,7 +145,7 @@ function App() {
 
   // Automatically sync in-game state to AudioContext (mutes in-game if preferred, restores menu music when match ends)
   useEffect(() => {
-    const inGame = view === 'game' || view === 'vengeance';
+    const inGame = view === 'game' || view === 'vengeance' || view === 'tug_of_war';
     setIsInGame(inGame);
   }, [view, setIsInGame]);
   const [activeTab, setActiveTab] = useState('learn'); // learn, lists, community, stats, profile
@@ -185,6 +186,7 @@ function App() {
     }
   });
   const [survivalSession, setSurvivalSession] = useState(null); // { words: [...], title: '...' }
+  const [tugOfWarSession, setTugOfWarSession] = useState(null); // { words: [...], title: '...', wager: 10 }
 
   const handleStartSurvival = (wordsList, title = 'Mode Survie') => {
     const valid = (wordsList || []).filter(w => (w.question?.trim() || w.germanWord || w.word) && (w.answer?.trim() || w.frenchPrompt || w.question));
@@ -194,6 +196,16 @@ function App() {
     }
     setSurvivalSession({ words: valid, title });
     setView('vengeance');
+  };
+
+  const handleStartTugOfWar = (wordsList, title = 'Tir à la Corde', wager = 10) => {
+    const valid = (wordsList || []).filter(w => (w.question?.trim() || w.germanWord || w.word) && (w.answer?.trim() || w.frenchPrompt || w.question));
+    if (valid.length === 0) {
+      alert("Aucun mot valide dans cette liste !");
+      return;
+    }
+    setTugOfWarSession({ words: valid, title, wager });
+    setView('tug_of_war');
   };
 
   const handlePurifySuccess = (word, apiData) => {
@@ -1047,6 +1059,42 @@ function App() {
     }
 
     // 3. Main game & dashboard views once inside
+    if (view === 'tug_of_war') {
+      return (
+        <div className={`page-transition`}>
+          {error && (
+            <div style={{ background: 'var(--danger)', padding: '1rem', borderRadius: '8px', position: 'absolute', top: '1rem', left: '1rem', zIndex: 100 }}>
+              {error} <button onClick={() => setError('')} style={{background:'none',border:'none',color:'white',cursor:'pointer'}}>X</button>
+            </div>
+          )}
+          <TugOfWarArena
+            words={tugOfWarSession?.words || []}
+            modeTitle={tugOfWarSession?.title || 'Tir à la Corde'}
+            wager={tugOfWarSession?.wager ?? 10}
+            playerName={playerName}
+            avatar={avatar}
+            user={user}
+            onEndMatch={(result) => {
+              if (result?.won && user?.uid) {
+                fetch(`${API_URL}/api/leaderboard`)
+                  .then(res => res.json())
+                  .then(data => { if (Array.isArray(data)) setLeaderboard(data); })
+                  .catch(() => {});
+              }
+            }}
+            onBackHome={() => {
+              setTugOfWarSession(null);
+              if (session?.id) {
+                setView('lobby');
+              } else {
+                setView('home');
+              }
+            }}
+          />
+        </div>
+      );
+    }
+
     if (view === 'vengeance') {
       return (
         <div className={`page-transition`}>
@@ -1284,9 +1332,11 @@ function App() {
             onClearAllFailedWords={handleClearAllFailedWords}
             onStartVengeance={() => {
               setSurvivalSession(null);
+              setTugOfWarSession(null);
               setView('vengeance');
             }}
             onStartSurvival={handleStartSurvival}
+            onStartTugOfWar={handleStartTugOfWar}
           />
         )}
         {view === 'lobby' && (
@@ -1303,6 +1353,7 @@ function App() {
             chatMessages={chatMessages}
             setChatMessages={setChatMessages}
             onStartSurvival={handleStartSurvival}
+            onStartTugOfWar={handleStartTugOfWar}
           />
         )}
         {view === 'results' && (
