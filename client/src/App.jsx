@@ -159,6 +159,8 @@ function App() {
     return localStorage.getItem('wana_avatar') || '🦊';
   });
   const [user, setUser] = useState(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
 
   // Handle mobile sleep mode / robust wake-up to force socket reconnection
   useEffect(() => {
@@ -211,8 +213,6 @@ function App() {
       window.removeEventListener('pageshow', handleWakeUp);
     };
   }, [user, playerName, avatar, isGuest]);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [isGuest, setIsGuest] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
