@@ -615,15 +615,15 @@ function App() {
       localStorage.removeItem('wana_active_session');
       sessionStorage.removeItem('active_game_session');
       setView('home');
-      if (data?.message) {
-        playNotification();
-        setToastNotif({
-          icon: '🚪',
-          title: 'Session fermée',
-          message: data.message
-        });
-        setTimeout(() => setToastNotif(null), 5000);
-      }
+      
+      const message = data?.message || "Le lobby est fermé à cause de la déconnexion de l'autre joueur.";
+      playNotification();
+      setToastNotif({
+        icon: '⚠️',
+        title: 'Lobby fermé',
+        message: message
+      });
+      setTimeout(() => setToastNotif(null), 6000);
     });
 
     socket.on('player_joined', (updatedPlayers) => {

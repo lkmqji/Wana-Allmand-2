@@ -94,3 +94,7 @@
 - Mise en place de la fermeture immédiate : si un joueur quitte la partie ou le salon (ou se déconnecte), la session est instantanément supprimée sur le serveur.
 - Émission de l'événement 'session_closed' à tous les participants.
 - Redirection immédiate des deux joueurs vers la page d'accueil (vue 'home') avec réinitialisation complète de l'état de la session.
+
+### 22:28 - Notification explicite de fermeture du lobby
+- Personnalisation du message de notification affiché au joueur restant lorsque l'autre joueur se déconnecte : 'Le lobby est fermé à cause de la déconnexion de l'autre joueur'.
+- Émission de la notification sous forme de toast d'alerte lors du retour automatique à l'accueil.

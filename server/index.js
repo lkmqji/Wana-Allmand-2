@@ -951,9 +951,11 @@ function handlePlayerLeave(sessionId, playerId) {
         clearTimeout(session.autoAdvanceTimer);
 
         // Notify all players in this session that it is terminated and they should go home
+        const leavingName = leavingUser?.name || "L'autre joueur";
         io.to(sessionId).emit('session_closed', {
-            message: `${leavingUser?.name || 'Un joueur'} a quitté la session.`,
-            reason: 'player_left'
+            message: `Le lobby est fermé à cause de la déconnexion de ${leavingName}.`,
+            reason: 'player_left',
+            leavingPlayerId: playerId
         });
 
         // Make all players in this session available in onlineUsers
