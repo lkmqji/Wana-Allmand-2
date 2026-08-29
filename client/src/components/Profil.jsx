@@ -335,34 +335,30 @@ export default function Profil({
             </div>
           )}
 
-          {/* Admin panel & Agentation Controls */}
-          {user && (
+          {/* Admin panel & Agentation Controls (réservé aux administrateurs) */}
+          {user && isAdmin && (
             <div className="card" style={{ 
-              background: isAdmin 
-                ? 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(168,85,247,0.08))' 
-                : 'rgba(255,255,255,0.02)', 
-              borderColor: isAdmin ? 'rgba(99,102,241,0.5)' : 'var(--border-color)' 
+              background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(168,85,247,0.08))', 
+              borderColor: 'rgba(99,102,241,0.5)' 
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.4rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                   <span style={{ fontSize: '1.4rem' }}>🛡️</span>
                   <h3 style={{ margin: 0, color: 'var(--primary)', fontSize: '1.15rem' }}>
-                    {isAdmin ? 'Espace Administrateur (Actif)' : 'Mode Administrateur'}
+                    Espace Administrateur (Actif)
                   </h3>
                 </div>
-                {isAdmin && (
-                  <span style={{
-                    background: 'rgba(99, 102, 241, 0.2)',
-                    border: '1px solid var(--primary)',
-                    color: 'var(--primary)',
-                    fontSize: '0.75rem',
-                    fontWeight: 'bold',
-                    padding: '0.2rem 0.6rem',
-                    borderRadius: '12px'
-                  }}>
-                    👑 ADMIN CONFIRMÉ
-                  </span>
-                )}
+                <span style={{
+                  background: 'rgba(99, 102, 241, 0.2)',
+                  border: '1px solid var(--primary)',
+                  color: 'var(--primary)',
+                  fontSize: '0.75rem',
+                  fontWeight: 'bold',
+                  padding: '0.2rem 0.6rem',
+                  borderRadius: '12px'
+                }}>
+                  👑 ADMIN CONFIRMÉ
+                </span>
               </div>
 
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
@@ -372,19 +368,13 @@ export default function Profil({
                     {user.uid}
                   </code>
                 </div>
-                {isAdmin ? (
-                  <div style={{ color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.2rem' }}>
-                    <span>✓</span> Bouton de commentaire Agentation actif sur toute l'application.
-                  </div>
-                ) : (
-                  <div>
-                    Activez les privilèges administrateur pour débloquer le bouton de feedback Agentation et le panneau d'administration.
-                  </div>
-                )}
+                <div style={{ color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.2rem' }}>
+                  <span>✓</span> Bouton de commentaire Agentation actif sur toute l'application.
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-                {isAdmin && onOpenAdmin && (
+                {onOpenAdmin && (
                   <button 
                     onClick={onOpenAdmin} 
                     className="btn btn-primary" 
@@ -395,11 +385,11 @@ export default function Profil({
                 )}
                 {onToggleAdmin && (
                   <button
-                    onClick={() => onToggleAdmin(!isAdmin)}
-                    className={`btn ${isAdmin ? 'btn-secondary' : 'btn-primary'}`}
+                    onClick={() => onToggleAdmin(false)}
+                    className="btn btn-secondary"
                     style={{ flex: '1 1 180px', padding: '0.75rem', fontWeight: 'bold' }}
                   >
-                    {isAdmin ? '🔒 Désactiver Mode Admin' : '👑 Activer Mode Admin & Agentation'}
+                    🔒 Désactiver Mode Admin
                   </button>
                 )}
               </div>

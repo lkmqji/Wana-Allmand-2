@@ -26,3 +26,22 @@
 - **Réduction compacte de la jauge d'énergie (`TugOfWarBeam.jsx`)** : Hauteur passée à 32px et nœud central à 26px pour économiser l'espace vertical sur smartphone.
 - **Carte de jeu compacte** : Réduction des marges, du padding et placeholder court (*« Traduction en allemand... »*) pour que l'ensemble (En-tête + Rayon + Question + Saisie + Boutons) reste 100% visible au-dessus du clavier sans être masqué.
 - **Rebuild de production Vite/PWA** (`index-B5EciF0k.js`).
+
+### 00:51 - Optimisation des performances Frontend (Vite 8 & PWA)
+- **Code Splitting granulaire (`vite.config.js`)** :
+  - Découpage du bundle principal via `manualChunks` en modules indépendants : `vendor-react` (React, React-DOM, React-Router), `vendor-firebase` (Firebase Auth/App), `vendor-socket` (Socket.io), `vendor-confetti` (Canvas-Confetti) et `vendor-agentation`.
+  - Élimination du fichier monolithique de 1,17 Mo au profit de chunks ciblés et parallélisés.
+- **Préchargement et Mise en Cache PWA (`VitePWA` / Workbox)** :
+  - Extension des `globPatterns` et de `includeAssets` pour inclure et pré-cacher les assets statiques, effets sonores (SFX / audio `.mp3`, `.wav`) et polices.
+  - Augmentation de `maximumFileSizeToCacheInBytes` (15 Mo) pour garantir la mise en cache complète des sons et musiques dès l'installation du Service Worker.
+  - Ajout de règles de cache d'exécution (`runtimeCaching`) dédiées pour les polices Google Fonts (`Outfit`, `Syne`, `JetBrains Mono`) avec stratégies `StaleWhileRevalidate` et `CacheFirst`.
+- **Minification & Compression Build** :
+  - Activation de la minification native optimisée Vite 8, `cssMinify: true`, `cssCodeSplit: true` et désactivation des sourcemaps de production.
+  - Régénération réussie du build de production.
+
+### 00:52 - Masquage de l'espace administrateur pour les non-administrateurs (`Profil.jsx`)
+- **Restriction d'accès et d'affichage** :
+  - La boîte « Mode Administrateur » / « Espace Administrateur » dans l'onglet Profil est désormais strictement conditionnée à `user && isAdmin`.
+  - Les utilisateurs standards (non administrateurs) ne voient plus du tout cet encadré ni le bouton pour basculer en mode admin.
+  - Les administrateurs authentifiés conservent l'accès complet à leur espace et aux contrôles associés.
+
