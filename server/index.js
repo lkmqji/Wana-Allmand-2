@@ -28,7 +28,7 @@ const io = new Server(server, {
         methods: ["GET", "POST"]
     },
     pingInterval: 25000,
-    pingTimeout: 60000
+    pingTimeout: 20000
 });
 
 app.use(cors());
@@ -935,33 +935,51 @@ function broadcastOnlineUsers() {
 }
 
 function handlePlayerLeave(sessionId, playerId) {
-    const result = gameManager.leaveSession(sessionId, playerId);
+    const session = gameManager.getSession(sessionId);
     const leavingUser = onlineUsers.get(playerId);
+    
+    // Clear any disconnect timers for this session
+    for (const [key, timer] of disconnectTimers.entries()) {
+        if (key.startsWith(`${sessionId}_`)) {
+            clearTimeout(timer);
+            disconnectTimers.delete(key);
+        }
+    }
+
+    if (session) {
+        clearTimeout(session.roundTimer);
+        clearTimeout(session.autoAdvanceTimer);
+
+        // Notify all players in this session that it is terminated and they should go home
+        io.to(sessionId).emit('session_closed', {
+            message: `${leavingUser?.name || 'Un joueur'} a quitté la session.`,
+            reason: 'player_left'
+        });
+
+        // Make all players in this session available in onlineUsers
+        if (session.players) {
+            for (const pId of Object.keys(session.players)) {
+                const u = onlineUsers.get(pId);
+                if (u) {
+                    u.status = 'available';
+                    u.sessionId = null;
+                }
+            }
+        }
+
+        // Delete the session from GameManager
+        gameManager.sessions.delete(sessionId);
+    }
+
     if (leavingUser) {
         leavingUser.status = 'available';
         leavingUser.sessionId = null;
-        broadcastOnlineUsers();
     }
-    if (result && !result.destroyed) {
-        io.to(sessionId).emit('player_joined', result.session.players);
-        // Inform remaining player(s) of session updates without forcing a view reset
-        io.to(sessionId).emit('session_updated', result.session);
-        io.to(sessionId).emit('lobby_chat_message', {
-            id: Math.random().toString(36).substring(2, 9),
-            isSystem: true,
-            text: `${leavingUser?.name || 'Un joueur'} a quitté la salle.`,
-            timestamp: Date.now()
-        });
-    }
+    broadcastOnlineUsers();
 }
 
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
-
-    // Heartbeat applicatif (Solution 4)
-    socket.on('ping_app', () => {
-        socket.emit('pong_app');
-    });
 
     // Join personal user room for direct notifications
     socket.on('register_user', (firebaseId) => {
@@ -1483,15 +1501,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('accept_terminate', (sessionId) => {
-        const session = gameManager.getSession(sessionId);
-        if (session) {
-            clearTimeout(session.roundTimer);
-            clearTimeout(session.autoAdvanceTimer);
-            session.isPaused = false;
-            session.pauseReason = null;
-            session.currentQuestionIndex = session.vocabList.length;
-            sendNextQuestion(sessionId);
-        }
+        handlePlayerLeave(sessionId, socket.id);
     });
 
     socket.on('refuse_terminate', (sessionId) => {
@@ -1668,46 +1678,7 @@ const disconnectTimers = new Map();
 function handlePlayerDisconnect(socket) {
     for (const [sessionId, session] of gameManager.sessions.entries()) {
         if (session.players && session.players[socket.id]) {
-            const player = session.players[socket.id];
-            player.disconnected = true;
-            player.disconnectedAt = Date.now();
-
-            const timerKey = `${sessionId}_${socket.id}`;
-            if (disconnectTimers.has(timerKey)) {
-                clearTimeout(disconnectTimers.get(timerKey));
-            }
-
-            // In an active game: start 30s grace countdown for forfeit
-            if (session.status === 'playing' || session.status === 'showing_results') {
-                pauseGame(sessionId, 'disconnect_grace', socket.id, {
-                    disconnectedPlayerName: player.name,
-                    graceSeconds: 30
-                });
-
-                io.to(sessionId).emit('player_disconnected_grace', {
-                    playerId: socket.id,
-                    playerName: player.name,
-                    graceSeconds: 30
-                });
-
-                const timer = setTimeout(() => {
-                    disconnectTimers.delete(timerKey);
-                    handleDisconnectForfeit(sessionId, socket.id);
-                }, 30000);
-
-                disconnectTimers.set(timerKey, timer);
-            } else if (session.status === 'waiting') {
-                // In lobby: 60s grace period so closing tab / refreshing doesn't destroy room immediately
-                io.to(sessionId).emit('session_updated', session);
-                const timer = setTimeout(() => {
-                    disconnectTimers.delete(timerKey);
-                    handlePlayerLeave(sessionId, socket.id);
-                }, 60000);
-
-                disconnectTimers.set(timerKey, timer);
-            } else {
-                handlePlayerLeave(sessionId, socket.id);
-            }
+            handlePlayerLeave(sessionId, socket.id);
         }
     }
 }

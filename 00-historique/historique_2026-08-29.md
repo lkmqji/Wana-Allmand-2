@@ -88,3 +88,9 @@
 - Création d'un heartbeat applicatif côté client (ping/pong toutes les 25s) pour détecter les micro-coupures et fermer manuellement la socket si 3 pings sont perdus.
 - Ajout de l'écouteur ping_app côté serveur Express.
 - Maintien de la correction du crash 'Cannot access A before initialization' en conservant les états au-dessus du useEffect.
+
+### 22:20 - Fermeture immédiate de session et retour accueil à la déconnexion d'un joueur
+- Annulation de toutes les tentatives d'écouteurs de mise en veille / heartbeat applicatif / reconnexion complexe.
+- Mise en place de la fermeture immédiate : si un joueur quitte la partie ou le salon (ou se déconnecte), la session est instantanément supprimée sur le serveur.
+- Émission de l'événement 'session_closed' à tous les participants.
+- Redirection immédiate des deux joueurs vers la page d'accueil (vue 'home') avec réinitialisation complète de l'état de la session.

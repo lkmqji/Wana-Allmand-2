@@ -162,108 +162,6 @@ function App() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
 
-  // Handle mobile sleep mode / robust wake-up to force socket reconnection
-  useEffect(() => {
-    let heartbeatInterval;
-    let missedPings = 0;
-
-    // Heartbeat applicatif (Solution 4)
-    const startHeartbeat = () => {
-      clearInterval(heartbeatInterval);
-      missedPings = 0;
-      heartbeatInterval = setInterval(() => {
-        if (socket.connected) {
-          missedPings++;
-          if (missedPings >= 3) {
-            console.warn('Heartbeat failed 3 times, forcing reconnect...');
-            socket.disconnect();
-            setTimeout(() => socket.connect(), 1000);
-            missedPings = 0;
-          } else {
-            socket.emit('ping_app');
-          }
-        }
-      }, 25000);
-    };
-
-    const handlePong = () => {
-      missedPings = 0;
-    };
-
-    const handleWakeUp = async () => {
-      // Si la page passe en arrière-plan (Solution 1)
-      if (document.visibilityState === 'hidden') {
-        socket.disconnect();
-        clearInterval(heartbeatInterval);
-        return;
-      }
-
-      // Si la page redevient visible/active (Solution 3)
-      if (document.visibilityState === 'visible' || !document.hidden) {
-        // Rafraîchissement asynchrone du token Firebase avant reconnexion
-        try {
-          if (auth.currentUser) {
-            await auth.currentUser.getIdToken(true);
-          }
-        } catch (e) {
-          console.warn('Error refreshing Firebase token:', e);
-        }
-
-        if (socket.disconnected) {
-          socket.connect();
-        }
-        
-        // Re-sync user status with server when waking up
-        const currentName = playerName || (user ? user.displayName : null) || (isGuest ? 'Invité' : '');
-        if (currentName) {
-          socket.emit('register_online_user', {
-            firebaseId: user?.uid || null,
-            name: `${avatar || '🦊'} ${currentName}`,
-            avatar: avatar || '🦊'
-          });
-          socket.emit('get_online_users');
-        }
-
-        // Try to rejoin session if we have one
-        try {
-          const saved = localStorage.getItem('wana_active_session');
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed?.sessionId) {
-              socket.emit('rejoin_session', {
-                sessionId: parsed.sessionId,
-                clientPlayerKey: parsed.clientPlayerKey,
-                firebaseId: user?.uid || null,
-                playerName: currentName || 'Joueur',
-                avatar: avatar || '🦊'
-              });
-            }
-          }
-        } catch (e) {
-          console.error('Error auto-rejoining on wakeup:', e);
-        }
-
-        startHeartbeat();
-      }
-    };
-
-    // Initialize listeners
-    socket.on('pong_app', handlePong);
-    document.addEventListener('visibilitychange', handleWakeUp);
-    window.addEventListener('focus', handleWakeUp);
-    window.addEventListener('pageshow', handleWakeUp); // Fallback iOS
-    
-    // Initial heartbeat start
-    startHeartbeat();
-
-    return () => {
-      clearInterval(heartbeatInterval);
-      socket.off('pong_app', handlePong);
-      document.removeEventListener('visibilitychange', handleWakeUp);
-      window.removeEventListener('focus', handleWakeUp);
-      window.removeEventListener('pageshow', handleWakeUp);
-    };
-  }, [user, playerName, avatar, isGuest]);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -704,7 +602,28 @@ function App() {
       setPlayers({});
       setIsHost(false);
       setChatMessages([]);
+      localStorage.removeItem('wana_active_session');
+      sessionStorage.removeItem('active_game_session');
       setView('home');
+    });
+
+    socket.on('session_closed', (data) => {
+      setSession(null);
+      setPlayers({});
+      setIsHost(false);
+      setChatMessages([]);
+      localStorage.removeItem('wana_active_session');
+      sessionStorage.removeItem('active_game_session');
+      setView('home');
+      if (data?.message) {
+        playNotification();
+        setToastNotif({
+          icon: '🚪',
+          title: 'Session fermée',
+          message: data.message
+        });
+        setTimeout(() => setToastNotif(null), 5000);
+      }
     });
 
     socket.on('player_joined', (updatedPlayers) => {
@@ -833,6 +752,7 @@ function App() {
       socket.off('new_notification');
       socket.off('error');
       socket.off('kicked');
+      socket.off('session_closed');
     };
   }, [playNotification]);
 
