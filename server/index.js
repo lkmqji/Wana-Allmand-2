@@ -1,3 +1,6 @@
+const { initDiagnostics } = require('./utils/diagnostics');
+initDiagnostics();
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -969,8 +972,8 @@ function handlePlayerLeave(sessionId, playerId) {
             }
         }
 
-        // Delete the session from GameManager
-        gameManager.sessions.delete(sessionId);
+        // Delete and thoroughly clean the session from GameManager
+        gameManager.destroySession(sessionId);
     }
 
     if (leavingUser) {

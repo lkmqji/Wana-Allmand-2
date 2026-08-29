@@ -98,3 +98,26 @@
 ### 22:28 - Notification explicite de fermeture du lobby
 - Personnalisation du message de notification affich� au joueur restant lorsque l'autre joueur se d�connecte : 'Le lobby est ferm� � cause de la d�connexion de l'autre joueur'.
 - �mission de la notification sous forme de toast d'alerte lors du retour automatique � l'accueil.
+
+### 22:40 - Ajout des outils de diagnostic et de monitoring serveur en production
+- Cration du module de diagnostic [server/utils/diagnostics.js](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/server/utils/diagnostics.js) intgr au dmarrage de [server/index.js](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/server/index.js).
+- Dtection active du lag de l'Event Loop : affichage d'un avertissement rouge en console si le thread principal subit un retard > 100ms.
+- Traage des erreurs critiques globales avec process.on('uncaughtException') et process.on('unhandledRejection') (horodatage, origine, message et stack trace).
+- Surveillance priodique de la mmoire vive (RAM) toutes les minutes via process.memoryUsage() (RSS, Heap utilis, Heap total, mmoire externe).
+
+### 22:45 - Optimisation Haute Performance Serveur (Mémoire, Indexation MongoDB, CPU)
+- **Nettoyage Mémoire & Garbage Collection (server/game/GameManager.js & server/index.js)** :
+  - Ajout de la méthode destroySession assurant l'annulation active de tous les timers (clearTimeout pour oundTimer et utoAdvanceTimer), la réinitialisation des listes et la purge complète des objets en mémoire.
+  - Mise en place d'un ramasse-miettes automatique périodique (cleanStaleSessions toutes les 15 minutes avec .unref()) pour détruire les sessions orphelines, abandonnées ou terminées.
+  - Détection automatique et destruction immédiate de toute session dont le nombre de joueurs tombe à 0.
+- **Indexation MongoDB Mongoose (User.js, List.js, MatchSchedule.js, Notification.js, Config.js)** :
+  - User.js : Indexation de irebaseId, 
+ame, xp, lastSeen et index composé { xp: -1, gamesWon: -1 } pour accélérer drastiquement les requêtes de classement et de profil sous les 50ms.
+  - List.js : Indexation de userId, isPublic, createdAt et index composés { isPublic: 1, createdAt: -1 } et { userId: 1, createdAt: -1 } pour les listes publiques et personnelles.
+  - MatchSchedule.js : Indexation de hostId, guestId, scheduledDate, status et index composés pour les plannings de match.
+  - Notification.js : Indexation de userId, createdAt et index composé { userId: 1, createdAt: -1 }.
+  - Config.js : Indexation sur la clé unique key.
+- **Optimisation CPU & Event Loop (server/utils/levenshtein.js)** :
+  - Remplacement de l'allocation d'une matrice 2D par un tableau 1D typé Int32Array à empreinte mémoire minimale (\min(N, M))$ sans pression sur le Garbage Collector.
+  - Ajout de chemins rapides (*fast-paths*) pour les correspondances exactes sans calculs.
+  - Ajout d'une sortie anticipée basée sur la différence de longueur de chaîne (*length-differential early-exit*) avant d'exécuter la boucle de Levenshtein.

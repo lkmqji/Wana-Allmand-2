@@ -1,42 +1,75 @@
 /**
- * Calculates the Levenshtein distance between two strings.
+ * High-performance Levenshtein distance calculation.
+ * Optimized with:
+ * 1. O(min(N, M)) memory footprint using a single 1D Int32Array (no 2D matrix allocation / zero GC pressure).
+ * 2. Fast paths for identical strings and empty strings.
+ * 3. Character code comparisons avoiding repeated substring/charAt overhead.
  */
 function levenshteinDistance(a, b) {
-    const matrix = [];
+    if (a === b) return 0;
+    
+    let aLen = a.length;
+    let bLen = b.length;
 
-    for (let i = 0; i <= b.length; i++) {
-        matrix[i] = [i];
-    }
-    for (let j = 0; j <= a.length; j++) {
-        matrix[0][j] = j;
+    if (aLen === 0) return bLen;
+    if (bLen === 0) return aLen;
+
+    // Ensure `b` is the shorter string to minimize vector allocation
+    let strA = a;
+    let strB = b;
+    if (aLen < bLen) {
+        strA = b;
+        strB = a;
+        aLen = strA.length;
+        bLen = strB.length;
     }
 
-    for (let i = 1; i <= b.length; i++) {
-        for (let j = 1; j <= a.length; j++) {
-            if (b.charAt(i - 1) === a.charAt(j - 1)) {
-                matrix[i][j] = matrix[i - 1][j - 1];
-            } else {
-                matrix[i][j] = Math.min(
-                    matrix[i - 1][j - 1] + 1,
-                    Math.min(
-                        matrix[i][j - 1] + 1,
-                        matrix[i - 1][j] + 1
-                    )
-                );
-            }
+    // Single flat typed array of size (bLen + 1)
+    const row = new Int32Array(bLen + 1);
+    for (let j = 0; j <= bLen; j++) {
+        row[j] = j;
+    }
+
+    for (let i = 1; i <= aLen; i++) {
+        let left = i;
+        let diagonal = i - 1;
+        const codeA = strA.charCodeAt(i - 1);
+
+        for (let j = 1; j <= bLen; j++) {
+            const cost = (codeA === strB.charCodeAt(j - 1)) ? 0 : 1;
+            const temp = row[j];
+            
+            // Math.min inline
+            const deletion = temp + 1;
+            const insertion = left + 1;
+            const substitution = diagonal + cost;
+
+            left = deletion < insertion
+                ? (deletion < substitution ? deletion : substitution)
+                : (insertion < substitution ? insertion : substitution);
+
+            diagonal = temp;
+            row[j] = left;
         }
     }
 
-    return matrix[b.length][a.length];
+    return row[bLen];
 }
 
 /**
  * Calculates score based on distance and word length.
  * Handles German articles (der/die/das): if article is wrong, score is halved.
+ * 
+ * Performance optimizations:
+ * - Direct exact match fast-path.
+ * - Length-differential early exit before computing Levenshtein distance.
  */
 function calculateScore(expected, actual) {
-    const expClean = expected.trim();
-    const actClean = actual.trim();
+    const expClean = (expected || '').trim();
+    const actClean = (actual || '').trim();
+
+    if (!expClean && !actClean) return { score: 100, isTypo: false };
+    if (!expClean || !actClean) return { score: 0, isTypo: false };
 
     const articles = ['der', 'die', 'das'];
     const expParts = expClean.split(' ');
@@ -61,21 +94,36 @@ function calculateScore(expected, actual) {
         }
     }
 
-    const distance = levenshteinDistance(expNoun.toLowerCase(), actNoun.toLowerCase());
+    const expNounLower = expNoun.toLowerCase();
+    const actNounLower = actNoun.toLowerCase();
     const maxTypos = Math.max(1, Math.floor(expNoun.length / 5));
 
     let score = 0;
     let isTypo = false;
 
-    if (distance === 0) {
+    // Fast-path: exact noun match
+    if (expNounLower === actNounLower) {
         score = 100;
-    } else if (distance <= maxTypos) {
-        score = 100;
-        isTypo = true;
-    } else if (distance === maxTypos + 1) {
-        score = 50;
+        isTypo = false;
     } else {
-        score = 0;
+        // Fast-path: if length difference exceeds maxTypos + 1, distance is guaranteed to be > maxTypos + 1
+        const lenDiff = Math.abs(expNounLower.length - actNounLower.length);
+        if (lenDiff > maxTypos + 1) {
+            score = 0;
+            isTypo = false;
+        } else {
+            const distance = levenshteinDistance(expNounLower, actNounLower);
+            if (distance === 0) {
+                score = 100;
+            } else if (distance <= maxTypos) {
+                score = 100;
+                isTypo = true;
+            } else if (distance === maxTypos + 1) {
+                score = 50;
+            } else {
+                score = 0;
+            }
+        }
     }
 
     if (articleMismatch) {

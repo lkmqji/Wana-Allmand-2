@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 const matchScheduleSchema = new mongoose.Schema({
     hostId: {
         type: String,
-        required: true
+        required: true,
+        index: true
     },
     hostName: {
         type: String,
@@ -15,7 +16,8 @@ const matchScheduleSchema = new mongoose.Schema({
     },
     guestId: {
         type: String,
-        default: null
+        default: null,
+        index: true
     },
     guestName: {
         type: String,
@@ -23,7 +25,8 @@ const matchScheduleSchema = new mongoose.Schema({
     },
     scheduledDate: {
         type: Date,
-        required: true
+        required: true,
+        index: true
     },
     note: {
         type: String,
@@ -41,7 +44,8 @@ const matchScheduleSchema = new mongoose.Schema({
     status: {
         type: String,
         enum: ['pending', 'confirmed', 'completed', 'cancelled'],
-        default: 'pending'
+        default: 'pending',
+        index: true
     },
     reminderSent: {
         type: Boolean,
@@ -49,8 +53,14 @@ const matchScheduleSchema = new mongoose.Schema({
     },
     createdAt: {
         type: Date,
-        default: Date.now
+        default: Date.now,
+        index: true
     }
 });
+
+// Compound indexes for user schedule & status filtering
+matchScheduleSchema.index({ hostId: 1, scheduledDate: -1 });
+matchScheduleSchema.index({ guestId: 1, scheduledDate: -1 });
+matchScheduleSchema.index({ status: 1, scheduledDate: 1 });
 
 module.exports = mongoose.model('MatchSchedule', matchScheduleSchema);

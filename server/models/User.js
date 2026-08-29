@@ -1,15 +1,15 @@
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
-  firebaseId: { type: String, required: true, unique: true },
-  name: { type: String, required: true },
+  firebaseId: { type: String, required: true, unique: true, index: true },
+  name: { type: String, required: true, index: true },
   avatar: { type: String, default: '🦊' },
   photoURL: { type: String, default: null },
-  xp: { type: Number, default: 0 },
+  xp: { type: Number, default: 0, index: true },
   level: { type: Number, default: 1 },
   gamesPlayed: { type: Number, default: 0 },
   gamesWon: { type: Number, default: 0 },
-  lastSeen: { type: Date, default: Date.now },
+  lastSeen: { type: Date, default: Date.now, index: true },
   streak: { type: Number, default: 1 },
   lastActiveDay: { type: String, default: () => new Date().toISOString().split('T')[0] },
   dailyXp: [{
@@ -26,5 +26,8 @@ const userSchema = new mongoose.Schema({
   }]
 }, { timestamps: true });
 
-module.exports = mongoose.model('User', userSchema);
+// Compound indexes for leaderboard and search queries
+userSchema.index({ xp: -1, gamesWon: -1 });
+userSchema.index({ createdAt: -1 });
 
+module.exports = mongoose.model('User', userSchema);

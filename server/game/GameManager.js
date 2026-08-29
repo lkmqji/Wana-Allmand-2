@@ -5,6 +5,15 @@ class GameManager {
     constructor() {
         // sessions map: sessionId -> session object
         this.sessions = new Map();
+
+        // Periodic Garbage Collection sweep for stale/abandoned sessions (every 15 minutes)
+        // unref() ensures this background timer does not hold open the Node.js event loop
+        this._gcInterval = setInterval(() => {
+            this.cleanStaleSessions();
+        }, 15 * 60 * 1000);
+        if (this._gcInterval.unref) {
+            this._gcInterval.unref();
+        }
     }
 
     createSession(hostId, hostName, firebaseId, clientPlayerKey) {
@@ -16,7 +25,7 @@ class GameManager {
             id: sessionId,
             hostId: hostId,
             guestId: null,
-            status: 'waiting', // waiting, playing, finished
+            status: 'waiting', // waiting, playing, showing_results, finished
             vocabList: [],
             settings: { rounds: 0, timePerWord: 15, powerupsEnabled: false, allowPause: true },
             currentQuestionIndex: -1,
@@ -24,7 +33,11 @@ class GameManager {
                 [hostId]: { id: hostId, firebaseId: firebaseId || null, clientPlayerKey: clientPlayerKey || null, name: formattedName, score: 0, answers: {} }
             },
             roundTimer: null,
-            answersThisRound: 0
+            autoAdvanceTimer: null,
+            readyPlayers: new Set(),
+            answersThisRound: 0,
+            createdAt: Date.now(),
+            lastActivity: Date.now()
         });
 
         return sessionId;
@@ -38,6 +51,7 @@ class GameManager {
         const formattedName = formatPlayerName(guestName) || 'Invité';
         session.guestId = guestId;
         session.players[guestId] = { id: guestId, firebaseId: firebaseId || null, clientPlayerKey: clientPlayerKey || null, name: formattedName, score: 0, answers: {} };
+        session.lastActivity = Date.now();
         return { success: true, session };
     }
 
@@ -46,21 +60,71 @@ class GameManager {
         if (!session) return null;
         
         delete session.players[playerId];
+        session.lastActivity = Date.now();
+
         if (session.guestId === playerId) {
             session.guestId = null;
         } else if (session.hostId === playerId) {
-            // If host leaves, we might want to reassign host or destroy session.
-            // For now, just mark hostId as null or reassign to guest if needed.
-            // A simpler approach: if a player leaves, just remove them.
             if (session.guestId) {
                 session.hostId = session.guestId; // Guest becomes host
                 session.guestId = null;
             } else {
-                this.sessions.delete(sessionId);
+                this.destroySession(sessionId);
                 return { destroyed: true };
             }
         }
+
+        if (Object.keys(session.players).length === 0) {
+            this.destroySession(sessionId);
+            return { destroyed: true };
+        }
+
         return { session };
+    }
+
+    /**
+     * Completely cleans and removes a session from memory to prevent RAM / timer leaks.
+     */
+    destroySession(sessionId) {
+        const session = this.sessions.get(sessionId);
+        if (!session) return false;
+
+        // Clear active timeouts
+        if (session.roundTimer) {
+            clearTimeout(session.roundTimer);
+            session.roundTimer = null;
+        }
+        if (session.autoAdvanceTimer) {
+            clearTimeout(session.autoAdvanceTimer);
+            session.autoAdvanceTimer = null;
+        }
+
+        // Clean up data structures
+        if (session.readyPlayers && typeof session.readyPlayers.clear === 'function') {
+            session.readyPlayers.clear();
+        }
+        session.players = {};
+        session.vocabList = [];
+
+        // Delete from Map
+        return this.sessions.delete(sessionId);
+    }
+
+    /**
+     * Automatic garbage collection for stale/abandoned sessions.
+     */
+    cleanStaleSessions(maxAgeMs = 2 * 60 * 60 * 1000) {
+        const now = Date.now();
+        for (const [sessionId, session] of this.sessions.entries()) {
+            const age = now - (session.lastActivity || session.createdAt || now);
+            const isFinished = session.status === 'finished' && age > 15 * 60 * 1000; // 15 mins post-game
+            const isStale = age > maxAgeMs;
+            const isEmpty = !session.players || Object.keys(session.players).length === 0;
+
+            if (isFinished || isStale || isEmpty) {
+                this.destroySession(sessionId);
+            }
+        }
     }
 
     setVocabList(sessionId, vocabList, settings) {
@@ -77,18 +141,23 @@ class GameManager {
             };
             session.currentQuestionIndex = -1;
             session.answersThisRound = 0;
+            session.lastActivity = Date.now();
         }
     }
 
     getSession(sessionId) {
-        return this.sessions.get(sessionId);
+        const session = this.sessions.get(sessionId);
+        if (session) {
+            session.lastActivity = Date.now();
+        }
+        return session;
     }
     
-    // Will be handled more complexly in index.js for timeouts, but this handles state
     submitAnswer(sessionId, playerId, answer, timeRemaining) {
         const session = this.sessions.get(sessionId);
         if (!session || session.status !== 'playing') return null;
 
+        session.lastActivity = Date.now();
         const currentWord = session.vocabList[session.currentQuestionIndex];
         const { score, isTypo } = calculateScore(currentWord.answer, answer);
         
@@ -130,6 +199,7 @@ class GameManager {
         const session = this.sessions.get(sessionId);
         if (!session) return null;
 
+        session.lastActivity = Date.now();
         session.answersThisRound = 0;
         session.currentQuestionIndex += 1;
 
