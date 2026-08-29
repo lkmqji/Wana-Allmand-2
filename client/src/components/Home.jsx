@@ -36,6 +36,7 @@ export default function Home({
   setIsGuest, 
   isAdmin, 
   onOpenAdmin,
+  onToggleAdmin,
   theme,
   setTheme,
   failedWords = [],
@@ -1408,6 +1409,7 @@ export default function Home({
           toggleAutoSave={toggleAutoSave}
           isAdmin={isAdmin}
           onOpenAdmin={onOpenAdmin}
+          onToggleAdmin={onToggleAdmin}
           logout={logout}
           handleDeleteAccount={handleDeleteAccount}
         />

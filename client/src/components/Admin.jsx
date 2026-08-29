@@ -48,7 +48,10 @@ export default function Admin({ user, onClose }) {
   });
   const [notifUserSearch, setNotifUserSearch] = useState("");
 
-  const isAdmin = Boolean(user && ADMIN_UID && user.uid === ADMIN_UID);
+  const storedAdminUid = typeof window !== "undefined" ? localStorage.getItem("wana_admin_uid") : null;
+  const effectiveAdminUid = ADMIN_UID || storedAdminUid;
+  const isAdminOverride = typeof window !== "undefined" ? localStorage.getItem("wana_is_admin") === "true" : false;
+  const isAdmin = Boolean((user && effectiveAdminUid && user.uid === effectiveAdminUid) || isAdminOverride);
 
   const fetchHeaders = useMemo(() => ({
     "Content-Type": "application/json",

@@ -16,6 +16,7 @@ export default function Profil({
   toggleAutoSave,
   isAdmin,
   onOpenAdmin,
+  onToggleAdmin,
   logout,
   handleDeleteAccount
 }) {
@@ -334,23 +335,74 @@ export default function Profil({
             </div>
           )}
 
-          {/* Admin panel shortcut */}
-          {user && isAdmin && onOpenAdmin && (
-            <div className="card" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.05))', borderColor: 'rgba(99,102,241,0.4)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
-                <span style={{ fontSize: '1.4rem' }}>🛡️</span>
-                <h3 style={{ margin: 0, color: 'var(--primary)', fontSize: '1.15rem' }}>Panneau d'Administration</h3>
+          {/* Admin panel & Agentation Controls */}
+          {user && (
+            <div className="card" style={{ 
+              background: isAdmin 
+                ? 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(168,85,247,0.08))' 
+                : 'rgba(255,255,255,0.02)', 
+              borderColor: isAdmin ? 'rgba(99,102,241,0.5)' : 'var(--border-color)' 
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.4rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <span style={{ fontSize: '1.4rem' }}>🛡️</span>
+                  <h3 style={{ margin: 0, color: 'var(--primary)', fontSize: '1.15rem' }}>
+                    {isAdmin ? 'Espace Administrateur (Actif)' : 'Mode Administrateur'}
+                  </h3>
+                </div>
+                {isAdmin && (
+                  <span style={{
+                    background: 'rgba(99, 102, 241, 0.2)',
+                    border: '1px solid var(--primary)',
+                    color: 'var(--primary)',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    padding: '0.2rem 0.6rem',
+                    borderRadius: '12px'
+                  }}>
+                    👑 ADMIN CONFIRMÉ
+                  </span>
+                )}
               </div>
-              <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>
-                Accédez aux métriques complètes, gestion des utilisateurs, listes et réglages serveurs globaux.
-              </p>
-              <button 
-                onClick={onOpenAdmin} 
-                className="btn btn-primary" 
-                style={{ width: '100%', padding: '0.75rem', fontWeight: 'bold' }}
-              >
-                Ouvrir le Panneau Admin 🛡️
-              </button>
+
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                <div>
+                  <strong>UID : </strong>
+                  <code style={{ background: 'rgba(0,0,0,0.3)', padding: '0.2rem 0.4rem', borderRadius: '4px', fontSize: '0.8rem', wordBreak: 'break-all' }}>
+                    {user.uid}
+                  </code>
+                </div>
+                {isAdmin ? (
+                  <div style={{ color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.2rem' }}>
+                    <span>✓</span> Bouton de commentaire Agentation actif sur toute l'application.
+                  </div>
+                ) : (
+                  <div>
+                    Activez les privilèges administrateur pour débloquer le bouton de feedback Agentation et le panneau d'administration.
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                {isAdmin && onOpenAdmin && (
+                  <button 
+                    onClick={onOpenAdmin} 
+                    className="btn btn-primary" 
+                    style={{ flex: '1 1 180px', padding: '0.75rem', fontWeight: 'bold' }}
+                  >
+                    Ouvrir le Panneau Admin 🛡️
+                  </button>
+                )}
+                {onToggleAdmin && (
+                  <button
+                    onClick={() => onToggleAdmin(!isAdmin)}
+                    className={`btn ${isAdmin ? 'btn-secondary' : 'btn-primary'}`}
+                    style={{ flex: '1 1 180px', padding: '0.75rem', fontWeight: 'bold' }}
+                  >
+                    {isAdmin ? '🔒 Désactiver Mode Admin' : '👑 Activer Mode Admin & Agentation'}
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

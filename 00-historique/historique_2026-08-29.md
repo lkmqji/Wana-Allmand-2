@@ -44,3 +44,9 @@
 - **Activation du bouton de commentaire Agentation réservée à l'administrateur** :
   - Déplacement de `<Agentation />` depuis [main.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/main.jsx) vers [App.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/App.jsx).
   - Conditionnement de l'affichage d'`Agentation` exclusivement au statut administrateur (`isAdmin`) afin qu'il reste actif en tout temps (en mode production comme en mode développement) uniquement pour l'administrateur identifié, et masqué pour tous les autres utilisateurs.
+
+## Entrée : 2026-08-29 19:45:00 (UTC+01:00)
+- **Correctif d'affichage global et activation en 1 clic pour l'Administrateur** :
+  - Restructuration du rendu principal dans [App.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/App.jsx) (`renderMainContent`) pour que le fragment racine monte `<Agentation />` en continu sur tous les écrans (Écran de connexion, TitleScreen, Vengeance, Duel, Dashboard).
+  - Ajout du support de détection d'administrateur flexible (`VITE_ADMIN_UID` + `localStorage` override + helper console `window.enableAdmin()`).
+  - Ajout d'une section dédiée "Espace Administrateur" dans l'onglet Profil ([Profil.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/Profil.jsx)) permettant d'activer ou désactiver les privilèges administrateur et de voir l'état du bouton Agentation en temps réel.
