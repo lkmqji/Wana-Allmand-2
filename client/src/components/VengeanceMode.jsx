@@ -682,6 +682,45 @@ export default function VengeanceMode({
     setBatchOffset(0);
   };
 
+  // Quick insertion/replacement for German articles (der, die, das)
+  const handleArticleClick = (article) => {
+    const current = inputVal;
+    const articlesList = ['der', 'die', 'das', 'den', 'dem', 'des', 'ein', 'eine', 'einen'];
+    const parts = current.trimStart().split(/\s+/);
+
+    let newVal = '';
+    if (parts.length > 0 && articlesList.includes(parts[0].toLowerCase())) {
+      // Replace existing article
+      const rest = parts.slice(1).join(' ');
+      newVal = `${article} ${rest}`.trimEnd() + (current.endsWith(' ') ? ' ' : (rest ? '' : ' '));
+    } else {
+      // Prepend article
+      newVal = current ? `${article} ${current.trimStart()}` : `${article} `;
+    }
+
+    setInputVal(newVal);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
+  // Quick insertion for German special characters (ä, ö, ü, ß, Ä, Ö, Ü)
+  const handleSpecialCharClick = (char) => {
+    if (inputRef.current) {
+      const input = inputRef.current;
+      const start = input.selectionStart ?? inputVal.length;
+      const end = input.selectionEnd ?? inputVal.length;
+      const nextVal = inputVal.substring(0, start) + char + inputVal.substring(end);
+      setInputVal(nextVal);
+      setTimeout(() => {
+        input.focus();
+        input.setSelectionRange(start + char.length, start + char.length);
+      }, 0);
+    } else {
+      setInputVal(prev => prev + char);
+    }
+  };
+
   // 🏆 Écran de Triomphe
   if (isCompleted) {
     const totalXp = purifiedCount * 50;
@@ -840,19 +879,19 @@ export default function VengeanceMode({
           </div>
         </div>
 
-        {/* Intro Presentation Box */}
-        <div className="vengeance-game-box" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '3.6rem', marginBottom: '0.6rem', animation: 'heartPop 0.6s ease-out' }}>
+        {/* Intro Presentation Box - Compact & Responsive */}
+        <div className="vengeance-game-box" style={{ textAlign: 'center', padding: '1.25rem 1.4rem' }}>
+          <div style={{ fontSize: '2.2rem', marginBottom: '0.3rem', animation: 'heartPop 0.6s ease-out' }}>
             🔥⚔️🔥
           </div>
           
           <h1 style={{
-            fontSize: '2.3rem',
+            fontSize: '1.7rem',
             fontWeight: 900,
             background: 'linear-gradient(135deg, #ef4444, #f97316, #fbbf24)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
-            margin: '0 0 0.8rem 0',
+            margin: '0 0 0.5rem 0',
             letterSpacing: '0.5px'
           }}>
             {isSurvivalMode ? 'Prépare-toi au Mode Survie 🔥' : 'Prépare-toi à la Purge 🔥'}
@@ -862,15 +901,15 @@ export default function VengeanceMode({
           <div style={{
             background: 'rgba(239, 68, 68, 0.12)',
             border: '1px solid rgba(239, 68, 68, 0.35)',
-            borderRadius: '16px',
-            padding: '1.1rem 1.3rem',
-            marginBottom: '1.5rem',
-            fontSize: '0.95rem',
+            borderRadius: '14px',
+            padding: '0.65rem 0.9rem',
+            marginBottom: '0.9rem',
+            fontSize: '0.86rem',
             color: '#fca5a5',
-            lineHeight: 1.5,
+            lineHeight: 1.4,
             textAlign: 'left'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem', fontWeight: 800, color: '#fed7aa', fontSize: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem', fontWeight: 800, color: '#fed7aa', fontSize: '0.9rem' }}>
               <span>📜</span> Règle du Mode
             </div>
             <p style={{ margin: 0, color: '#f8fafc' }}>
@@ -883,27 +922,27 @@ export default function VengeanceMode({
             <div style={{
               background: 'rgba(99, 102, 241, 0.15)',
               border: '1.5px solid rgba(99, 102, 241, 0.45)',
-              borderRadius: '14px',
-              padding: '0.9rem 1.1rem',
-              marginBottom: '1.4rem',
+              borderRadius: '12px',
+              padding: '0.65rem 0.9rem',
+              marginBottom: '0.9rem',
               textAlign: 'center'
             }}>
-              <div style={{ fontSize: '0.92rem', color: '#c7d2fe', fontWeight: 800, marginBottom: '0.3rem' }}>
+              <div style={{ fontSize: '0.88rem', color: '#c7d2fe', fontWeight: 800, marginBottom: '0.2rem' }}>
                 💾 Progression sauvegardée trouvée !
               </div>
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.85rem' }}>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.6rem' }}>
                 {savedProgress.purifiedCount} / {savedProgress.batchTotal} mots validés ({savedProgress.queue?.length || 0} restants)
               </div>
-              <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                 <button
                   type="button"
                   onClick={handleResumeSavedProgress}
                   className="btn btn-primary"
                   style={{
-                    padding: '0.65rem 1.1rem',
-                    fontSize: '0.92rem',
+                    padding: '0.45rem 0.9rem',
+                    fontSize: '0.85rem',
                     fontWeight: 800,
-                    borderRadius: '12px',
+                    borderRadius: '10px',
                     flex: 1
                   }}
                 >
@@ -914,9 +953,9 @@ export default function VengeanceMode({
                   onClick={handleResetSavedProgress}
                   className="btn btn-secondary"
                   style={{
-                    padding: '0.65rem 0.9rem',
-                    fontSize: '0.82rem',
-                    borderRadius: '12px'
+                    padding: '0.45rem 0.75rem',
+                    fontSize: '0.78rem',
+                    borderRadius: '10px'
                   }}
                 >
                   🔄 Recommencer
@@ -926,11 +965,11 @@ export default function VengeanceMode({
           )}
 
           {/* Task 2: Interactive Batch Selector with default equal to total available words */}
-          <div style={{ marginBottom: '1.6rem', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.6rem', letterSpacing: '0.5px' }}>
+          <div style={{ marginBottom: '1rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.45rem', letterSpacing: '0.5px' }}>
               🎯 Taille du lot pour cette session :
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
               {[10, 15, 20].map(num => {
                 const isSelected = batchSizeChoice === num;
                 return (
@@ -939,15 +978,15 @@ export default function VengeanceMode({
                     type="button"
                     onClick={() => handleSelectPill(num)}
                     style={{
-                      padding: '0.45rem 0.9rem',
+                      padding: '0.35rem 0.75rem',
                       borderRadius: '999px',
                       border: isSelected ? '1.5px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.15)',
                       background: isSelected ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.4), rgba(220, 38, 38, 0.2))' : 'rgba(255, 255, 255, 0.05)',
                       color: isSelected ? '#ffffff' : 'var(--text-muted)',
                       fontWeight: isSelected ? 900 : 600,
-                      fontSize: '0.88rem',
+                      fontSize: '0.82rem',
                       cursor: 'pointer',
-                      boxShadow: isSelected ? '0 0 14px rgba(239, 68, 68, 0.4)' : 'none',
+                      boxShadow: isSelected ? '0 0 12px rgba(239, 68, 68, 0.4)' : 'none',
                       transition: 'all 0.2s ease'
                     }}
                   >
@@ -960,15 +999,15 @@ export default function VengeanceMode({
               <div style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.4rem',
+                gap: '0.35rem',
                 background: isCustomActive ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(220, 38, 38, 0.15))' : 'rgba(255, 255, 255, 0.05)',
                 border: `1.5px solid ${isCustomActive ? '#ef4444' : 'rgba(255, 255, 255, 0.15)'}`,
                 borderRadius: '999px',
-                padding: '0.2rem 0.6rem 0.2rem 0.8rem',
-                boxShadow: isCustomActive ? '0 0 14px rgba(239, 68, 68, 0.3)' : 'none',
+                padding: '0.15rem 0.5rem 0.15rem 0.7rem',
+                boxShadow: isCustomActive ? '0 0 12px rgba(239, 68, 68, 0.3)' : 'none',
                 transition: 'all 0.2s ease'
               }}>
-                <span style={{ fontSize: '0.85rem', color: isCustomActive ? '#ffffff' : 'var(--text-muted)', fontWeight: 700 }}>
+                <span style={{ fontSize: '0.8rem', color: isCustomActive ? '#ffffff' : 'var(--text-muted)', fontWeight: 700 }}>
                   Personnalisé :
                 </span>
                 <input
@@ -1002,19 +1041,19 @@ export default function VengeanceMode({
                     setBatchOffset(0);
                   }}
                   style={{
-                    width: '45px',
-                    padding: '0.25rem 0.4rem',
-                    fontSize: '0.9rem',
+                    width: '40px',
+                    padding: '0.2rem 0.3rem',
+                    fontSize: '0.85rem',
                     fontWeight: 800,
                     textAlign: 'center',
                     backgroundColor: 'rgba(0, 0, 0, 0.4)',
                     border: '1px solid rgba(255, 255, 255, 0.2)',
-                    borderRadius: '8px',
+                    borderRadius: '6px',
                     color: '#ffffff',
                     outline: 'none'
                   }}
                 />
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                   / {maxAvailable}
                 </span>
               </div>
@@ -1025,34 +1064,35 @@ export default function VengeanceMode({
             display: 'flex',
             justifyContent: 'space-around',
             background: 'rgba(0, 0, 0, 0.4)',
-            borderRadius: '14px',
-            padding: '0.9rem',
-            marginBottom: '1.8rem',
+            borderRadius: '12px',
+            padding: '0.65rem',
+            marginBottom: '1.2rem',
             border: '1px solid rgba(255, 255, 255, 0.08)'
           }}>
             <div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#f97316' }}>{queue.length}</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Mots du lot</div>
+              <div style={{ fontSize: '1.3rem', fontWeight: 900, color: '#f97316' }}>{queue.length}</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Mots du lot</div>
             </div>
             <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)' }} />
             <div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#22c55e' }}>+50 XP</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Par mot maîtrisé</div>
+              <div style={{ fontSize: '1.3rem', fontWeight: 900, color: '#22c55e' }}>+50 XP</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Par mot maîtrisé</div>
             </div>
           </div>
 
-          {/* Giant Action Button */}
+          {/* Giant Action Button - Visible Immediately */}
           <button
             onClick={() => setIsPlaying(true)}
             className="btn btn-success"
             style={{
               width: '100%',
-              fontSize: '1.3rem',
-              padding: '1.1rem 2rem',
+              fontSize: '1.2rem',
+              padding: '0.95rem 1.8rem',
               fontWeight: 900,
               letterSpacing: '1px',
-              borderRadius: '16px',
-              cursor: 'pointer'
+              borderRadius: '14px',
+              cursor: 'pointer',
+              boxShadow: '0 8px 24px rgba(34, 197, 94, 0.35)'
             }}
           >
             PRÊT ? GO ! 🚀
@@ -1364,6 +1404,55 @@ export default function VengeanceMode({
             >
               ➔
             </button>
+          </div>
+
+          {/* Quick German Articles & Special Characters Toolbar */}
+          <div className="vengeance-keyboard-toolbar">
+            {/* 3 Clickable Articles: der, die, das */}
+            <div className="vengeance-articles-row">
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', marginRight: '2px' }}>
+                Articles :
+              </span>
+              <button
+                type="button"
+                onClick={() => handleArticleClick('der')}
+                className="vengeance-article-btn art-der"
+                title="Insérer / Remplacer par l'article 'der'"
+              >
+                der
+              </button>
+              <button
+                type="button"
+                onClick={() => handleArticleClick('die')}
+                className="vengeance-article-btn art-die"
+                title="Insérer / Remplacer par l'article 'die'"
+              >
+                die
+              </button>
+              <button
+                type="button"
+                onClick={() => handleArticleClick('das')}
+                className="vengeance-article-btn art-das"
+                title="Insérer / Remplacer par l'article 'das'"
+              >
+                das
+              </button>
+            </div>
+
+            {/* Special German Characters: ä, ö, ü, ß, Ä, Ö, Ü */}
+            <div className="vengeance-chars-row">
+              {['ä', 'ö', 'ü', 'ß', 'Ä', 'Ö', 'Ü'].map(char => (
+                <button
+                  key={char}
+                  type="button"
+                  onClick={() => handleSpecialCharClick(char)}
+                  className="vengeance-char-btn"
+                  title={`Insérer ${char}`}
+                >
+                  {char}
+                </button>
+              ))}
+            </div>
           </div>
         </form>
 

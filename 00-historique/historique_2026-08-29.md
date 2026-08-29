@@ -50,3 +50,14 @@
   - Restructuration du rendu principal dans [App.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/App.jsx) (`renderMainContent`) pour que le fragment racine monte `<Agentation />` en continu sur tous les écrans (Écran de connexion, TitleScreen, Vengeance, Duel, Dashboard).
   - Ajout du support de détection d'administrateur flexible (`VITE_ADMIN_UID` + `localStorage` override + helper console `window.enableAdmin()`).
   - Ajout d'une section dédiée "Espace Administrateur" dans l'onglet Profil ([Profil.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/Profil.jsx)) permettant d'activer ou désactiver les privilèges administrateur et de voir l'état du bouton Agentation en temps réel.
+
+## Entrée : 2026-08-29 19:58:00 (UTC+01:00)
+- **Correction et réinitialisation du chronomètre à chaque manche (Game.jsx)** :
+  - Ajout de la clé dynamique `key={round_${questionIndex}}` et de la prop `questionIndex` sur le composant isolé `GameTimerBadge` dans [Game.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/Game.jsx). Le chronomètre se réinitialise désormais immédiatement à 15s au début de chaque nouvelle manche même après être tombé à 0s.
+- **Accessibilité du bouton "PRÊT ? GO !" en Mode Vengeance (VengeanceMode.jsx & index.css)** :
+  - Ajustement du conteneur `.vengeance-arena` dans [index.css](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/index.css) avec `justify-content: flex-start` et padding compact adapté aux écrans d'ordinateurs portables (ex: hauteur 695px).
+  - Réduction optimisée des espacements et des tailles de police dans la boîte de présentation d'introduction de [VengeanceMode.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/VengeanceMode.jsx) afin que le bouton "PRÊT ? GO ! 🚀" soit immédiatement visible sans nécessiter de défilement vers le bas.
+- **Ajout des boutons d'insertion rapide des 3 articles allemands (der, die, das)** :
+  - Ajout de 3 boutons cliquables colorés (`der`, `die`, `das`) sous le champ de saisie dans [VengeanceMode.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/VengeanceMode.jsx). Un clic insère ou remplace l'article actuel tout en conservant le focus sur le champ pour continuer à taper sans interruption.
+- **Ajout des caractères spéciaux allemands les plus utilisés (ä, ö, ü, ß, Ä, Ö, Ü)** :
+  - Ajout d'une barre de touches virtuelles tactiles pour insérer instantanément `ä`, `ö`, `ü`, `ß`, `Ä`, `Ö`, `Ü` à l'endroit précis du curseur dans [VengeanceMode.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/VengeanceMode.jsx).

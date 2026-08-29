@@ -1670,8 +1670,8 @@ h1, h2, h3, h4 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 2rem 1.5rem;
+  justify-content: flex-start;
+  padding: 1.25rem 1rem 2.5rem 1rem;
   position: relative;
   overflow-y: auto;
   overflow-x: hidden;
@@ -1698,18 +1698,18 @@ h1, h2, h3, h4 {
   justify-content: space-between;
   align-items: center;
   z-index: 20;
-  margin-bottom: 1.25rem;
+  margin-bottom: 0.85rem;
   flex-shrink: 0;
 }
 
 .vengeance-game-box {
   width: 100%;
   max-width: 580px;
-  background: rgba(18, 12, 15, 0.85);
+  background: rgba(18, 12, 15, 0.88);
   backdrop-filter: blur(16px);
   border: 1.5px solid rgba(239, 68, 68, 0.35);
   border-radius: 24px;
-  padding: 1.75rem 2rem;
+  padding: 1.4rem 1.6rem;
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(239, 68, 68, 0.18);
   position: relative;
   z-index: 10;
@@ -1717,6 +1717,126 @@ h1, h2, h3, h4 {
   box-sizing: border-box;
   transform: translateZ(0);
   backface-visibility: hidden;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-height: 750px) {
+  .vengeance-arena {
+    padding: 0.85rem 1rem 1.5rem 1rem;
+  }
+  .vengeance-top-bar {
+    margin-bottom: 0.5rem;
+  }
+  .vengeance-game-box {
+    padding: 1.1rem 1.3rem;
+  }
+}
+
+/* Quick Virtual Keyboard Helpers (Articles & Umlauts) */
+.vengeance-keyboard-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  width: 100%;
+}
+
+.vengeance-articles-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.vengeance-article-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  color: #f8fafc;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.vengeance-article-btn.art-der {
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.08);
+}
+.vengeance-article-btn.art-der:hover {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: #38bdf8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.35);
+}
+
+.vengeance-article-btn.art-die {
+  border-color: rgba(244, 114, 182, 0.45);
+  color: #f472b6;
+  background: rgba(244, 114, 182, 0.08);
+}
+.vengeance-article-btn.art-die:hover {
+  background: rgba(244, 114, 182, 0.22);
+  border-color: #f472b6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(244, 114, 182, 0.35);
+}
+
+.vengeance-article-btn.art-das {
+  border-color: rgba(74, 222, 128, 0.45);
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.08);
+}
+.vengeance-article-btn.art-das:hover {
+  background: rgba(74, 222, 128, 0.22);
+  border-color: #4ade80;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.35);
+}
+
+.vengeance-chars-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.vengeance-char-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.vengeance-char-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(239, 68, 68, 0.3);
+}
+
+.vengeance-char-btn:active,
+.vengeance-article-btn:active {
+  transform: translateY(0) scale(0.95);
 }
 
 .vengeance-game-box.correct-flash {

@@ -27,6 +27,7 @@ const PAUSE_PRESET_PHRASES = [
  */
 const GameTimerBadge = React.memo(function GameTimerBadge({
   initialDuration = 15,
+  questionIndex = 0,
   isFrozenOrPaused,
   hasAnswered,
   roundResult,
@@ -39,7 +40,7 @@ const GameTimerBadge = React.memo(function GameTimerBadge({
   useEffect(() => {
     setTimeRemaining(initialDuration);
     if (timeRef) timeRef.current = initialDuration;
-  }, [initialDuration, timeRef]);
+  }, [initialDuration, questionIndex, timeRef]);
 
   // Warning sound ticker
   const rounded = Math.ceil(timeRemaining);
@@ -1658,6 +1659,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           </div>
 
           <GameTimerBadge
+            key={`round_${questionIndex}`}
+            questionIndex={questionIndex}
             initialDuration={initialRoundDuration}
             isFrozenOrPaused={isGameFrozenOrPaused}
             hasAnswered={hasAnswered}
