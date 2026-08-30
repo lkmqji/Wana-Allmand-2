@@ -17,3 +17,5 @@
 - **Mise à jour des Modes** : Remplacement des formulaires de saisie en dur par <BattleConsole /> dans Game.jsx, VengeanceMode.jsx et TugOfWarArena.jsx.
 - **Standardisation UI** : Uniformisation de l'icône de validation (➔), de la taille de police de la question et du design du bouton de soumission.
 
+### 00:48 - Fix Déploiement Vercel
+- **Conflit de dépendances NPM** : Ajout du fichier `.npmrc` avec `legacy-peer-deps=true` dans le dossier client pour forcer l'installation sur Vercel malgré les avertissements de version de `@capacitor/core`.
