@@ -85,11 +85,17 @@ class ErrorBoundary extends Component {
   }
 }
 
+import { OnboardingProvider } from './context/OnboardingContext'
+import OnboardingOverlay from './components/Onboarding/OnboardingOverlay'
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
       <AudioProvider>
-        <App />
+        <OnboardingProvider>
+          <App />
+          <OnboardingOverlay />
+        </OnboardingProvider>
       </AudioProvider>
     </ErrorBoundary>
   </StrictMode>,

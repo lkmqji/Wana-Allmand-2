@@ -5,6 +5,7 @@ import { useSoundEffects } from '../context/AudioContext';
 import ListPreviewModal from './ListPreviewModal';
 import PlayDropdown from './PlayDropdown';
 import UserProfileModal from './UserProfileModal';
+import { useOnboarding } from '../context/OnboardingContext';
 
 export default function Lobby({ 
   socket, 
@@ -21,10 +22,21 @@ export default function Lobby({
   onStartSurvival,
   onStartTugOfWar 
 }) {
+  const { isActive, currentStep } = useOnboarding();
   const { playAlert, playMessageSent, playReactionBurst } = useSoundEffects();
   const [selectedProfileUser, setSelectedProfileUser] = useState(null);
   // Tabs: 'chat', 'online', 'words', 'settings'
   const [activeTab, setActiveTab] = useState('chat');
+
+  const hasAutoStartedRef = useRef(false);
+
+  // Auto-launch the tutorial duel immediately into the game
+  useEffect(() => {
+    if (isActive && currentStep === 'INTRO' && isHost && session?.id && !hasAutoStartedRef.current) {
+      hasAutoStartedRef.current = true;
+      socket.emit('start_game', session.id);
+    }
+  }, [isActive, currentStep, isHost, session?.id, socket]);
   const [searchQuery, setSearchQuery] = useState('');
   const [invitedSockets, setInvitedSockets] = useState({});
   const [copiedCode, setCopiedCode] = useState(false);

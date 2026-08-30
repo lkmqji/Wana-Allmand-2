@@ -7,6 +7,8 @@ import Profil from './Profil';
 import ListPreviewModal from './ListPreviewModal';
 import PlayDropdown from './PlayDropdown';
 import UserProfileModal from './UserProfileModal';
+import { useSpotlightTarget } from '../hooks/useSpotlightTarget';
+import { useOnboarding } from '../context/OnboardingContext';
 
 const listsCache = {
   public: null,
@@ -49,6 +51,7 @@ export default function Home({
   onEditFailedWord,
   onClearAllFailedWords
 }) {
+  const introSpotlightRef = useSpotlightTarget('INTRO');
   const [listSubTab, setListSubTab] = useState('my_lists'); // 'my_lists' | 'failed_words'
   const [showMistakesModal, setShowMistakesModal] = useState(false);
   const [previewList, setPreviewList] = useState(null);
@@ -91,7 +94,7 @@ export default function Home({
     return title.includes(q) || desc.includes(q) || hasWordMatch;
   });
 
-  const handleStartDirectSession = (wordList) => {
+  const handleStartDirectSession = (wordList, customSettings = {}) => {
     const validWords = (wordList || []).map(w => {
       const q = (w.question || w.frenchPrompt || w.french || '').trim();
       const a = (w.answer || w.germanWord || w.german || w.word || '').trim();
@@ -100,19 +103,31 @@ export default function Home({
 
     if (validWords.length === 0) return alert("Aucun mot valide dans cette liste !");
 
+    const isTutorial = isActive && currentStep === 'INTRO';
+
+    const emitCreate = () => {
+      const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Hôte`;
+      socket.emit('create_session', {
+        vocabList: validWords.map((w, idx) => ({ ...w, id: idx + 1 })),
+        settings: { 
+          rounds: validWords.length, 
+          timePerWord: isTutorial ? 999 : (customSettings.timePerWord || 15), 
+          powerupsEnabled: false,
+          ...customSettings
+        },
+        playerName: finalName,
+        firebaseId: user?.uid,
+        avatar,
+        clientPlayerKey: getClientPlayerKey()
+      });
+    };
+
     if (socket && !socket.connected) {
       socket.connect();
+      socket.once('connect', emitCreate);
+    } else if (socket) {
+      emitCreate();
     }
-
-    const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Hôte`;
-    socket.emit('create_session', {
-      vocabList: validWords.map((w, idx) => ({ ...w, id: idx + 1 })),
-      settings: { rounds: validWords.length, timePerWord: 15, powerupsEnabled: false },
-      playerName: finalName,
-      firebaseId: user?.uid,
-      avatar,
-      clientPlayerKey: getClientPlayerKey()
-    });
   };
 
   const toggleAutoSave = () => {
@@ -486,7 +501,16 @@ export default function Home({
     }
   };
 
+  const { isActive, currentStep, nextStep } = useOnboarding();
+
   const handlePlaySolo = () => {
+    if (isActive && currentStep === 'INTRO') {
+      const tutorialWord = [{ id: 999, question: 'le chien', answer: 'der Hund' }];
+      handleStartDirectSession(tutorialWord);
+      // We don't advance the step here, we let the Game component advance it so the spotlight transitions correctly
+      return;
+    }
+
     const allWords = [];
     exampleLists.forEach(list => allWords.push(...list.words));
     publicLists.forEach(list => allWords.push(...list.words));
@@ -604,6 +628,7 @@ export default function Home({
 
             <div style={{ width: '100%', maxWidth: '300px', marginTop: '1rem', borderTop: '2px dashed rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
               <button 
+                ref={introSpotlightRef}
                 type="button"
                 className="btn btn-success" 
                 onClick={handlePlaySolo} 
@@ -619,7 +644,7 @@ export default function Home({
                   cursor: 'pointer'
                 }}
               >
-                ➕ CRÉER LOBBY
+                ⚔️ DUEL RAPIDE SOLO
               </button>
             </div>
           </div>

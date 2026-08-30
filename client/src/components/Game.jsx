@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { formatPlayerName, extractEmoji, generateBurstParticles } from '../utils/formatters';
 import { useSoundEffects } from '../context/AudioContext';
 import UserProfileModal from './UserProfileModal';
+import { useSpotlightTarget } from '../hooks/useSpotlightTarget';
+import { useOnboarding } from '../context/OnboardingContext';
 
 const PRESET_PHRASES = [
   "💥 Ouch!",
@@ -45,14 +47,14 @@ const GameTimerBadge = React.memo(function GameTimerBadge({
   // Warning sound ticker
   const rounded = Math.ceil(timeRemaining);
   useEffect(() => {
-    if (rounded <= 5 && rounded > 0 && !hasAnswered && !roundResult && !isFrozenOrPaused && playTimeWarning) {
+    if (rounded <= 5 && rounded > 0 && !hasAnswered && !roundResult && !isFrozenOrPaused && playTimeWarning && initialDuration < 600) {
       playTimeWarning();
     }
-  }, [rounded, hasAnswered, roundResult, isFrozenOrPaused, playTimeWarning]);
+  }, [rounded, hasAnswered, roundResult, isFrozenOrPaused, playTimeWarning, initialDuration]);
 
   useEffect(() => {
     let interval;
-    if (timeRemaining > 0 && !hasAnswered && !roundResult && !isFrozenOrPaused) {
+    if (timeRemaining > 0 && !hasAnswered && !roundResult && !isFrozenOrPaused && initialDuration < 600) {
       interval = setInterval(() => {
         setTimeRemaining(t => {
           const next = Math.max(0, parseFloat((t - 0.1).toFixed(2)));
@@ -67,12 +69,13 @@ const GameTimerBadge = React.memo(function GameTimerBadge({
       }, 100);
     }
     return () => clearInterval(interval);
-  }, [timeRemaining, hasAnswered, roundResult, isFrozenOrPaused, onTimeout, timeRef]);
+  }, [timeRemaining, hasAnswered, roundResult, isFrozenOrPaused, onTimeout, timeRef, initialDuration]);
 
   if (roundResult) return null;
 
+  const isUnlimited = initialDuration >= 600;
   const displaySec = Math.ceil(timeRemaining);
-  const isDanger = timeRemaining < 5;
+  const isDanger = !isUnlimited && timeRemaining < 5;
 
   return (
     <div
@@ -84,12 +87,12 @@ const GameTimerBadge = React.memo(function GameTimerBadge({
         fontSize: '1.2rem',
         fontWeight: 'bold',
         margin: 0,
-        color: isDanger ? 'var(--danger)' : 'var(--warning)',
+        color: isUnlimited ? '#38bdf8' : (isDanger ? 'var(--danger)' : 'var(--warning)'),
         willChange: 'transform',
         transform: 'translateZ(0)'
       }}
     >
-      ⏳ {displaySec}s
+      ⏳ {isUnlimited ? '∞ (Tutoriel)' : `${displaySec}s`}
     </div>
   );
 });
@@ -103,7 +106,8 @@ const GameInputForm = React.memo(function GameInputForm({
   disabled,
   placeholder,
   isFrozen,
-  inputRef
+  inputRef,
+  shake
 }) {
   const [localAnswer, setLocalAnswer] = useState('');
 
@@ -156,7 +160,7 @@ const GameInputForm = React.memo(function GameInputForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ margin: '0 auto 1.5rem auto', width: '100%', maxWidth: '420px', position: 'relative' }}>
+    <form onSubmit={handleSubmit} className={shake ? 'error-shake' : ''} style={{ margin: '0 auto 1.5rem auto', width: '100%', maxWidth: '420px', position: 'relative' }}>
       <div style={{ position: 'relative', width: '100%' }}>
         <input
           ref={inputRef}
@@ -326,7 +330,27 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const [leaderId, setLeaderId] = useState(null);
   const [overtakerId, setOvertakerId] = useState(null);
   
-  const inputRef = useRef(null);
+  const { isActive, currentStep, nextStep, skipOnboarding } = useOnboarding();
+  const inputRef = useSpotlightTarget(['TYPE_HUND', 'ARTICLE_WARNING']);
+  const [shakeInput, setShakeInput] = useState(false);
+
+  // Auto-advance tutorial step when entering the game
+  useEffect(() => {
+    if (isActive && currentStep === 'INTRO') {
+      nextStep('TYPE_HUND');
+    }
+  }, [isActive, currentStep, nextStep]);
+
+  // Keep input focused during tutorial interactions
+  useEffect(() => {
+    if (isActive && (currentStep === 'TYPE_HUND' || currentStep === 'ARTICLE_WARNING')) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isActive, currentStep, inputRef]);
+
   const timeRemainingRef = useRef(15);
   const hasAnsweredRef = useRef(hasAnswered);
   const isGameFrozenOrPausedRef = useRef(false);
@@ -335,6 +359,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const overtakerTimeoutRef = useRef(null);
   const flashTimeoutRef = useRef(null);
   const audioTimeoutRef = useRef(null);
+  const focusTimeoutRef = useRef(null);
 
   const [flashEffect, setFlashEffect] = useState(null); // 'success' | 'error' | null
 
@@ -669,6 +694,23 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   }, [socket, playCountdownGo, playSuccess, playError, playFreeze, playOpponentAnswered, playCountdownTick, playReactionBurst]);
 
   const submitAnswer = useCallback((ans = '') => {
+    if (isActive && (currentStep === 'TYPE_HUND' || currentStep === 'ARTICLE_WARNING')) {
+      const normalized = ans.trim().toLowerCase();
+      if (normalized === 'hund') {
+        nextStep('ARTICLE_WARNING');
+        setShakeInput(true);
+        setTimeout(() => setShakeInput(false), 400);
+        return;
+      } else if (normalized === 'der hund') {
+        skipOnboarding();
+        // Continue normal submission so the game proceeds
+      } else {
+        setShakeInput(true);
+        setTimeout(() => setShakeInput(false), 400);
+        return;
+      }
+    }
+
     if (hasAnsweredRef.current || isGameFrozenOrPausedRef.current) return;
     setHasAnswered(true);
     hasAnsweredRef.current = true;
@@ -677,7 +719,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       answer: ans,
       timeRemaining: timeRemainingRef.current
     });
-  }, [socket]);
+  }, [socket, isActive, currentStep, nextStep, skipOnboarding]);
 
   const handleUseJoker = () => {
     if (jokers > 0 && !hasAnswered && !isGameFrozenOrPaused) {
@@ -1755,10 +1797,12 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             key={`round_${questionIndex}`}
             questionIndex={questionIndex}
             initialDuration={initialRoundDuration}
-            isFrozenOrPaused={isGameFrozenOrPaused}
+            isFrozenOrPaused={isGameFrozenOrPaused || (isActive && (currentStep === 'TYPE_HUND' || currentStep === 'ARTICLE_WARNING'))}
             hasAnswered={hasAnswered}
             roundResult={roundResult}
-            onTimeout={() => submitAnswer('')}
+            onTimeout={() => {
+              if (!isActive) submitAnswer('');
+            }}
             timeRef={timeRemainingRef}
             playTimeWarning={playTimeWarning}
           />
@@ -1779,9 +1823,14 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
               <GameInputForm
                 onSubmit={submitAnswer}
                 disabled={hasAnswered || isFrozen || isGameFrozenOrPaused}
-                placeholder={isFrozen ? "GELÉ..." : "Ex: der Tisch"}
+                placeholder={
+                  isActive
+                    ? (currentStep === 'TYPE_HUND' ? "Tape 'Hund' sans l'article..." : (currentStep === 'ARTICLE_WARNING' ? "Tape 'der Hund' avec l'article..." : (isFrozen ? "GELÉ..." : "Ex: der Tisch")))
+                    : (isFrozen ? "GELÉ..." : "Ex: der Tisch")
+                }
                 isFrozen={isFrozen}
                 inputRef={inputRef}
+                shake={shakeInput}
               />
 
               {/* Joker Button */}

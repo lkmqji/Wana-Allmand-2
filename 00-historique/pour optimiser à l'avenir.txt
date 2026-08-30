@@ -1,0 +1,14 @@
+Agis comme un Ingénieur SRE (Site Reliability Engineer). L'application 'Wana Allmand' souffre d'un bug ou d'une baisse de performance.
+Le symptôme que j'observe est le suivant : [DÉCRIS TON PROBLÈME ICI EN UNE PHRASE, ex: Quand je clique sur 'Jouer', il y a un décalage de 2 secondes].
+Ta mission : Ne modifie aucun code pour le moment.
+Fais une enquête technique en me posant les bonnes questions et en m'indiquant où chercher :
+Dis-moi quels logs je dois regarder sur mon serveur (Render).
+Dis-moi ce que je dois vérifier dans la console de mon navigateur (F12).
+Identifie les 3 coupables les plus probables dans notre code actuel (côté React ou côté Express/Socket).
+Donne-moi un diagnostic hypothétique et dis-moi quelle vérification je dois faire pour confirmer la cause."
+Pourquoi faire ça ?
+L'agent va t'expliquer d'où vient l'erreur au lieu de coder à l'aveugle. Une fois que vous avez identifié le vrai coupable ensemble, tu pourras lui dire : "C'est bien le coupable numéro 2, donne-moi le code pour le corriger."
+3. LA RÈGLE PRODUIT (Ma spécialité)
+N'oublie jamais ça : Chaque nouvelle fonctionnalité est un risque de bug.
+Dans le futur, quand on imaginera ensemble un nouveau bouton, un nouveau mode de jeu ou une nouvelle animation, rappelle-toi de toujours demander à ton agent IA :
+"Intègre cette nouvelle idée, mais veille à utiliser le Code Splitting de Vite, à ne pas bloquer l'Event Loop, et à nettoyer les écouteurs React (useEffect cleanup)."

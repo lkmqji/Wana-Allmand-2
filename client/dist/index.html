@@ -12,11 +12,31 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="format-detection" content="telephone=no" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Resource Hints : DNS-Prefetch & Preconnect pour accélérer le chargement et éliminer la latence réseau -->
+    <!-- 1. Google Fonts -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- 2. Backend Render API & WebSockets -->
+    <link rel="dns-prefetch" href="https://wana-allmand.onrender.com" />
+    <link rel="preconnect" href="https://wana-allmand.onrender.com" crossorigin />
+    <link rel="dns-prefetch" href="https://onrender.com" />
+    <link rel="preconnect" href="https://onrender.com" crossorigin />
+
+    <!-- 3. Firebase Auth & Services Google Identity -->
+    <link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com" />
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
+    <link rel="dns-prefetch" href="https://securetoken.googleapis.com" />
+    <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin />
+    <link rel="dns-prefetch" href="https://wana-allmand.firebaseapp.com" />
+    <link rel="preconnect" href="https://wana-allmand.firebaseapp.com" crossorigin />
+
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800;900&family=Outfit:wght@300;400;600;700;800;900&family=Syne:wght@700;800;900&display=swap" rel="stylesheet">
     <title>Wana Allmand - Arène d'Allemand</title>
-    <script type="module" crossorigin src="/assets/index-BCtIfCpT.js"></script>
+    <script type="module" crossorigin src="/assets/index-2SOIg73k.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/rolldown-runtime-hePW80VL.js">
     <link rel="modulepreload" crossorigin href="/assets/vendor-agentation-CQkgtPKA.js">
     <link rel="modulepreload" crossorigin href="/assets/vendor-react-CBNY1b1x.js">

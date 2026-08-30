@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:clinic": "clinic doctor -- node index.js",
+    "test:stress": "artillery run stress-test.yml"
   },
   "keywords": [],
   "author": "",
@@ -19,5 +21,10 @@
     "multer": "^2.2.0",
     "pdf-parse": "^1.1.1",
     "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "artillery": "^2.0.34",
+    "artillery-engine-socketio-v3": "^1.2.0",
+    "clinic": "^13.0.0"
   }
 }

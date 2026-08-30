@@ -1,0 +1,43 @@
+config:
+  target: "http://localhost:3001"
+  phases:
+    - duration: 30
+      arrivalRate: 2
+      rampTo: 10
+      name: "Phase 1 : Échauffement (10 joueurs)"
+    - duration: 60
+      arrivalRate: 10
+      rampTo: 100
+      name: "Phase 2 : Montée en charge (100 joueurs)"
+    - duration: 60
+      arrivalRate: 100
+      rampTo: 500
+      name: "Phase 3 : Pic d'effort (500 joueurs simultanés)"
+  engines:
+    socketio-v3: {}
+
+scenarios:
+  - name: "Parcours Joueur : Connexion, Lobby, Chat et Déconnexion"
+    engine: socketio-v3
+    flow:
+      # 1. Connexion & Enregistrement dans le Lobby
+      - emit:
+          channel: "register_online_user"
+          data:
+            firebaseId: "bot-{{ $randomNumber(1000, 9999) }}"
+            name: "StressBot_{{ $randomNumber(100, 999) }}"
+            avatar: "🤖"
+      - think: 1
+
+      # 2. Envoi d'un message dans le chat du Lobby
+      - emit:
+          channel: "send_lobby_chat"
+          data:
+            sessionId: "lobby"
+            text: "Performance stress test message from bot {{ $randomNumber(100, 999) }}"
+            senderName: "StressBot"
+            senderAvatar: "🤖"
+            id: "msg-{{ $randomNumber(10000, 99999) }}"
+      - think: 2
+
+      # 3. Déconnexion automatique en fin de flux

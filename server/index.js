@@ -1174,6 +1174,7 @@ io.on('connection', (socket) => {
             // Cleanly clear existing timers and reset question/round progress
             clearTimeout(session.roundTimer);
             clearTimeout(session.autoAdvanceTimer);
+            clearTimeout(session.startGameTimer);
             session.currentQuestionIndex = -1;
             session.answersThisRound = 0;
             session.readyPlayers = new Set();
@@ -1199,7 +1200,7 @@ io.on('connection', (socket) => {
             io.to(sessionId).emit('game_started');
             
             // Wait a moment for clients to render the Game component before sending the first question
-            setTimeout(() => {
+            session.startGameTimer = setTimeout(() => {
                 sendNextQuestion(sessionId);
             }, 1000);
         }
@@ -1895,10 +1896,12 @@ function sendNextQuestion(sessionId) {
             duration: session.settings.timePerWord
         });
 
-        // Start timer
-        session.roundTimer = setTimeout(() => {
-            handleRoundEnd(sessionId);
-        }, session.roundDuration);
+        // Start timer only if not in tutorial/infinite mode
+        if (session.settings.timePerWord < 300 && !session.settings.isTutorial) {
+            session.roundTimer = setTimeout(() => {
+                handleRoundEnd(sessionId);
+            }, session.roundDuration);
+        }
     }
 }
 
@@ -1916,7 +1919,7 @@ function handleRoundEnd(sessionId) {
     // Send round results
     io.to(sessionId).emit('round_results', {
         players: session.players,
-        correctAnswer: session.vocabList[session.currentQuestionIndex].answer
+        correctAnswer: session.vocabList?.[session.currentQuestionIndex]?.answer || ''
     });
 
     // Fallback: auto-advance after 2s if no one presses ready
