@@ -10,14 +10,14 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        hideSystemBars();
+        // hideSystemBars(); // Removed to allow @capacitor/status-bar to work
     }
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
-            hideSystemBars();
+            // hideSystemBars(); // Removed to allow @capacitor/status-bar to work
         }
     }
 

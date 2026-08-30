@@ -4,6 +4,7 @@ import { evaluateAnswer } from '../utils/levenshtein';
 import { sound } from '../utils/soundEngine';
 import { ParticleBurst } from './ParticleBurst';
 import { TypoFallingVFX } from './TypoFallingVFX';
+import BattleConsole from './BattleConsole';
 
 const DEFAULT_DUEL_WORDS = [
   { question: 'la maison', answer: 'das Haus' },
@@ -154,40 +155,7 @@ export const TugOfWarArena = ({
     }
   };
 
-  const handleArticleClick = (article) => {
-    if (matchStatus !== 'PLAYING') return;
-    const current = inputVal;
-    const articlesList = ['der', 'die', 'das', 'den', 'dem', 'des', 'ein', 'eine', 'einen'];
-    const parts = current.trimStart().split(/\s+/);
 
-    let newVal = '';
-    if (parts.length > 0 && articlesList.includes(parts[0].toLowerCase())) {
-      const rest = parts.slice(1).join(' ');
-      newVal = `${article} ${rest}`.trimEnd() + (current.endsWith(' ') ? ' ' : (rest ? '' : ' '));
-    } else {
-      newVal = current ? `${article} ${current.trimStart()}` : `${article} `;
-    }
-
-    setInputVal(newVal);
-    inputRef.current?.focus();
-  };
-
-  const handleSpecialCharClick = (char) => {
-    if (matchStatus !== 'PLAYING') return;
-    if (inputRef.current) {
-      const input = inputRef.current;
-      const start = input.selectionStart ?? inputVal.length;
-      const end = input.selectionEnd ?? inputVal.length;
-      const nextVal = inputVal.substring(0, start) + char + inputVal.substring(end);
-      setInputVal(nextVal);
-      setTimeout(() => {
-        input.focus();
-        input.setSelectionRange(start + char.length, start + char.length);
-      }, 0);
-    } else {
-      setInputVal(prev => prev + char);
-    }
-  };
 
   const handleRestartMatch = () => {
     setBeamPos(0);
@@ -487,149 +455,18 @@ export const TugOfWarArena = ({
             {/* Effet visuel des lettres erronées qui tombent */}
             <TypoFallingVFX dropped={droppedLetters} />
 
-            {/* Question (Français) - Cadrée, non étirée et compacte */}
-            <h3 
-              style={{
-                fontFamily: "'Outfit', sans-serif",
-                fontWeight: 800,
-                fontSize: 'clamp(1.15rem, 3.2vw, 1.55rem)',
-                lineHeight: 1.25,
-                color: '#ffffff',
-                margin: '0.1rem auto 0.75rem auto',
-                maxWidth: '500px',
-                width: '100%',
-                wordBreak: 'break-word'
-              }}
-            >
-              {currentWord.question}
-            </h3>
-
-            {/* Formulaire de Saisie */}
-            <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: '440px', position: 'relative' }}>
-              <input
-                ref={inputRef}
-                type="text"
-                value={inputVal}
-                onChange={(e) => setInputVal(e.target.value)}
-                placeholder="Traduction en allemand..."
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck="false"
-                style={{
-                  width: '100%',
-                  textAlign: 'center',
-                  fontFamily: "'Outfit', sans-serif",
-                  fontWeight: 800,
-                  fontSize: '1.15rem',
-                  padding: '0.65rem 2.8rem 0.65rem 0.9rem',
-                  borderRadius: '16px',
-                  backgroundColor: 'rgba(6, 8, 14, 0.75)',
-                  border: '1.5px solid rgba(0, 242, 254, 0.5)',
-                  color: '#ffffff',
-                  outline: 'none',
-                  boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 242, 254, 0.2)',
-                  transition: 'all 0.15s ease'
-                }}
-              />
-              <button
-                type="submit"
-                style={{
-                  position: 'absolute',
-                  right: '6px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: '34px',
-                  height: '34px',
-                  borderRadius: '10px',
-                  background: 'linear-gradient(135deg, #00f2fe 0%, #3b82f6 100%)',
-                  border: 'none',
-                  color: '#000000',
-                  fontWeight: 900,
-                  fontSize: '0.95rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 0 12px rgba(0, 242, 254, 0.6)'
-                }}
-              >
-                ⚡
-              </button>
-            </form>
-
-            {/* Barres d'aide rapide (Articles en haut, Caractères Allemands en dessous) */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', alignItems: 'center', marginTop: '0.65rem', width: '100%', maxWidth: '440px' }}>
-              {/* Ligne 1 : Articles */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', justifyContent: 'center' }}>
-                {['der', 'die', 'das', 'ein', 'eine'].map(art => (
-                  <button
-                    key={art}
-                    type="button"
-                    onClick={() => handleArticleClick(art)}
-                    style={{
-                      padding: '0.25rem 0.6rem',
-                      background: 'rgba(0, 242, 254, 0.12)',
-                      border: '1px solid rgba(0, 242, 254, 0.3)',
-                      borderRadius: '8px',
-                      color: '#00f2fe',
-                      fontSize: '0.76rem',
-                      fontFamily: "'JetBrains Mono', monospace",
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(0, 242, 254, 0.25)';
-                      e.currentTarget.style.borderColor = '#00f2fe';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'rgba(0, 242, 254, 0.12)';
-                      e.currentTarget.style.borderColor = 'rgba(0, 242, 254, 0.3)';
-                      e.currentTarget.style.transform = 'translateY(0)';
-                    }}
-                  >
-                    {art}
-                  </button>
-                ))}
-              </div>
-
-              {/* Ligne 2 : Caractères Spéciaux Allemands (en bas) */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', justifyContent: 'center' }}>
-                {['ä', 'ö', 'ü', 'ß'].map(char => (
-                  <button
-                    key={char}
-                    type="button"
-                    onClick={() => handleSpecialCharClick(char)}
-                    style={{
-                      padding: '0.25rem 0.6rem',
-                      background: 'rgba(255, 255, 255, 0.08)',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      borderRadius: '8px',
-                      color: '#f8fafc',
-                      fontSize: '0.8rem',
-                      fontFamily: "'JetBrains Mono', monospace",
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.5)';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
-                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-                      e.currentTarget.style.transform = 'translateY(0)';
-                    }}
-                  >
-                    {char}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <BattleConsole
+              question={currentWord.question}
+              inputValue={inputVal}
+              onInputChange={setInputVal}
+              onSubmit={handleSubmit}
+              isDisabled={matchStatus !== 'PLAYING'}
+              inputPlaceholder="Traduction en allemand..."
+              inputRef={inputRef}
+              theme="valkyrie"
+              articles={['der', 'die', 'das', 'ein', 'eine']}
+              specialChars={['ä', 'ö', 'ü', 'ß']}
+            />
           </div>
         )}
 

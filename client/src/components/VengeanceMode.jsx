@@ -4,6 +4,7 @@ import { exampleLists } from '../data/exampleLists';
 import { resolveWordPair } from '../utils/dictionary';
 import { useAudio, useSoundEffects } from '../context/AudioContext';
 import { speakText, stopSpeech } from '../utils/speech';
+import BattleConsole from './BattleConsole';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const ROUND_DURATION = 10.5; // 30% faster than 15s duel
@@ -662,44 +663,7 @@ export default function VengeanceMode({
     setBatchOffset(0);
   };
 
-  // Quick insertion/replacement for German articles (der, die, das)
-  const handleArticleClick = (article) => {
-    const current = inputVal;
-    const articlesList = ['der', 'die', 'das', 'den', 'dem', 'des', 'ein', 'eine', 'einen'];
-    const parts = current.trimStart().split(/\s+/);
 
-    let newVal = '';
-    if (parts.length > 0 && articlesList.includes(parts[0].toLowerCase())) {
-      // Replace existing article
-      const rest = parts.slice(1).join(' ');
-      newVal = `${article} ${rest}`.trimEnd() + (current.endsWith(' ') ? ' ' : (rest ? '' : ' '));
-    } else {
-      // Prepend article
-      newVal = current ? `${article} ${current.trimStart()}` : `${article} `;
-    }
-
-    setInputVal(newVal);
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
-  };
-
-  // Quick insertion for German special characters (ä, ö, ü, ß, Ä, Ö, Ü)
-  const handleSpecialCharClick = (char) => {
-    if (inputRef.current) {
-      const input = inputRef.current;
-      const start = input.selectionStart ?? inputVal.length;
-      const end = input.selectionEnd ?? inputVal.length;
-      const nextVal = inputVal.substring(0, start) + char + inputVal.substring(end);
-      setInputVal(nextVal);
-      setTimeout(() => {
-        input.focus();
-        input.setSelectionRange(start + char.length, start + char.length);
-      }, 0);
-    } else {
-      setInputVal(prev => prev + char);
-    }
-  };
 
   // 🏆 Écran de Triomphe
   if (isCompleted) {
@@ -1201,240 +1165,95 @@ export default function VengeanceMode({
           })}
         </div>
 
-        {/* Prompt Word / Question Header with Speaker 🔊 for the question/prompt (Task 1 Anti-triche) */}
-        <div style={{ textAlign: 'center', marginBottom: '1.6rem' }}>
-          <div style={{ fontSize: '0.9rem', color: '#f97316', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.4rem' }}>
-            Traduire en allemand :
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem' }}>
-            <h1 style={{
-              fontSize: '2.5rem',
-              fontWeight: 900,
-              color: '#ffffff',
-              margin: 0,
-              textShadow: '0 2px 16px rgba(0,0,0,0.8)',
-              letterSpacing: '0.5px',
-              lineHeight: 1.2
-            }}>
-              {currentWord.question || currentWord.word}
-            </h1>
-            <button
-              type="button"
-              onClick={() => speakPromptWord(currentWord.question || currentWord.word, isSoundEnabled)}
-              style={{
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '50%',
-                width: '34px',
-                height: '34px',
-                cursor: 'pointer',
-                fontSize: '1rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#f8fafc',
-                transition: 'all 0.2s ease',
-                flexShrink: 0
-              }}
-              title="Écouter la question (français)"
-            >
-              🔊
-            </button>
-          </div>
-          {currentWord.count > 1 && (
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
-              Raté {currentWord.count} fois par le passé
-            </div>
-          )}
-        </div>
-
-        {/* Active Correction Box (Task 1: Anti-triche + speaker reads German correction) */}
-        {mustTypeCorrection ? (
-          <div style={{
-            background: 'rgba(239, 68, 68, 0.12)',
-            border: '2px solid rgba(239, 68, 68, 0.6)',
-            borderRadius: '18px',
-            padding: '1.2rem 1.4rem',
-            textAlign: 'center',
-            marginBottom: '1.3rem',
-            boxShadow: '0 0 35px rgba(239, 68, 68, 0.3)',
-            animation: 'fadeIn 0.25s ease-out'
-          }}>
-            {/* Strikethrough wrong attempt */}
-            <div style={{ marginBottom: '0.4rem' }}>
-              {renderFaultComparison(wrongAttempt, correctionText)}
-            </div>
-
-            {/* Expected correct word in huge green with audio speaker (German) */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem' }}>
-              <h2 style={{
-                fontSize: '2.4rem',
-                fontWeight: 900,
-                color: 'var(--success-color, #4ade80)',
-                textShadow: '0 0 25px rgba(74, 222, 128, 0.55)',
-                margin: 0,
-                letterSpacing: '0.5px'
-              }}>
-                {correctionText}
-              </h2>
-              <button
-                type="button"
-                onClick={() => speakGermanWord(correctionText, isSoundEnabled)}
-                style={{
-                  background: 'rgba(74, 222, 128, 0.15)',
-                  border: '1px solid rgba(74, 222, 128, 0.4)',
-                  borderRadius: '50%',
-                  width: '36px',
-                  height: '36px',
-                  cursor: 'pointer',
-                  fontSize: '1.1rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#4ade80',
-                  transition: 'all 0.2s ease',
-                  flexShrink: 0
-                }}
-                title="Écouter la prononciation allemande"
-              >
-                🔊
-              </button>
-            </div>
-          </div>
-        ) : feedback ? (
-          <div style={{
-            background: feedback.type === 'wrong' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)',
-            border: `1.5px solid ${feedback.type === 'wrong' ? '#ef4444' : '#22c55e'}`,
-            borderRadius: '12px',
-            padding: '0.8rem 1rem',
-            textAlign: 'center',
-            marginBottom: '1.4rem',
-            animation: 'fadeIn 0.2s ease-out'
-          }}>
-            <div style={{ fontWeight: 800, fontSize: '1rem', color: feedback.type === 'wrong' ? '#fca5a5' : '#86efac' }}>
-              {feedback.message}
-            </div>
-            {feedback.type === 'wrong' && feedback.expected && (
-              <div style={{ fontSize: '0.88rem', color: '#ffffff', marginTop: '0.3rem' }}>
-                Réponse attendue : <strong>{feedback.expected}</strong>
+        <BattleConsole
+          question={currentWord.question || currentWord.word}
+          theme="vengeance"
+          inputValue={inputVal}
+          onInputChange={setInputVal}
+          onSubmit={handleSubmit}
+          isDisabled={isAnswering}
+          isError={isShaking}
+          isCorrectionMode={mustTypeCorrection}
+          inputPlaceholder={mustTypeCorrection ? "Tape le mot correct :" : "Écris la traduction en allemand..."}
+          inputRef={inputRef}
+          onSpeakQuestion={() => speakPromptWord(currentWord.question || currentWord.word, isSoundEnabled)}
+          bottomSlot={
+            currentWord.count > 1 && (
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+                Raté {currentWord.count} fois par le passé
               </div>
-            )}
-          </div>
-        ) : null}
-
-        {/* Submission Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-          <div style={{ position: 'relative', width: '100%' }}>
-            <input
-              ref={inputRef}
-              autoFocus
-              type="text"
-              className="input-field"
-              placeholder={mustTypeCorrection ? "Tape le mot correct :" : "Écris la traduction en allemand..."}
-              value={inputVal}
-              onChange={(e) => setInputVal(e.target.value)}
-              disabled={isAnswering}
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck="false"
-              style={{
-                width: '100%',
-                padding: '1.1rem 3.6rem 1.1rem 1.2rem',
-                fontSize: '1.25rem',
-                textAlign: 'left',
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                borderColor: mustTypeCorrection ? '#ef4444' : (isShaking ? '#ef4444' : 'rgba(239, 68, 68, 0.4)'),
-                boxShadow: mustTypeCorrection ? '0 0 20px rgba(239, 68, 68, 0.4)' : 'none',
-                borderWidth: mustTypeCorrection ? '2px' : '1px',
-                color: '#ffffff',
-                borderRadius: '16px'
-              }}
-            />
-
-            {/* Inline Arrow Submit Button */}
-            <button
-              type="submit"
-              disabled={isAnswering || !inputVal.trim()}
-              style={{
-                position: 'absolute',
-                right: '8px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                width: '42px',
-                height: '42px',
+            )
+          }
+          feedbackSlot={
+            mustTypeCorrection ? (
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.12)',
+                border: '2px solid rgba(239, 68, 68, 0.6)',
+                borderRadius: '18px',
+                padding: '1.2rem 1.4rem',
+                textAlign: 'center',
+                boxShadow: '0 0 35px rgba(239, 68, 68, 0.3)',
+                animation: 'fadeIn 0.25s ease-out'
+              }}>
+                <div style={{ marginBottom: '0.4rem' }}>
+                  {renderFaultComparison(wrongAttempt, correctionText)}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem' }}>
+                  <h2 style={{
+                    fontSize: '2.4rem',
+                    fontWeight: 900,
+                    color: 'var(--success-color, #4ade80)',
+                    textShadow: '0 0 25px rgba(74, 222, 128, 0.55)',
+                    margin: 0,
+                    letterSpacing: '0.5px'
+                  }}>
+                    {correctionText}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => speakGermanWord(correctionText, isSoundEnabled)}
+                    style={{
+                      background: 'rgba(74, 222, 128, 0.15)',
+                      border: '1px solid rgba(74, 222, 128, 0.4)',
+                      borderRadius: '50%',
+                      width: '36px',
+                      height: '36px',
+                      cursor: 'pointer',
+                      fontSize: '1.1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#4ade80',
+                      transition: 'all 0.2s ease',
+                      flexShrink: 0
+                    }}
+                    title="Écouter la prononciation allemande"
+                  >
+                    🔊
+                  </button>
+                </div>
+              </div>
+            ) : feedback ? (
+              <div style={{
+                background: feedback.type === 'wrong' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)',
+                border: `1.5px solid ${feedback.type === 'wrong' ? '#ef4444' : '#22c55e'}`,
                 borderRadius: '12px',
-                border: 'none',
-                background: mustTypeCorrection
-                  ? 'linear-gradient(135deg, #10b981, #059669)'
-                  : (inputVal.trim() ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'rgba(255, 255, 255, 0.08)'),
-                color: '#ffffff',
-                fontSize: '1.2rem',
-                fontWeight: 900,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: (isAnswering || !inputVal.trim()) ? 'not-allowed' : 'pointer',
-                boxShadow: inputVal.trim() 
-                  ? (mustTypeCorrection ? '0 0 14px rgba(16, 185, 129, 0.4)' : '0 0 14px rgba(239, 68, 68, 0.4)') 
-                  : 'none',
-                transition: 'all 0.15s ease',
-                opacity: inputVal.trim() ? 1 : 0.45
-              }}
-              title="Valider (Entrée)"
-            >
-              ➔
-            </button>
-          </div>
-
-          {/* Quick German Articles & Special Characters Toolbar */}
-          <div className="vengeance-keyboard-toolbar">
-            {/* 3 Clickable Articles: der, die, das */}
-            <div className="vengeance-articles-row">
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', marginRight: '2px' }}>
-                Articles :
-              </span>
-              <button
-                type="button"
-                onClick={() => handleArticleClick('der')}
-                className="vengeance-article-btn art-der"
-                title="Insérer / Remplacer par l'article 'der'"
-              >
-                der
-              </button>
-              <button
-                type="button"
-                onClick={() => handleArticleClick('die')}
-                className="vengeance-article-btn art-die"
-                title="Insérer / Remplacer par l'article 'die'"
-              >
-                die
-              </button>
-              <button
-                type="button"
-                onClick={() => handleArticleClick('das')}
-                className="vengeance-article-btn art-das"
-                title="Insérer / Remplacer par l'article 'das'"
-              >
-                das
-              </button>
-            </div>
-
-            {/* Special German Characters: ä, ö, ü, ß */}
-            <div className="vengeance-chars-row">
-              {['ä', 'ö', 'ü', 'ß'].map(char => (
-                <button
-                  key={char}
-                  type="button"
-                  onClick={() => handleSpecialCharClick(char)}
-                  className="vengeance-char-btn"
-                  title={`Insérer ${char}`}
-                >
-                  {char}
-                </button>
-              ))}
-            </div>
-          </div>
-        </form>
+                padding: '0.8rem 1rem',
+                textAlign: 'center',
+                animation: 'fadeIn 0.2s ease-out'
+              }}>
+                <div style={{ fontWeight: 800, fontSize: '1rem', color: feedback.type === 'wrong' ? '#fca5a5' : '#86efac' }}>
+                  {feedback.message}
+                </div>
+                {feedback.type === 'wrong' && feedback.expected && (
+                  <div style={{ fontSize: '0.88rem', color: '#ffffff', marginTop: '0.3rem' }}>
+                    Réponse attendue : <strong>{feedback.expected}</strong>
+                  </div>
+                )}
+              </div>
+            ) : null
+          }
+        />
 
         {/* Clean, Single Centered Footer Text */}
         <div style={{ textAlign: 'center', marginTop: '1.3rem', fontSize: '0.88rem', color: 'var(--text-secondary, #94a3b8)', fontWeight: 600 }}>
