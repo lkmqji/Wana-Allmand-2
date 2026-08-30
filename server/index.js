@@ -48,6 +48,16 @@ const verifyAdmin = (req, res, next) => {
     next();
 };
 
+// ---- HEALTH CHECK / KEEP-ALIVE ENDPOINTS (Render Ping) ----
+app.get(['/', '/health', '/api/health'], (req, res) => {
+    res.status(200).json({ 
+        status: 'ok', 
+        message: 'Server is awake and healthy',
+        uptime: Math.floor(process.uptime()),
+        timestamp: new Date().toISOString()
+    });
+});
+
 // ---- PUBLIC CONFIG ENDPOINT ----
 app.get('/api/config', async (req, res) => {
     try {

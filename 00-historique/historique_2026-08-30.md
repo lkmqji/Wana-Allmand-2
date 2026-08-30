@@ -45,3 +45,11 @@
   - Les utilisateurs standards (non administrateurs) ne voient plus du tout cet encadré ni le bouton pour basculer en mode admin.
   - Les administrateurs authentifiés conservent l'accès complet à leur espace et aux contrôles associés.
 
+### 01:46 - Suppression de l'icône du conteneur dans le modal d'accueil (`OnboardingTour.jsx`)
+- **Nettoyage visuel du modal de bienvenue** :
+  - Suppression du conteneur d'icône rebondissant (`onboarding-icon-wrapper`) au-dessus des titres d'étapes pour épurer l'affichage et rendre le modal plus compact et clair.
+
+### 02:05 - Ajout des routes Keep-Alive & Health Check pour Render (`server/index.js`)
+- **Routes légères de maintien en éveil** :
+  - Ajout des routes `GET /`, `GET /health` et `GET /api/health` qui retournent immédiatement un statut `200 OK` avec le temps d'activité (`uptime`) et l'horodatage.
+  - Permet d'éviter le "Cold Start" sur Render.com via un service de ping périodique externe (ex: cron-job.org) sans solliciter la base de données MongoDB.

@@ -102,10 +102,6 @@ export default function OnboardingTour({ isOpen, onClose, onNavigateTab }) {
         </div>
 
         <div className="onboarding-content">
-          <div className="onboarding-icon-wrapper animate-bounce">
-            <span className="onboarding-icon">{current.icon}</span>
-          </div>
-
           <h2 className="onboarding-title">{current.title}</h2>
           <p className="onboarding-description">{current.description}</p>
 
