@@ -53,3 +53,17 @@
 - **Routes légères de maintien en éveil** :
   - Ajout des routes `GET /`, `GET /health` et `GET /api/health` qui retournent immédiatement un statut `200 OK` avec le temps d'activité (`uptime`) et l'horodatage.
   - Permet d'éviter le "Cold Start" sur Render.com via un service de ping périodique externe (ex: cron-job.org) sans solliciter la base de données MongoDB.
+
+### 02:26 - Optimisation SEO & Performance Web du fichier racine (`client/index.html`)
+- **Implémentation des balises Resource Hints (`preconnect` et `dns-prefetch`)** :
+  - *Google Fonts* : Pré-résolution DNS et pré-connexion TLS avec `crossorigin` pour `fonts.googleapis.com` et `fonts.gstatic.com` afin d'éliminer le blocage du rendu lié au téléchargement des polices.
+  - *Backend Render (API & WebSockets)* : Anticipation de la connexion TCP/TLS et résolution DNS pour les serveurs Render (`wana-allmand.onrender.com` et `onrender.com`).
+  - *Firebase Authentication & Services Google* : Optimisation des requêtes d'authentification et des jetons d'accès via `identitytoolkit.googleapis.com`, `securetoken.googleapis.com` et `wana-allmand.firebaseapp.com`.
+- **Désactivation du délai de 300ms au tap sur Safari iOS** :
+  - Configuration de la balise `<meta name="viewport">` avec `maximum-scale=1.0, user-scalable=no, viewport-fit=cover` pour supprimer le délai natif de 300ms du "double-tap-to-zoom" et rendre les boutons 100% réactifs.
+
+### 02:44 - Consolidation et mise à jour du Master Technical Context (`MASTER_PRODUCT_TECHNICAL_CONTEXT.md`)
+- **Synthèse exhaustive des modifications du 29 août 2026** :
+  - Rédaction et intégration de la section dédiée récapitulant les optimisations majeures (Frontend Snappy UI & suppression des fuites mémoires, Claviers d'aide allemands virtuels, Résilience réseau & déconnexion immédiate, Diagnostics backend & indexation MongoDB, Nouveau mode de jeu Tir à la Corde et Intégration Agentation).
+  - Mise à jour cohérente des sections d'architecture, des modes de gameplay et de l'arborescence des composants.
+
