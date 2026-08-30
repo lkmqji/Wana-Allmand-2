@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons.svg', 'sounds/*.mp3'],
+      includeAssets: ['logo.jpg', 'icons.svg', 'sounds/*.mp3'],
       manifest: {
         name: 'Wana Allmand',
         short_name: 'Wana Allmand',
@@ -21,9 +21,9 @@ export default defineConfig({
         scope: '/',
         icons: [
           {
-            src: '/favicon.svg',
+            src: '/logo.jpg',
             sizes: '192x192 512x512',
-            type: 'image/svg+xml',
+            type: 'image/jpeg',
             purpose: 'any maskable'
           }
         ]

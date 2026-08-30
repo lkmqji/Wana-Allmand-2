@@ -4,6 +4,7 @@ import { useSoundEffects } from '../context/AudioContext';
 import UserProfileModal from './UserProfileModal';
 import { useSpotlightTarget } from '../hooks/useSpotlightTarget';
 import { useOnboarding } from '../context/OnboardingContext';
+import { speakText, stopSpeech } from '../utils/speech';
 
 const PRESET_PHRASES = [
   "💥 Ouch!",
@@ -380,9 +381,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   // Cancel any active SpeechSynthesis on unmount to avoid memory/audio leaks
   useEffect(() => {
     return () => {
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
+      stopSpeech();
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
       if (overtakerTimeoutRef.current) clearTimeout(overtakerTimeoutRef.current);
       if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
@@ -407,16 +406,10 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     }, 3500);
   };
 
+  // Native text-to-speech fallback handler
   const playAudio = (text) => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    try {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'de-DE'; // German
-      window.speechSynthesis.speak(utterance);
-    } catch (e) {
-      console.error(e);
-    }
+    if (!isSoundEnabled || !text) return;
+    speakText(text, 'de-DE');
   };
 
   // Disconnect Grace 30s timer ticker

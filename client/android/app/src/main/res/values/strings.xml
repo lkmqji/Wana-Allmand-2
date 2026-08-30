@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Wana-Allmand</string>
+    <string name="title_activity_main">Wana-Allmand</string>
+    <string name="package_name">com.allmand.app</string>
+    <string name="custom_url_scheme">com.allmand.app</string>
+    <string name="server_client_id">954044665510-9quujc9e3ig0mis2ndvrkv50d0554ldu.apps.googleusercontent.com</string>
+</resources>

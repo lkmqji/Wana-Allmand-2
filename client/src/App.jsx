@@ -14,6 +14,8 @@ import RightPanel from './components/RightPanel';
 import TitleScreen from './components/TitleScreen';
 import InstallGate from './components/InstallGate';
 import { exampleLists } from './data/exampleLists';
+import { App as CapacitorApp } from '@capacitor/app';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { auth, loginWithGoogle, logout, deleteAccount, updateUserProfile } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { formatPlayerName, getClientPlayerKey } from './utils/formatters';
@@ -60,12 +62,13 @@ const evaluateStandalone = () => {
     window.navigator && window.navigator.standalone === true
   );
 
-  // Accès autorisé si : Dev Local OU Ordinateur Bureau (PC/Mac) OU Mobile installé en Standalone
-  const isStandalone = isLocalDev || isDesktop || isStandaloneMode || isIOSStandalone;
+  // Accès autorisé si : Dev Local (et non natif) OU Ordinateur Bureau (PC/Mac) OU Mobile installé en Standalone
+  const isCapacitorNative = !!window.Capacitor?.isNative;
+  const isStandalone = (isLocalDev && !isCapacitorNative) || isDesktop || isStandaloneMode || isIOSStandalone;
 
   return {
     isStandalone,
-    isLocalDev,
+    isLocalDev: isLocalDev && !isCapacitorNative,
     isDesktop,
     isStandaloneMode,
     isIOSStandalone,
@@ -89,6 +92,28 @@ function App() {
   const isStandalone = standaloneDebug.isStandalone;
   const { playMessageReceived, playNotification, setIsInGame } = useAudio();
   const [hasEnteredApp, setHasEnteredApp] = useState(false);
+
+  const [view, setView] = useState('home'); // home, lobby, game, results
+
+  // Gestion du bouton retour matériel (Android)
+  useEffect(() => {
+    const handleBackPress = () => {
+      if (view === 'game' || view === 'vengeance' || view === 'tug_of_war') {
+        // En jeu, émettre un événement pour le composant Game afin de mettre en pause
+        window.dispatchEvent(new CustomEvent('requestTogglePause'));
+      } else if (view !== 'home') {
+        // Revenir à l'accueil depuis le lobby ou les résultats
+        setView('home');
+      } else {
+        // Sur Home, quitter l'application
+        if (window.Capacitor?.isNative && CapacitorApp) {
+          CapacitorApp.exitApp().catch(() => {});
+        }
+      }
+    };
+    window.addEventListener('hardwareBackPress', handleBackPress);
+    return () => window.removeEventListener('hardwareBackPress', handleBackPress);
+  }, [view]);
 
 
 
@@ -141,7 +166,6 @@ function App() {
     };
   }, []);
 
-  const [view, setView] = useState('home'); // home, lobby, game, results
 
   // Automatically sync in-game state to AudioContext (mutes in-game if preferred, restores menu music when match ends)
   useEffect(() => {
@@ -412,6 +436,31 @@ function App() {
       mediaQuery.addEventListener('change', handleModeChange);
     } else if (mediaQuery.addListener) {
       mediaQuery.addListener(handleModeChange);
+    }
+
+    // Configurer la barre de statut Capacitor et le bouton de retour
+    if (window.Capacitor?.isNative) {
+      // Barre de statut
+      StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: '#000000' }).catch(() => {});
+
+      // Bouton Retour matériel
+      const backButtonListener = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+        // Obtenir la vue actuelle directement depuis React n'est pas toujours facile dans un listener global, 
+        // donc on peut émettre un event custom, ou utiliser la variable de vue depuis l'état (si on la met dans une ref)
+        // Pour l'instant, on dispatch un événement 'hardwareBackPress' que les composants peuvent écouter.
+        const event = new CustomEvent('hardwareBackPress', { detail: { canGoBack } });
+        window.dispatchEvent(event);
+      });
+
+      return () => {
+        if (mediaQuery.removeEventListener) {
+          mediaQuery.removeEventListener('change', handleModeChange);
+        } else if (mediaQuery.removeListener) {
+          mediaQuery.removeListener(handleModeChange);
+        }
+        backButtonListener.then(listener => listener.remove()).catch(() => {});
+      };
     }
 
     return () => {

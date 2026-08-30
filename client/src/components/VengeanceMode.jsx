@@ -3,6 +3,7 @@ import confetti from 'canvas-confetti';
 import { exampleLists } from '../data/exampleLists';
 import { resolveWordPair } from '../utils/dictionary';
 import { useAudio, useSoundEffects } from '../context/AudioContext';
+import { speakText, stopSpeech } from '../utils/speech';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const ROUND_DURATION = 10.5; // 30% faster than 15s duel
@@ -88,40 +89,21 @@ function fisherYatesShuffle(array) {
 }
 
 /**
- * Web Speech API - Prononciation allemande native (de-DE)
+ * Web Speech API / Capacitor TTS - Prononciation allemande native (de-DE)
  */
 function speakGermanWord(word, isSoundEnabled = true) {
-  if (!isSoundEnabled || !word || typeof window === 'undefined' || !window.speechSynthesis) return;
-
-  try {
-    window.speechSynthesis.cancel(); // Stop any pending pronunciation
-    const cleanWord = word.replace(/[\(].*?[\)]/g, '').trim();
-    const utterance = new SpeechSynthesisUtterance(cleanWord);
-    utterance.lang = 'de-DE';
-    utterance.rate = 0.95; // Natural German pacing
-    utterance.pitch = 1.0;
-    window.speechSynthesis.speak(utterance);
-  } catch (e) {
-    console.debug('SpeechSynthesis notice:', e);
-  }
+  if (!isSoundEnabled || !word) return;
+  const cleanWord = word.replace(/[\(].*?[\)]/g, '').trim();
+  speakText(cleanWord, 'de-DE');
 }
 
 /**
- * Web Speech API - Prononciation de la question / prompt (fr-FR)
+ * Web Speech API / Capacitor TTS - Prononciation de la question / prompt (fr-FR)
  */
 function speakPromptWord(promptText, isSoundEnabled = true) {
-  if (!isSoundEnabled || !promptText || typeof window === 'undefined' || !window.speechSynthesis) return;
-
-  try {
-    window.speechSynthesis.cancel();
-    const cleanPrompt = promptText.replace(/[\(].*?[\)]/g, '').trim();
-    const utterance = new SpeechSynthesisUtterance(cleanPrompt);
-    utterance.lang = 'fr-FR';
-    utterance.rate = 1.0;
-    window.speechSynthesis.speak(utterance);
-  } catch (e) {
-    console.debug('SpeechSynthesis notice:', e);
-  }
+  if (!isSoundEnabled || !promptText) return;
+  const cleanPrompt = promptText.replace(/[\(].*?[\)]/g, '').trim();
+  speakText(cleanPrompt, 'fr-FR');
 }
 
 /**
@@ -348,9 +330,7 @@ export default function VengeanceMode({
   // Cancel SpeechSynthesis and clear all timeouts on unmount
   useEffect(() => {
     return () => {
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
+      stopSpeech();
       if (shakeTimeoutRef.current) clearTimeout(shakeTimeoutRef.current);
       if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
       if (explodeTimeoutRef.current) clearTimeout(explodeTimeoutRef.current);

@@ -1,0 +1,6 @@
+{
+  "appId": "com.allmand.app",
+  "appName": "Wana-Allmand",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

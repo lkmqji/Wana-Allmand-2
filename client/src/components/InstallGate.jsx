@@ -319,7 +319,7 @@ export default function InstallGate() {
               }}
             >
               <img
-                src="/favicon.svg"
+                src="/logo.jpg"
                 alt="Wana Allmand Logo"
                 style={{ width: '52px', height: '52px', objectFit: 'contain' }}
                 onError={(e) => {
