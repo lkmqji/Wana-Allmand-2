@@ -51,7 +51,11 @@ export default function Home({
   onEditFailedWord,
   onClearAllFailedWords
 }) {
-  const introSpotlightRef = useSpotlightTarget('INTRO');
+  const duelSpotlightRef = useSpotlightTarget('STEP_DUEL');
+  const specialModesSpotlightRef = useSpotlightTarget('STEP_SPECIAL_MODES');
+  const listsSpotlightRef = useSpotlightTarget('STEP_LISTS');
+  const vengeanceSpotlightRef = useSpotlightTarget('STEP_VENGEANCE');
+  const soloSpotlightRef = useSpotlightTarget(['STEP_SOLO', 'INTRO']);
   const [listSubTab, setListSubTab] = useState('my_lists'); // 'my_lists' | 'failed_words'
   const [showMistakesModal, setShowMistakesModal] = useState(false);
   const [previewList, setPreviewList] = useState(null);
@@ -504,7 +508,7 @@ export default function Home({
   const { isActive, currentStep, nextStep } = useOnboarding();
 
   const handlePlaySolo = () => {
-    if (isActive && currentStep === 'INTRO') {
+    if (isActive && (currentStep === 'STEP_SOLO' || currentStep === 'INTRO')) {
       const tutorialWord = [{ id: 999, question: 'le chien', answer: 'der Hund' }];
       handleStartDirectSession(tutorialWord);
       // We don't advance the step here, we let the Game component advance it so the spotlight transitions correctly
@@ -535,6 +539,7 @@ export default function Home({
         <>
           {/* TÂCHE 1 : Point d'entrée UI - Mur de la Vengeance */}
           <div 
+            ref={vengeanceSpotlightRef}
             className={`vengeance-entry-card ${failedWords.length > 0 ? 'active' : 'disabled'}`}
             onClick={() => {
               if (failedWords.length > 0 && onStartVengeance) {
@@ -599,7 +604,7 @@ export default function Home({
             )}
           </div>
 
-          <div className="card card-arena" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', background: 'linear-gradient(to bottom right, var(--bg-surface), rgba(99, 102, 241, 0.1))' }}>
+          <div ref={duelSpotlightRef} className="card card-arena" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', background: 'linear-gradient(to bottom right, var(--bg-surface), rgba(99, 102, 241, 0.1))' }}>
             <h2 className="brand-logo-shine" style={{ fontSize: '2.4rem', marginBottom: '0.4rem', letterSpacing: '-0.5px' }}>
               WANA ALLMAND
             </h2>
@@ -628,7 +633,7 @@ export default function Home({
 
             <div style={{ width: '100%', maxWidth: '300px', marginTop: '1rem', borderTop: '2px dashed rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
               <button 
-                ref={introSpotlightRef}
+                ref={soloSpotlightRef}
                 type="button"
                 className="btn btn-success" 
                 onClick={handlePlaySolo} 
@@ -649,7 +654,7 @@ export default function Home({
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div ref={specialModesSpotlightRef} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <h3 style={{ fontSize: '1.2rem', margin: '1rem 0 0 0' }}>Créer une nouvelle session</h3>
             
             {/* 3 big boxes */}

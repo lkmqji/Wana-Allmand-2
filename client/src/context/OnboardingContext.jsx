@@ -2,83 +2,203 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 
 const OnboardingContext = createContext(null);
 
+export const TOUR_STEPS = [
+  'STEP_DUEL',
+  'STEP_SPECIAL_MODES',
+  'STEP_LISTS',
+  'STEP_VENGEANCE',
+  'STEP_SOLO'
+];
+
 export const OnboardingProvider = ({ children }) => {
-  // Try to get saved state from localStorage
   const [isCompleted, setIsCompleted] = useState(() => {
-    return localStorage.getItem('wana_onboarding_completed') === 'true';
+    try {
+      return localStorage.getItem('wana_onboarding_completed') === 'true';
+    } catch {
+      return false;
+    }
   });
 
-  const [isActive, setIsActive] = useState(!isCompleted);
-  const [currentStep, setCurrentStep] = useState('INTRO');
+  const [isActive, setIsActive] = useState(false);
+  const [showWelcomePrompt, setShowWelcomePrompt] = useState(false);
+  const [currentStep, setCurrentStep] = useState('WELCOME_PROMPT');
   
   // Store targets' DOM elements
   const [targets, setTargets] = useState({});
   const [activeTargetRect, setActiveTargetRect] = useState(null);
 
-  // Helper to update rect
+  // Helper to update active target rectangle
   const updateRect = useCallback(() => {
     if (isActive && currentStep && targets[currentStep]) {
-      const rect = targets[currentStep].getBoundingClientRect();
-      setActiveTargetRect(rect);
-    } else {
-      setActiveTargetRect(null);
+      const el = targets[currentStep];
+      if (el && typeof el.getBoundingClientRect === 'function') {
+        const rect = el.getBoundingClientRect();
+        setActiveTargetRect(rect);
+        return;
+      }
     }
+    setActiveTargetRect(null);
   }, [isActive, currentStep, targets]);
 
-  // Resize listener to recalculate rects if window changes
+  // Resize and scroll listener to recalculate rects
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive) {
+      setActiveTargetRect(null);
+      return;
+    }
     
     updateRect();
-    
-    window.addEventListener('resize', updateRect);
-    window.addEventListener('scroll', updateRect, true); // true for capture phase to catch all scrolls
+    const handleScrollOrResize = () => {
+      requestAnimationFrame(updateRect);
+    };
+
+    window.addEventListener('resize', handleScrollOrResize);
+    window.addEventListener('scroll', handleScrollOrResize, true);
     
     return () => {
-      window.removeEventListener('resize', updateRect);
-      window.removeEventListener('scroll', updateRect, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
     };
-  }, [isActive, updateRect]);
+  }, [isActive, updateRect, currentStep, targets]);
+
+  // Auto-scroll target element into center of viewport when step changes
+  useEffect(() => {
+    if (!isActive || !currentStep || !targets[currentStep]) return;
+    const el = targets[currentStep];
+    if (el && typeof el.scrollIntoView === 'function') {
+      try {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } catch (e) {
+        console.debug('scrollIntoView notice:', e);
+      }
+    }
+
+    // Continuous rect tracking during smooth scroll animation (~600ms)
+    let frameId;
+    const start = performance.now();
+    const track = () => {
+      updateRect();
+      if (performance.now() - start < 700) {
+        frameId = requestAnimationFrame(track);
+      }
+    };
+    frameId = requestAnimationFrame(track);
+
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+    };
+  }, [isActive, currentStep, targets, updateRect]);
 
   const registerTarget = useCallback((stepName, element) => {
-    setTargets(prev => {
-        if(prev[stepName] === element) return prev;
+    if (!stepName || !element) return;
+    if (Array.isArray(stepName)) {
+      setTargets(prev => {
+        let changed = false;
+        const next = { ...prev };
+        stepName.forEach(s => {
+          if (next[s] !== element) {
+            next[s] = element;
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    } else {
+      setTargets(prev => {
+        if (prev[stepName] === element) return prev;
         return { ...prev, [stepName]: element };
-    });
+      });
+    }
   }, []);
 
   const unregisterTarget = useCallback((stepName) => {
-    setTargets(prev => {
-      const newTargets = { ...prev };
-      delete newTargets[stepName];
-      return newTargets;
-    });
+    if (!stepName) return;
+    if (Array.isArray(stepName)) {
+      setTargets(prev => {
+        const next = { ...prev };
+        stepName.forEach(s => delete next[s]);
+        return next;
+      });
+    } else {
+      setTargets(prev => {
+        const next = { ...prev };
+        delete next[stepName];
+        return next;
+      });
+    }
   }, []);
 
-  const nextStep = useCallback((stepName) => {
-    setCurrentStep(stepName);
+  // Called when user is authenticated with Google and enters app
+  const triggerAuthOnboarding = useCallback((user) => {
+    if (!user) return;
+    const completed = localStorage.getItem('wana_onboarding_completed') === 'true';
+    if (!completed) {
+      setShowWelcomePrompt(true);
+      setIsActive(true);
+      setCurrentStep('WELCOME_PROMPT');
+    }
   }, []);
+
+  const startTour = useCallback(() => {
+    setShowWelcomePrompt(false);
+    setIsActive(true);
+    setCurrentStep('STEP_DUEL');
+  }, []);
+
+  const confirmWelcome = useCallback(() => {
+    startTour();
+  }, [startTour]);
+
+  const nextStep = useCallback((explicitStep) => {
+    if (explicitStep) {
+      setCurrentStep(explicitStep);
+      return;
+    }
+    const idx = TOUR_STEPS.indexOf(currentStep);
+    if (idx >= 0 && idx < TOUR_STEPS.length - 1) {
+      setCurrentStep(TOUR_STEPS[idx + 1]);
+    }
+  }, [currentStep]);
+
+  const prevStep = useCallback(() => {
+    const idx = TOUR_STEPS.indexOf(currentStep);
+    if (idx > 0) {
+      setCurrentStep(TOUR_STEPS[idx - 1]);
+    }
+  }, [currentStep]);
 
   const skipOnboarding = useCallback(() => {
     setIsActive(false);
+    setShowWelcomePrompt(false);
     setIsCompleted(true);
-    localStorage.setItem('wana_onboarding_completed', 'true');
+    try {
+      localStorage.setItem('wana_onboarding_completed', 'true');
+    } catch {}
   }, []);
 
   const resetOnboarding = useCallback(() => {
-    setIsActive(true);
+    try {
+      localStorage.removeItem('wana_onboarding_completed');
+    } catch {}
     setIsCompleted(false);
-    setCurrentStep('INTRO');
-    localStorage.removeItem('wana_onboarding_completed');
+    setIsActive(true);
+    setShowWelcomePrompt(false);
+    setCurrentStep('STEP_DUEL');
   }, []);
 
   const value = {
+    isCompleted,
     isActive,
+    showWelcomePrompt,
     currentStep,
     activeTargetRect,
     registerTarget,
     unregisterTarget,
+    triggerAuthOnboarding,
+    startTour,
+    confirmWelcome,
     nextStep,
+    prevStep,
     skipOnboarding,
     resetOnboarding
   };

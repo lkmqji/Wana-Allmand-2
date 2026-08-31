@@ -22,6 +22,7 @@ import { auth, loginWithGoogle, logout, deleteAccount, updateUserProfile } from 
 import { onAuthStateChanged } from 'firebase/auth';
 import { formatPlayerName, getClientPlayerKey } from './utils/formatters';
 import { useSoundEffects, useAudio } from './context/AudioContext';
+import { useOnboarding } from './context/OnboardingContext';
 import { sfx } from './utils/sfxManager';
 import { Agentation } from 'agentation';
 
@@ -106,6 +107,7 @@ function App() {
   const [standaloneDebug, setStandaloneDebug] = useState(() => evaluateStandalone());
   const isStandalone = standaloneDebug.isStandalone;
   const { playMessageReceived, playNotification, setIsInGame } = useAudio();
+  const { triggerAuthOnboarding } = useOnboarding();
   const [hasEnteredApp, setHasEnteredApp] = useState(false);
   const [isSplashLoading, setIsSplashLoading] = useState(true);
 
@@ -629,6 +631,13 @@ function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Déclenchement du tutoriel après connexion Google réussie et entrée dans l'app
+  useEffect(() => {
+    if (user && hasEnteredApp && !isAuthLoading) {
+      triggerAuthOnboarding(user);
+    }
+  }, [user, hasEnteredApp, isAuthLoading, triggerAuthOnboarding]);
 
   // Fetch notifications for user or guest
   useEffect(() => {

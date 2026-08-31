@@ -30,11 +30,14 @@ export default function Lobby({
 
   const hasAutoStartedRef = useRef(false);
 
-  // Auto-launch the tutorial duel immediately into the game
+  // Auto-launch the tutorial duel into the game
   useEffect(() => {
-    if (isActive && currentStep === 'INTRO' && isHost && session?.id && !hasAutoStartedRef.current) {
+    if (isActive && (currentStep === 'STEP_SOLO' || currentStep === 'STEP_LOBBY' || currentStep === 'INTRO') && isHost && session?.id && !hasAutoStartedRef.current) {
       hasAutoStartedRef.current = true;
-      socket.emit('start_game', session.id);
+      const timer = setTimeout(() => {
+        socket.emit('start_game', session.id);
+      }, 350);
+      return () => clearTimeout(timer);
     }
   }, [isActive, currentStep, isHost, session?.id, socket]);
   const [searchQuery, setSearchQuery] = useState('');

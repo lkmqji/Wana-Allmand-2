@@ -20,7 +20,7 @@ const OnboardingOverlay = () => {
     backdropFilter: 'blur(16px)',
     WebkitBackdropFilter: 'blur(16px)',
     transform: 'translateZ(0)', // Force GPU acceleration
-    pointerEvents: activeTargetRect ? 'auto' : 'none', // Allow interactions if target is transitioning
+    pointerEvents: 'auto', // Keep focus within tutorial flow
     transition: 'clip-path 0.3s ease-in-out',
   };
 

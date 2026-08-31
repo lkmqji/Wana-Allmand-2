@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAudio } from '../context/AudioContext';
+import { useOnboarding } from '../context/OnboardingContext';
 
 export default function Profil({
   user,
@@ -78,6 +79,8 @@ export default function Profil({
     playExplosion,
     playNotification
   } = useAudio();
+
+  const { resetOnboarding } = useOnboarding();
 
   const themesList = [
     { id: 'midnight', name: 'Midnight', icon: '🌌', desc: 'Bleu sombre & Violet fluo', primary: '#6366f1', bg: '#0b0f19' },
@@ -336,6 +339,36 @@ export default function Profil({
               </div>
             </div>
           )}
+
+          {/* Guide & Tutoriel */}
+          <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', background: 'rgba(99, 102, 241, 0.06)', borderColor: 'rgba(99, 102, 241, 0.3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+              <span style={{ fontSize: '1.8rem' }}>🎓</span>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>Tutoriel d'Apprentissage</h4>
+                <p className="text-muted" style={{ margin: '0.2rem 0 0 0', fontSize: '0.82rem' }}>
+                  Revoir la visite guidée des fonctionnalités et l'échauffement in-game.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                resetOnboarding();
+              }}
+              className="btn btn-secondary"
+              style={{
+                borderColor: '#00f0ff',
+                color: '#00f0ff',
+                fontWeight: 800,
+                fontSize: '0.88rem',
+                padding: '0.55rem 1.1rem',
+                boxShadow: '0 0 12px rgba(0, 240, 255, 0.2)'
+              }}
+            >
+              🎓 Revoir le tutoriel
+            </button>
+          </div>
 
           {/* Admin panel & Agentation Controls (réservé aux administrateurs) */}
           {user && isAdmin && (

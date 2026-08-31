@@ -108,8 +108,29 @@
 
 ### 20:10 - Recompilation & Livraison du Binaire APK Mis à Jour
 - **Compilation Gradle (`assembleDebug`)** : Compilation réussie avec le JDK 17 embarqué sous Windows (`C:\Program Files\Android\Android Studio\jbr`).
-- **Livrable APK Final** : Fichier [WanaAllmand.apk](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/WanaAllmand.apk) (19.19 Mo) généré et synchronisé à la racine du projet.
+### 20:41 - Refonte Complète du Tutoriel Hybride (Méthode Wail)
+- **Déclenchement Post-Connexion Google** : Affichage d'un modal d'accueil convivial après connexion Google réussie (*« Prêt pour l'Arène ? ⚔️ »* avec options *C'est parti ! 🚀* ou *Plus tard*), évitant tout affichage prématuré sur l'écran de titre ou de chargement.
+- **Parcours 5 Étapes + Mini-Duel Guidé** :
+  1. *Arène & Duels 1v1* ⚔️ (création de salon avec code à 4 lettres / rejoindre).
+  2. *Modes Spéciaux* ⚡ (Tir à la Corde avec mise de points et Mode Survie).
+  3. *Listes & Partage Communautaire* 📚 (gestion et création de vocabulaire).
+  4. *Mur de la Vengeance* 💀 (purification et anéantissement des erreurs).
+  5. *Lancement Échauffement & Salon (Lobby)* 🎯 (explication du statut prêt et des joueurs).
+  6. *Phase In-Game Guidée* : Chronomètre infini ('∞'), démonstration interactive de la règle d'or des articles (`der/die/das` avec saisie de 'Hund' -> shake + alerte rouge -> validation 'der Hund' -> fanfare de victoire et félicitations).
+- **Design Cyberpunk & Ergonomie Mobile (WanaBoard)** : Découpe de spotlight dynamique (`clipPath`) avec aura néon pulsante, pastilles de progression (`● ● ○ ○ ○`) et positionnement adaptatif au-dessus du clavier virtuel 40% sur mobile.
+- **Effets Sonores Immersifs** : Intégration des sons Web Audio (`playNotification`, `playAlert`, `playVictory`, `playClick`) aux transitions et alertes du tutoriel.
+- **Persistance & Bouton Revoir** : Sauvegarde de complétion dans `localStorage` / backend et ajout d'une carte dédiée **« 🎓 Revoir le tutoriel »** dans l'onglet Profil / Paramètres (`Profil.jsx`).
+- **Nettoyage Code Mort** : Dépréciation et suppression du composant orphelin `OnboardingTour.jsx` au profit de la suite unifiée `src/components/Onboarding/`.
 
+### 21:02 - Perfectionnement UX Onboarding (Auto-Scroll & Micro-Copywriting)
+- **Auto-Scroll Intelligent (`scrollIntoView`)** : Intégration de `element.scrollIntoView({ behavior: 'smooth', block: 'center' })` dans `OnboardingContext.jsx` dès le changement d'étape, accompagné d'un traçage par `requestAnimationFrame` garantissant un recentrage fluide et sans coupure de l'élément cible et du spotlight.
+- **Positionnement Adaptatif du Tooltip** : Calcul dynamique dans `TutorialStep.jsx` positionnant automatiquement la boîte de dialogue au-dessus (`top - 18px`, `translateY(-100%)`) lorsque la cible est située dans la moitié inférieure de l'écran ou manque d'espace en bas, éliminant tout débordement hors champ.
+- **Mise à Jour des Textes (Micro-copywriting)** :
+  - *Étape 1 (Arène & Duels)* : Titre : *« Ton Arène, Tes Règles ⚔️ »* | Texte : *« Rejoins la partie d'un ami avec son code, ou crée ton propre salon. Tu pourras t'y entraîner en solo ou inviter tes rivaux quand tu seras prêt ! »*
+  - *Étape 2 (Modes de Jeu)* : Titre : *« Choisis ton Terrain 🎯 »* | Texte : *« Classique, Survie, ou l'impitoyable 'Tir à la Corde' ? Sélectionne un mode de jeu et crée ta partie en 1 clic. »*
+- **Validation Compilation** : Build Vite 8 vérifié et compilé avec succès (`✓ built in 831ms`).
 
-
-
+### 21:13 - Mise à Jour Complète du Binaire APK Android (`WanaAllmand.apk`)
+- **Compilation Web & Synchronisation** : Build Vite (`vite build`) et synchronisation de l'ensemble des assets et composants (Tutoriel onboarding perfectionné, WanaBoard, correctifs Google Auth) vers l'environnement natif Android (`cap sync android`).
+- **Configuration Gradle JBR 17** : Configuration explicite de `org.gradle.java.home` dans `gradle.properties` pointant vers le JDK Android Studio (`C:\Program Files\Android\Android Studio\jbr`).
+- **Génération & Déploiement du Binaire APK** : Compilation réussie via Gradle `assembleDebug` (20.12 Mo) et actualisation du fichier [WanaAllmand.apk](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/WanaAllmand.apk) à la racine du projet.

@@ -172,7 +172,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
 
   // Auto-advance tutorial step when entering the game
   useEffect(() => {
-    if (isActive && currentStep === 'INTRO') {
+    if (isActive && (currentStep === 'STEP_SOLO' || currentStep === 'STEP_LOBBY' || currentStep === 'INTRO')) {
       nextStep('TYPE_HUND');
     }
   }, [isActive, currentStep, nextStep]);

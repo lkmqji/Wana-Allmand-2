@@ -268,8 +268,8 @@ Le 29 août 2026 a marqué une série d'optimisations majeures de performance, d
 ## 10. SYNTHÈSE DES ÉVOLUTIONS (31 AOÛT 2026 - CAPACITOR & ARCHITECTURE MOBILE)
 
 ### 10.1 Portabilité Mobile & Capacitor (Android)
-- **Build Natif, Synchronisation & Compilation APK** : Intégration de `@capacitor/core`, `@capacitor/cli`, et `@capacitor/android`. Commandes de synchronisation (`npm run sync:android`) et chaîne de compilation Gradle complète (`assembleDebug`) exécutée avec le JDK 17+ embarqué d'Android Studio (`jbr`).
-- **Génération du Fichier APK & Google Services** : Intégration du fichier `google-services.json` dans `client/android/app/` activant le plugin `com.google.gms.google-services`. L'APK debug (`WanaAllmand.apk`, ~19.2 Mo) est généré dans `client/android/app/build/outputs/apk/debug/app-debug.apk` et copié à la racine du projet sous `WanaAllmand.apk`.
+- **Build Natif, Synchronisation & Compilation APK** : Intégration de `@capacitor/core`, `@capacitor/cli`, et `@capacitor/android`. Commandes de synchronisation (`npm run sync:android`) et chaîne de compilation Gradle complète (`assembleDebug`) exécutée avec le JDK 17+ embarqué d'Android Studio (`jbr`), configuré dans `gradle.properties` via `org.gradle.java.home=C:\\Program Files\\Android\\Android Studio\\jbr`.
+- **Génération du Fichier APK & Google Services** : Intégration du fichier `google-services.json` dans `client/android/app/` activant le plugin `com.google.gms.google-services`. L'APK debug (`WanaAllmand.apk`, ~20.1 Mo) est généré dans `client/android/app/build/outputs/apk/debug/app-debug.apk` et copié à la racine du projet sous `WanaAllmand.apk`.
 - **Compatibilité AGP (Android Gradle Plugin)** : Remplacement de `proguard-android.txt` par `proguard-android-optimize.txt` dans `build.gradle` de l'application et du plugin `@codetrix-studio/capacitor-google-auth`.
 - **Immersif & Status Bar** : Intégration de `@capacitor/status-bar` (barre d'état dark mode `#0b0f19`) et ajustements `WindowInsetsControllerCompat` pour supprimer la barre de navigation.
 - **Google Auth Natif & Correctif Détection** : Utilisation de `Capacitor.isNativePlatform()` (au lieu de `window.Capacitor.isNative` obsolète) pour router systématiquement l'authentification sur le flux natif `@codetrix-studio/capacitor-google-auth` en environnement APK/mobile, éliminant l'erreur de pop-up bloquée dans la WebView. Configuration du plugin injectée dans `capacitor.config.json` (`serverClientId`, scopes `profile`, `email`, `forceCodeForRefreshToken: true`).
@@ -294,3 +294,22 @@ Le 29 août 2026 a marqué une série d'optimisations majeures de performance, d
 - **Logo Officiel** : Nouveau `logo.jpg` remplaçant l'ancien `favicon.svg` dans `index.html`, `manifest.webmanifest`, et config Capacitor.
 - **Déploiement Vercel** : Ajout d'un `.npmrc` avec `legacy-peer-deps=true` pour forcer l'installation des dépendances liées à `@capacitor/core` sur Vercel.
 - **Règle d'Historique** : Ajout de `.agents/rules/historique.md` imposant le format strict `historique_YYYY-MM-DD.md`.
+
+### 10.4 Architecture du Tutoriel Hybride (Onboarding Suite)
+- **Cycle de Vie & Déclenchement Post-Auth** : Le tutoriel est découplé de l'initialisation de l'application et n'apparaît qu'une fois l'utilisateur connecté avec son compte Google et entré dans l'accueil (`user` présent + `hasEnteredApp === true`). Un pop-up d'invitation initial non bloquant propose de lancer le tour guidé (*« C'est parti ! 🚀 »*) ou de le remettre à *« Plus tard »*.
+- **Moteur d'Étapes (`OnboardingContext.jsx`)** : State machine globale gérant les phases :
+  - `WELCOME_PROMPT` : Invitation post-connexion.
+  - `STEP_DUEL` (1/5) : Présentation des duels 1v1 et des salons avec codes à 4 lettres.
+  - `STEP_SPECIAL_MODES` (2/5) : Présentation du Tir à la Corde et du Mode Survie.
+  - `STEP_LISTS` (3/5) : Présentation des listes de vocabulaire et du partage communautaire.
+  - `STEP_VENGEANCE` (4/5) : Présentation du Mur de la Vengeance et de la purification d'erreurs.
+  - `STEP_SOLO` (5/5) : Invitation à cliquer sur le bouton vert 'S'entraîner en Solo'.
+  - `STEP_LOBBY` : Explication du salon d'attente (statut prêt, joueurs connectés).
+  - `TYPE_HUND` : Mission d'échauffement in-game avec chrono infini ('∞') et incitation à taper 'Hund'.
+  - `ARTICLE_WARNING` : Alerte sonore/visuelle avec secousse (`shake`) explicitant la règle vitale des articles `der/die/das`, et validation victorieuse avec 'der Hund'.
+- **Composants Dédiés** :
+  - `OnboardingOverlay.jsx` : Découpe de trou spotlight (`clipPath`) avec aura néon pulsante (`#00f0ff` en mode normal, `#ef4444` en mode avertissement article), assurant un focus visuel sans perte d'interactions.
+  - `TutorialStep.jsx` : Boîte de dialogue Cyberpunk ultra-soignée avec badges thématiques, pastilles de progression (`● ● ○ ○ ○`), boutons de navigation fluide (Précédent / Suivant), bouton persistant « Passer le tutoriel ✕ », et positionnement dynamique adaptatif (au-dessus de la cible si en bas d'écran ou sur mobile au-dessus du WanaBoard).
+  - `Profil.jsx` : Carte dédiée « 🎓 Tutoriel d'Apprentissage » permettant de relancer à volonté le tutoriel complet via `resetOnboarding()`.
+- **Auto-Centrage & Smooth Scroll** : `OnboardingContext.jsx` déclenche `scrollIntoView({ behavior: 'smooth', block: 'center' })` avec recalcul en continu (`requestAnimationFrame`) lors de chaque transition d'étape pour garantir que l'élément mis en surbrillance est parfaitement visible et centré.
+- **Game Feel & Audio** : Déclenchement coordonné des effets sonores Web Audio (`playNotification`, `playAlert`, `playVictory`, `playClick`) et vibrations haptiques à chaque transition d'étape.
