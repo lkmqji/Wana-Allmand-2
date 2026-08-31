@@ -43,3 +43,6 @@
 
 ### 16:24 - Ajustement Disposition WanaBoard
 - **Affichage Permanent** : Ajout d'un `useEffect` dans `VirtualKeyboard.jsx` pour appliquer la classe `.mobile-keyboard-active` dès le montage du composant (et non plus uniquement au clic sur l'input). Cela garantit que la disposition 50/50 stricte (Battle Console 50% haut, WanaBoard 50% bas) est *toujours* appliquée de manière cohérente dès l'entrée dans un mode de jeu sur mobile.
+
+### 16:41 - Nettoyage des options obsolètes
+- **Suppression du réglage de taille du clavier** : L'interface permettant aux utilisateurs de modifier la taille du clavier virtuel (slider de 30% à 65%) a été retirée de la page Profil (`Profil.jsx`), et la logique d'initialisation de cette variable css (`--kb-height`) dans `App.jsx` a été supprimée puisque la disposition est désormais fixée strictement à 50% (`50dvh`).

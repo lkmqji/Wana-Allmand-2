@@ -95,15 +95,7 @@ function App() {
 
   const [view, setView] = useState('home'); // home, lobby, game, results
 
-  // Init custom keyboard size from localStorage
-  useEffect(() => {
-    const savedSize = localStorage.getItem('wana_keyboard_size');
-    if (savedSize) {
-      document.documentElement.style.setProperty('--kb-height', `${savedSize}dvh`);
-    } else {
-      document.documentElement.style.setProperty('--kb-height', `40dvh`);
-    }
-  }, []);
+
 
   // Gestion du bouton retour matériel (Android)
   useEffect(() => {
