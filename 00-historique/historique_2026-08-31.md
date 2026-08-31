@@ -40,3 +40,6 @@
 ### 16:03 - Standardisation du Format d'Historique et Nettoyage
 - **Règle de nommage d'historique** : Création du fichier `.agents/rules/historique.md` imposant le format strict `historique_YYYY-MM-DD.md`.
 - **Nettoyage 00-historique** : Fusion des fichiers doublons du 31/08/2026 (`2026-08-31.md`, `2026-08-31-wanaboard.md`) dans le fichier unique `historique_2026-08-31.md` et suppression des doublons.
+
+### 16:24 - Ajustement Disposition WanaBoard
+- **Affichage Permanent** : Ajout d'un `useEffect` dans `VirtualKeyboard.jsx` pour appliquer la classe `.mobile-keyboard-active` dès le montage du composant (et non plus uniquement au clic sur l'input). Cela garantit que la disposition 50/50 stricte (Battle Console 50% haut, WanaBoard 50% bas) est *toujours* appliquée de manière cohérente dès l'entrée dans un mode de jeu sur mobile.

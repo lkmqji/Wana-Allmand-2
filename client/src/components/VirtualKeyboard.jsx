@@ -16,6 +16,16 @@ const VirtualKeyboard = () => {
     localStorage.setItem('wana_keyboard_layout', layout);
   }, [layout]);
 
+  // Always enforce the 50/50 layout when VirtualKeyboard is mounted
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      document.body.classList.add('mobile-keyboard-active');
+      return () => {
+        document.body.classList.remove('mobile-keyboard-active');
+      };
+    }
+  }, []);
+
   const hapticFeedback = () => {
     if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
       // API may not work on iOS depending on settings, but works great on Android.
