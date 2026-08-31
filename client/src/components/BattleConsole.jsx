@@ -81,7 +81,7 @@ const BattleConsole = React.memo(function BattleConsole({
           // Push to parent and submit
           setExternalValue(nextVal);
           setTimeout(() => {
-            if (onSubmit) onSubmit(new Event('submit'));
+            if (onSubmit) onSubmit(new Event('submit'), nextVal);
           }, 0);
           return prev;
         }
@@ -110,7 +110,7 @@ const BattleConsole = React.memo(function BattleConsole({
         e.preventDefault();
         setExternalValue(localValue);
         setTimeout(() => {
-          if (onSubmit) onSubmit(e);
+          if (onSubmit) onSubmit(e, localValue);
         }, 0);
         return;
       }
@@ -164,7 +164,7 @@ const BattleConsole = React.memo(function BattleConsole({
     if (isDisabled) return;
     setExternalValue(localValue);
     setTimeout(() => {
-      if (onSubmit) onSubmit(e);
+      if (onSubmit) onSubmit(e, localValue);
     }, 0);
   };
 

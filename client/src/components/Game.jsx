@@ -557,14 +557,14 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e, explicitValue) => {
     e?.preventDefault();
     if (isGameFrozenOrPaused) return;
     if (roundResult) {
       handleReadyForNext();
       return;
     }
-    submitAnswer(inputVal);
+    submitAnswer(explicitValue !== undefined ? explicitValue : inputVal);
     setInputVal('');
   };
 

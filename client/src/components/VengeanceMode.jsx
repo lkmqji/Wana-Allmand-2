@@ -465,15 +465,17 @@ export default function VengeanceMode({
     setInputVal('');
   }, [isAnswering, currentWord, mustTypeCorrection, currentIndex, isSoundEnabled, playError]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e, explicitValue) => {
     if (e) e.preventDefault();
     if (!currentWord) return;
+
+    const valToUse = explicitValue !== undefined ? explicitValue : inputVal;
 
     // Active Correction Validation
     if (mustTypeCorrection) {
       const isExactCorrection = 
-        normalizeText(inputVal) === normalizeText(correctionText) ||
-        checkVengeanceAnswer(correctionText, inputVal);
+        normalizeText(valToUse) === normalizeText(correctionText) ||
+        checkVengeanceAnswer(correctionText, valToUse);
 
       if (isExactCorrection) {
         // Player correctly typed the correction -> advance
@@ -498,7 +500,7 @@ export default function VengeanceMode({
     if (isAnswering) return;
     setIsAnswering(true);
 
-    const isCorrect = checkVengeanceAnswer(currentWord.word, inputVal);
+    const isCorrect = checkVengeanceAnswer(currentWord.word, valToUse);
 
     if (isCorrect) {
       // Task 1: Positive reinforcement pronunciation on correct answer!

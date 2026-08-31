@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
  */
 const VirtualKeyboard = () => {
   const [layout, setLayout] = useState(() => {
-    return localStorage.getItem('wana_keyboard_layout') || 'QWERTY';
+    return localStorage.getItem('wana_keyboard_layout') || 'AZERTY';
   });
 
   // Neumorphism/Glassmorphism theme can be toggled via a prop or context if needed. For now we use the glassmorphism approach default.
@@ -154,7 +154,7 @@ const VirtualKeyboard = () => {
             onPointerUp={stopBackspace}
             onPointerLeave={stopBackspace}
             onContextMenu={(e) => e.preventDefault()} // Prevent context menu on long press
-            style={{ minWidth: '50px' }}
+            style={{ minWidth: '50px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: '#fff', border: 'none' }}
           >
             ⌫
           </button>
@@ -172,7 +172,7 @@ const VirtualKeyboard = () => {
           <button
             className={`kb-key kb-key-submit ${keyTheme}`}
             onClick={(e) => { e.preventDefault(); handleSubmit(); }}
-            style={{ flex: 0.3 }}
+            style={{ flex: 0.3, background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none' }}
           >
             ➔
           </button>

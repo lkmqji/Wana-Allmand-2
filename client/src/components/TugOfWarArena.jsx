@@ -99,11 +99,12 @@ export const TugOfWarArena = ({
     return () => clearInterval(interval);
   }, [matchStatus]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e, explicitValue) => {
     e?.preventDefault();
-    if (!inputVal.trim() || matchStatus !== 'PLAYING') return;
+    const valToUse = explicitValue !== undefined ? explicitValue : inputVal;
+    if (!valToUse.trim() || matchStatus !== 'PLAYING') return;
 
-    const evalResult = evaluateAnswer(inputVal, currentWord.answer);
+    const evalResult = evaluateAnswer(valToUse, currentWord.answer);
     setInputVal('');
 
     if (evalResult.status === 'PERFECT') {
