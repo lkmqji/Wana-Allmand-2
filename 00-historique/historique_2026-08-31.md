@@ -55,3 +55,11 @@
   - Implémentation des couleurs sémantiques obligatoires : Entrée (`vert`), Effacer (`rouge`), Espace (`gris foncé`).
   - Animation `translateY(4px)` pure (Game Feel mécanique 3D) au clic, sans changement de couleur.
 - **Comportement Menu/Chat** : Écoute de l'événement `wana_menu_toggle` par le clavier pour injecter dynamiquement la classe `.keyboard-hidden`, provoquant un glissement GPU (translateY(100%)) du clavier vers le bas et une expansion de la Carte de Jeu sur 100% de l'écran avec une transition fluide.
+
+### 17:26 - Correction d'une régression UI sur le Layout et la Pause
+- **Correction du Layout Vengeance/Tir à la corde** : Modification de la structure Flexbox du conteneur principal de `BattleCard` dans les modes `VengeanceMode` et `TugOfWarArena` (`justify-content: space-evenly; height: 100%; overflow: hidden;`) pour garantir que l'input ne déborde pas des 60% supérieurs de l'écran, peu importe les éléments au-dessus.
+- **Gestion du Clavier Virtuel pendant la Pause** : Ajout d'une prop `isHidden` au composant `VirtualKeyboard`. Propagée avec l'état `isPaused` dans `Game.jsx` et `matchStatus === 'PAUSED'` dans `TugOfWarArena.jsx`. Si le Menu de pause est ouvert, le clavier 40% prend dynamiquement la classe `.keyboard-hidden` (`transform: translateY(100%)`) et la carte de jeu occupe l'espace libéré.
+
+### 17:35 - Fix Définitif du Chevauchement 60/40 (MinHeight)
+- **Ajustement des conteneurs racines** : Suppression du `min-height: 100vh` en dur sur `.vengeance-arena` (dans `index.css`) et du `minHeight: 100dvh` sur `TugOfWarArena.jsx`.
+- Remplacement par `height: 100%; flex: 1; overflow: hidden;` afin d'autoriser ces conteneurs à rétrécir à `60dvh` lorsque `.mobile-keyboard-active` est actif. Ceci empêche définitivement le clavier de venir écraser ou recouvrir le champ de saisie par le bas.

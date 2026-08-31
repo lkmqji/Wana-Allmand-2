@@ -1809,7 +1809,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       )}
 
       {/* Virtual Keyboard (Hidden on Desktop, Visible on Mobile via CSS) */}
-      <VirtualKeyboard />
+      <VirtualKeyboard isHidden={isPaused} />
     </div>
   );
 }

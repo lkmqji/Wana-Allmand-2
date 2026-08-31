@@ -1177,7 +1177,7 @@ export default function VengeanceMode({
           </div>
         }
       >
-        <div className={`vengeance-inner-content ${feedback?.type === 'success' || feedback?.type === 'purify' ? 'correct-flash' : ''} ${feedback?.type === 'wrong' || mustTypeCorrection ? 'wrong-flash' : ''} ${isExploding ? 'heart-icon-active' : ''}`} style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        <div className={`vengeance-inner-content ${feedback?.type === 'success' || feedback?.type === 'purify' ? 'correct-flash' : ''} ${feedback?.type === 'wrong' || mustTypeCorrection ? 'wrong-flash' : ''} ${isExploding ? 'heart-icon-active' : ''}`} style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-evenly', height: '100%', overflow: 'hidden' }}>
           <BattleConsole
             question={currentWord.question || currentWord.word}
             theme="vengeance"

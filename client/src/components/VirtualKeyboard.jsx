@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
  * WanaBoard - Clavier Virtuel Mobile
  * Émet des CustomEvents ('wana_key') pour ne pas déclencher de re-rendus React au niveau racine.
  */
-const VirtualKeyboard = () => {
+const VirtualKeyboard = ({ isHidden = false }) => {
   const [layout, setLayout] = useState(() => {
     return localStorage.getItem('wana_keyboard_layout') || 'AZERTY';
   });
@@ -20,6 +20,12 @@ const VirtualKeyboard = () => {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       document.body.classList.add('mobile-keyboard-active');
+      
+      if (isHidden) {
+        document.body.classList.add('keyboard-hidden');
+      } else {
+        document.body.classList.remove('keyboard-hidden');
+      }
       
       // Setup listener for menu/chat open/close events to hide keyboard
       const handleMenuToggle = (e) => {
@@ -37,7 +43,7 @@ const VirtualKeyboard = () => {
         window.removeEventListener('wana_menu_toggle', handleMenuToggle);
       };
     }
-  }, []);
+  }, [isHidden]);
 
   const hapticFeedback = () => {
     if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {

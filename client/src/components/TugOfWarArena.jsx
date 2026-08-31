@@ -183,7 +183,8 @@ export const TugOfWarArena = ({
   return (
     <div 
       style={{
-        minHeight: '100dvh',
+        height: '100%',
+        flex: 1,
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
@@ -194,7 +195,7 @@ export const TugOfWarArena = ({
         color: '#f1f5f9',
         fontFamily: "'Outfit', sans-serif",
         position: 'relative',
-        overflowY: 'auto',
+        overflow: 'hidden',
         WebkitOverflowScrolling: 'touch'
       }}
     >
@@ -454,7 +455,7 @@ export const TugOfWarArena = ({
               </div>
             }
           >
-            <div style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative' }}>
+            <div style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-evenly', height: '100%', overflow: 'hidden', position: 'relative' }}>
               {/* Effet visuel des lettres erronées qui tombent */}
               <TypoFallingVFX dropped={droppedLetters} />
 
@@ -659,7 +660,7 @@ export const TugOfWarArena = ({
       </div>
 
       {/* Virtual Keyboard (Hidden on Desktop, Visible on Mobile via CSS) */}
-      <VirtualKeyboard />
+      <VirtualKeyboard isHidden={matchStatus === 'PAUSED'} />
     </div>
   );
 };
