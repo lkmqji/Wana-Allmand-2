@@ -1,4 +1,5 @@
 import { TextToSpeech } from '@capacitor-community/text-to-speech';
+import { Capacitor } from '@capacitor/core';
 
 /**
  * Universal speech function that uses Capacitor TTS on native devices,
@@ -7,7 +8,7 @@ import { TextToSpeech } from '@capacitor-community/text-to-speech';
 export const speakText = async (text, lang = 'de-DE') => {
   if (!text || typeof window === 'undefined') return;
 
-  const isNative = !!window.Capacitor?.isNative;
+  const isNative = Capacitor.isNativePlatform();
 
   try {
     if (isNative) {
@@ -33,7 +34,7 @@ export const speakText = async (text, lang = 'de-DE') => {
 };
 
 export const stopSpeech = async () => {
-  const isNative = !!window.Capacitor?.isNative;
+  const isNative = Capacitor.isNativePlatform();
   try {
     if (isNative) {
       await TextToSpeech.stop().catch(() => {});

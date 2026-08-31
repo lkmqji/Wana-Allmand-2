@@ -18,19 +18,34 @@ export const googleProvider = new GoogleAuthProvider();
 
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { signInWithCredential } from 'firebase/auth';
+import { Capacitor } from '@capacitor/core';
 
-// Initialisation de GoogleAuth pour le web/pwa (remplacer par votre vrai Web Client ID)
-GoogleAuth.initialize({
-  clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-  scopes: ['profile', 'email'],
-  grantOfflineAccess: true,
-});
+// Initialisation sécurisée de GoogleAuth
+export const initGoogleAuth = () => {
+  try {
+    GoogleAuth.initialize({
+      clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '954044665510-9quujc9e3ig0mis2ndvrkv50d0554ldu.apps.googleusercontent.com',
+      scopes: ['profile', 'email'],
+      grantOfflineAccess: true,
+    });
+  } catch (e) {
+    console.warn("GoogleAuth init notice:", e);
+  }
+};
+
+// Auto-init au chargement
+initGoogleAuth();
 
 export const loginWithGoogle = async () => {
-  if (window.Capacitor?.isNative) {
+  if (Capacitor.isNativePlatform()) {
     try {
+      initGoogleAuth();
       const googleUser = await GoogleAuth.signIn();
-      const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
+      const idToken = googleUser?.authentication?.idToken || googleUser?.idToken;
+      if (!idToken) {
+        throw new Error("Aucun jeton d'authentification (idToken) reçu de Google.");
+      }
+      const credential = GoogleAuthProvider.credential(idToken);
       return await signInWithCredential(auth, credential);
     } catch (err) {
       console.error("Erreur de connexion native Google:", err);
@@ -42,7 +57,7 @@ export const loginWithGoogle = async () => {
 };
 
 export const logout = () => {
-  if (window.Capacitor?.isNative) {
+  if (Capacitor.isNativePlatform()) {
     GoogleAuth.signOut().catch(console.error);
   }
   return signOut(auth);

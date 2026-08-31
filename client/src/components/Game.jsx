@@ -604,6 +604,12 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     }
   };
 
+  useEffect(() => {
+    const togglePause = () => handleTogglePause();
+    window.addEventListener('requestTogglePause', togglePause);
+    return () => window.removeEventListener('requestTogglePause', togglePause);
+  }, [isPaused, session?.id, socket]);
+
   const handleResumeGame = () => {
     socket.emit('resume_game', session?.id);
   };

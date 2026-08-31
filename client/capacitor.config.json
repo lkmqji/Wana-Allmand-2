@@ -2,5 +2,20 @@
   "appId": "com.allmand.app",
   "appName": "Wana-Allmand",
   "webDir": "dist",
-  "bundledWebRuntime": false
+  "bundledWebRuntime": false,
+  "plugins": {
+    "GoogleAuth": {
+      "scopes": ["profile", "email"],
+      "serverClientId": "954044665510-9quujc9e3ig0mis2ndvrkv50d0554ldu.apps.googleusercontent.com",
+      "forceCodeForRefreshToken": true
+    },
+    "Keyboard": {
+      "resize": "none",
+      "style": "dark"
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#0b0f19"
+    }
+  }
 }

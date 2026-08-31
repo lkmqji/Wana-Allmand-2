@@ -16,6 +16,7 @@ import InstallGate from './components/InstallGate';
 import { exampleLists } from './data/exampleLists';
 import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { Capacitor } from '@capacitor/core';
 import { auth, loginWithGoogle, logout, deleteAccount, updateUserProfile } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { formatPlayerName, getClientPlayerKey } from './utils/formatters';
@@ -62,9 +63,9 @@ const evaluateStandalone = () => {
     window.navigator && window.navigator.standalone === true
   );
 
-  // Accès autorisé si : Dev Local (et non natif) OU Ordinateur Bureau (PC/Mac) OU Mobile installé en Standalone
-  const isCapacitorNative = !!window.Capacitor?.isNative;
-  const isStandalone = (isLocalDev && !isCapacitorNative) || isDesktop || isStandaloneMode || isIOSStandalone;
+  // Accès autorisé si : Native Capacitor (App mobile) OU Dev Local OU Ordinateur Bureau (PC/Mac) OU Mobile installé en Standalone
+  const isCapacitorNative = Capacitor.isNativePlatform();
+  const isStandalone = isCapacitorNative || (isLocalDev && !isCapacitorNative) || isDesktop || isStandaloneMode || isIOSStandalone;
 
   return {
     isStandalone,
@@ -72,6 +73,7 @@ const evaluateStandalone = () => {
     isDesktop,
     isStandaloneMode,
     isIOSStandalone,
+    isCapacitorNative,
     hostname
   };
 };
@@ -108,8 +110,10 @@ function App() {
         setView('home');
       } else {
         // Sur Home, quitter l'application
-        if (window.Capacitor?.isNative && CapacitorApp) {
-          CapacitorApp.exitApp().catch(() => {});
+        if (Capacitor.isNativePlatform() && CapacitorApp) {
+          if (window.confirm("Voulez-vous vraiment quitter l'application ?")) {
+            CapacitorApp.exitApp().catch(() => {});
+          }
         }
       }
     };
@@ -441,10 +445,10 @@ function App() {
     }
 
     // Configurer la barre de statut Capacitor et le bouton de retour
-    if (window.Capacitor?.isNative) {
+    if (Capacitor.isNativePlatform()) {
       // Barre de statut
       StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
-      StatusBar.setBackgroundColor({ color: '#000000' }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: '#0b0f19' }).catch(() => {});
 
       // Bouton Retour matériel
       const backButtonListener = CapacitorApp.addListener('backButton', ({ canGoBack }) => {

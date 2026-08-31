@@ -75,6 +75,14 @@ La plateforme s'articule autour de 4 piliers de gameplay :
   - `Notification` : Index composé `{ userId: 1, createdAt: -1 }`.
   - `Config` : Index unique sur `key`.
 
+### 2.4 Spécificités Mobiles & Cross-Platform (Capacitor)
+L'application web est encapsulée via Capacitor pour offrir une expérience Android/iOS native irréprochable :
+- **Authentification** : Remplacement des popups web par le plugin natif `@codetrix-studio/capacitor-google-auth` pour garantir la connexion Google (nécessite le Web Client ID dans `strings.xml`).
+- **Barre d'État (StatusBar)** : Immersive et thématisée. `@capacitor/status-bar` est configuré au démarrage pour adopter la couleur `--bg-main` (Dark/Midnight `#0b0f19`) avec un texte Light (`Style.Dark`), supprimant la barre blanche par défaut.
+- **Verrouillage Clavier Natif** : L'ergonomie reposant sur le *WanaBoard* (clavier virtuel 40% de l'écran), le clavier de l'OS (Gboard, etc.) ne doit jamais s'ouvrir. Le plugin `@capacitor/keyboard` est configuré avec `resize: "none"`, et le champ de saisie (`BattleConsole.jsx`) utilise un faux input (`div` avec `tabIndex="0"` et `inputMode="none"`) pour empêcher l'invocation du clavier natif.
+- **Bouton Retour Matériel (Android)** : `@capacitor/app` intercepte l'événement `hardwareBackPress`. Si un menu (Pause, Résultat) est ouvert, le bouton ferme ce menu (ex: via `requestTogglePause`). Si l'utilisateur est sur l'accueil, une confirmation de sortie est demandée.
+- **Synthèse Vocale (TTS)** : Bascule dynamique sur `@capacitor-community/text-to-speech` sur mobile pour éviter les bugs de mute natifs, et repli sur `window.speechSynthesis` sur web classique.
+
 ---
 
 ## 3. GAMEPLAY & LOGIQUE MÉTIER
@@ -139,6 +147,9 @@ Wana-Allmand-2/
 │   ├── public/                  # Manifest, icônes, sons (/sounds/*.mp3)
 │   ├── src/
 │   │   ├── components/          # Composants UI & Arènes de jeu
+│   │   │   ├── BattleCard.jsx       # Wrapper central UI (60/40)
+│   │   │   ├── BattleConsole.jsx    # Composant de saisie unifié (Fake Input)
+│   │   │   ├── VirtualKeyboard.jsx  # Clavier WanaBoard avec haptique
 │   │   │   ├── TugOfWarArena.jsx    # Arène du Mode Tir à la Corde
 │   │   │   ├── TugOfWarBeam.jsx     # Jauge d'énergie Cyan vs Crimson
 │   │   │   ├── ParticleBurst.jsx    # Système de particules Canvas 60fps
@@ -156,7 +167,12 @@ Wana-Allmand-2/
 │   ├── models/                  # Schémas Mongoose (User, List, MatchSchedule, Notification, Config)
 │   ├── utils/                   # diagnostics.js, levenshtein.js, pdfParser.js
 │   └── index.js                 # Serveur Express, Handlers Socket.IO
+├── android/                     # Projet Natif Android (Capacitor)
+│   ├── app/src/main/            # Sources Java/Kotlin, AndroidManifest.xml
+│   └── app/build/outputs/apk/   # Dossier de génération des builds (.apk)
 └── 00-historique/               # Historiques quotidiens & Master Context
+    ├── ENV_CONFIG.md            # Configuration et variables de production
+    └── .env                     # Variables d'environnement de référence
 ```
 
 ---
@@ -233,5 +249,44 @@ Le 29 août 2026 a marqué une série d'optimisations majeures de performance, d
 - **Audio Dédié** : Synthèse Web Audio pure (`soundEngine.js`) sans dépendance de fichiers externes.
 
 ### 9.6 Administration & Outil d'Annotation Agentation
-- Intégration globale du composant `<Agentation />` dans `App.jsx`, accessible et activable en permanence pour l'administrateur (`VITE_ADMIN_UID`, `localStorage`, `window.enableAdmin()`).
+- Intégration globale du composant `<Agentation />` dans `App.jsx`, accessible et activable en permanence pour l'administrateur (`VITE_ADMIN_UID`, `localStorage`, `window.enableAdmin()`). L'accès est bloqué sur téléphone natif Capacitor (`window.Capacitor.isNative`).
 - Section de contrôle administrateur intégrée dans l'onglet `Profil.jsx`.
+
+### 9.7 Optimisations PWA, Cache & SEO (30 AOÛT 2026)
+- **Code Splitting (Vite 8)** : Découpage du bundle principal via `manualChunks` (`vendor-react`, `vendor-firebase`, `vendor-socket`, `vendor-confetti`, `vendor-agentation`) pour éliminer le fichier monolithique de 1.17 Mo.
+- **Mise en cache VitePWA & Workbox** : Extension des règles pour inclure les statiques, polices et sons (SFX) jusqu'à 15Mo, avec stratégies `StaleWhileRevalidate` et `CacheFirst`.
+- **Minification Vite 8** : Activation native de `cssMinify` et `cssCodeSplit`.
+- **Keep-Alive Render** : Ajout de routes `GET /`, `/health` pour empêcher le Cold Start.
+- **SEO & Performance** : Ajout de `preconnect` et `dns-prefetch` pour Google Fonts et Firebase. Désactivation du délai de 300ms au double-tap (Safari iOS).
+
+---
+
+## 10. SYNTHÈSE DES ÉVOLUTIONS (31 AOÛT 2026 - CAPACITOR & ARCHITECTURE MOBILE)
+
+### 10.1 Portabilité Mobile & Capacitor (Android)
+- **Build Natif, Synchronisation & Compilation APK** : Intégration de `@capacitor/core`, `@capacitor/cli`, et `@capacitor/android`. Commandes de synchronisation (`npm run sync:android`) et chaîne de compilation Gradle complète (`assembleDebug`) exécutée avec le JDK 17+ embarqué d'Android Studio (`jbr`).
+- **Génération du Fichier APK & Google Services** : Intégration du fichier `google-services.json` dans `client/android/app/` activant le plugin `com.google.gms.google-services`. L'APK debug (`WanaAllmand.apk`, ~19.2 Mo) est généré dans `client/android/app/build/outputs/apk/debug/app-debug.apk` et copié à la racine du projet sous `WanaAllmand.apk`.
+- **Compatibilité AGP (Android Gradle Plugin)** : Remplacement de `proguard-android.txt` par `proguard-android-optimize.txt` dans `build.gradle` de l'application et du plugin `@codetrix-studio/capacitor-google-auth`.
+- **Immersif & Status Bar** : Intégration de `@capacitor/status-bar` (barre d'état dark mode `#0b0f19`) et ajustements `WindowInsetsControllerCompat` pour supprimer la barre de navigation.
+- **Google Auth Natif & Correctif Détection** : Utilisation de `Capacitor.isNativePlatform()` (au lieu de `window.Capacitor.isNative` obsolète) pour router systématiquement l'authentification sur le flux natif `@codetrix-studio/capacitor-google-auth` en environnement APK/mobile, éliminant l'erreur de pop-up bloquée dans la WebView. Configuration du plugin injectée dans `capacitor.config.json` (`serverClientId`, scopes `profile`, `email`, `forceCodeForRefreshToken: true`).
+- **Empreinte de Signature Debug** : SHA-1 debug (`87:31:A9:DF:46:90:4F:A3:3C:C0:79:DC:45:C5:BD:69:95:0B:A2:76`) / SHA-256 (`98:3A:55:73:39:BC:3B:5F:0C:BC:6C:3F:33:60:DF:E6:06:59:96:0C:74:BC:A0:BC:CB:50:D0:41:80:EF:C9:6E`).
+- **Text-To-Speech Natif** : Remplacement par `@capacitor-community/text-to-speech` sur mobile pour corriger le bug de mute, avec fallback sur `window.speechSynthesis` en web.
+- **Bouton Retour Matériel (Hardware Back Press)** : Écoute via `@capacitor/app` pour gérer la navigation (fermeture de menus ou prompt avant de quitter l'app).
+- **Configuration Réseau & Permissions** : Autorisation HTTP/HTTPS via `android:usesCleartextTraffic="true"`, et ajout des permissions `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_WIFI_STATE` dans l'AndroidManifest. Correction de la configuration Android Studio (`gradle.settings.xml`), et remplacement des dépôts dépréciés `jcenter()` par `mavenCentral()` dans le plugin `@codetrix-studio/capacitor-google-auth`.
+
+### 10.2 Refonte de l'Architecture Mobile 60/40 (WanaBoard)
+- **Layout Strict 60/40** : Arène verrouillée à 60% et clavier virtuel WanaBoard à 40% sur mobile via `.mobile-keyboard-active`, empêchant tout chevauchement.
+- **Typographie Fluide** : Utilisation de `font-size: clamp()` sur les champs de saisie pour absorber les mots allemands très longs.
+- **Animation du Clavier Virtuel** : Injection de `.keyboard-hidden` (`translateY(100%)`) à l'ouverture du Menu ou en Pause, libérant instantanément 100% de l'écran pour la carte de jeu.
+- **Anti-Écrasement Flexbox** : Suppression des `min-height: 100vh` sur les arènes (`TugOfWarArena`, `VengeanceMode`) remplacés par `flex: 1; overflow: hidden`.
+- **Verrouillage du Clavier OS** : `@capacitor/keyboard` (`resize: none`) et `inputMode="none"` sur le `fake-input` pour interdire au Gboard/Samsung Keyboard de s'ouvrir.
+
+### 10.3 Uniformisation des Modes & UI
+- **Wrapper BattleCard** : Intégration centralisée de `BattleCard` dans les 3 modes (Game, Vengeance, TugOfWar) pour encadrer le WanaBoard et la console. Amélioration de `BattleCard` avec `flex: 1` pour s'adapter au conteneur parent sans forcer `100vh`.
+- **Sélecteur de Mode (PlayDropdown) & Accueil** : Rendu adaptatif du dropdown (`zIndex: 9999`, `minWidth/maxWidth`) pour 100% de visibilité mobile. Nettoyage du modal de bienvenue (`OnboardingTour`) avec la suppression de l'icône rebondissante supérieure.
+- **Console Unifiée (BattleConsole)** : Création de `BattleConsole.jsx`, un fake-input autonome avec 'Smart Logic' d'auto-capitalisation, remplaçant les anciens champs de saisie dans tous les modes.
+- **Clavier Virtuel WanaBoard (VirtualKeyboard)** : Création de `VirtualKeyboard.jsx` avec prise en charge QWERTY/AZERTY, touches allemandes, Game Feel (animation `translateY(4px)` pure), retour haptique et sonore (`sfxManager.playClick()`).
+- **Nettoyage UI** : Suppression du réglage manuel de la taille du clavier (slider) dans `Profil.jsx`, la hauteur étant maintenant verrouillée à 40%.
+- **Logo Officiel** : Nouveau `logo.jpg` remplaçant l'ancien `favicon.svg` dans `index.html`, `manifest.webmanifest`, et config Capacitor.
+- **Déploiement Vercel** : Ajout d'un `.npmrc` avec `legacy-peer-deps=true` pour forcer l'installation des dépendances liées à `@capacitor/core` sur Vercel.
+- **Règle d'Historique** : Ajout de `.agents/rules/historique.md` imposant le format strict `historique_YYYY-MM-DD.md`.

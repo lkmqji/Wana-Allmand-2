@@ -70,3 +70,31 @@
 ### 18:03 - Synchronisation Web vers Android (Capacitor Sync)
 - **Transplantation (Build & Sync)** : Compilation du projet Web (`vite build`) et synchronisation de l'arborescence compilée vers l'environnement natif Android (`cap sync android`).
 - **Intégrité Mobile** : L'injection a mis à jour le dossier `android/app/src/main/assets/public/` avec les nouveautés du jour (WanaBoard, BattleConsole) tout en préservant scrupuleusement l'anatomie mobile (`build.gradle`, `AndroidManifest.xml` et les paramètres d'UI natifs).
+
+### 18:15 - Audit et Optimisation Native Android (Capacitor)
+- **StatusBar Immersive** : Configuration de `@capacitor/status-bar` dans `capacitor.config.json` et `App.jsx` pour adopter la couleur de fond du thème Dark/Midnight (`#0b0f19`) avec un texte Light (`Style.Dark`), évitant ainsi la barre blanche classique.
+- **Gestion du Bouton Retour** : Amélioration de l'écouteur `hardwareBackPress` dans `App.jsx` et `Game.jsx`. Le bouton physique ferme désormais le menu pause s'il est ouvert via `requestTogglePause`, ou demande une confirmation native (`window.confirm`) avant de quitter brutalement l'application depuis l'accueil.
+- **Verrouillage du Clavier Natif** : Installation du plugin `@capacitor/keyboard` avec la configuration `resize: "none"` pour empêcher l'écran de tressauter. Ajout de `inputMode="none"` sur le *fake-input* (`BattleConsole.jsx`) afin de s'assurer qu'aucun clavier virtuel de l'OS (Gboard, Samsung Keyboard) ne vienne écraser le WanaBoard.
+- **Build et Synchronisation** : Mise à jour du projet Android via `npx cap sync android`.
+
+### 18:41 - Correctif Gradle Android Studio (Suppression jcenter obsolète)
+- **Erreur Gradle `Could not find method jcenter()`** : Remplacement de l'appel au dépôt déprécié `jcenter()` par `mavenCentral()` dans le fichier de build natif du plugin `@codetrix-studio/capacitor-google-auth/android/build.gradle` pour permettre la synchronisation Gradle moderne sans erreur.
+
+### 19:02 - Génération de l'APK Android (Debug)
+- **Correction de compatibilité AGP (Android Gradle Plugin)** : Remplacement de la référence ProGuard dépréciée `proguard-android.txt` par `proguard-android-optimize.txt` dans `client/android/app/build.gradle` et `client/node_modules/@codetrix-studio/capacitor-google-auth/android/build.gradle`.
+- **Compilation Gradle avec JDK 17+ (Android Studio JBR)** : Configuration du build sous Windows avec le JDK embarqué d'Android Studio (`C:\Program Files\Android\Android Studio\jbr`).
+- **Génération réussie de l'APK** : Compilation complète de l'application via `assembleDebug` générant le binaire `app-debug.apk` (18.66 Mo), accessible dans `client/android/app/build/outputs/apk/debug/app-debug.apk` et copié à la racine du projet sous `WanaAllmand.apk`.
+
+### 19:11 - Correctif Connexion Compte Google Native & Nouvel APK
+- **Détection Native Robuste (`Capacitor.isNativePlatform()`)** : Remplacement de la propriété obsolète `window.Capacitor?.isNative` par l'API officielle `Capacitor.isNativePlatform()` de `@capacitor/core` dans `firebase.js`, `App.jsx` et `utils/speech.js`. Cela corrigeait un faux négatif qui forçait `signInWithPopup` (interdit dans la WebView Android) au lieu d'invoquer le flux natif Google Auth.
+- **Configuration Plugin GoogleAuth** : Ajout de la section `GoogleAuth` dans `capacitor.config.json` avec `serverClientId`, scopes `profile` & `email`, et `forceCodeForRefreshToken: true`.
+- **Initialisation Sécurisée & Récupération du Token** : Sécurisation de `GoogleAuth.initialize()` et extraction robuste du jeton `idToken` (`authentication.idToken` ou `idToken`) pour `GoogleAuthProvider.credential()`.
+- **Régénération du Binaire APK** : Synchronisation Capacitor (`cap sync android`) et compilation complète (`assembleDebug`) produisant le nouvel APK corrigé [WanaAllmand.apk](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/WanaAllmand.apk) (18.78 Mo).
+
+### 19:20 - Intégration `google-services.json` & Compilation APK Finale
+- **Services Google Play & Firebase Android** : Intégration du fichier de configuration officiel `google-services.json` dans `client/android/app/google-services.json` activant le plugin `com.google.gms.google-services` dans Gradle.
+- **Génération Binaire Finale** : Recompilation complète (`assembleDebug`) produisant le package prêt pour la connexion Google [WanaAllmand.apk](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/WanaAllmand.apk) (19.19 Mo).
+
+### 19:35 - Permissions Réseau & Stabilisation Résolution DNS
+- **Permissions Android** : Ajout explicite des permissions `ACCESS_NETWORK_STATE` et `ACCESS_WIFI_STATE` dans `AndroidManifest.xml` pour stabiliser les requêtes OAuth Google et éviter les erreurs `ERR_NAME_NOT_RESOLVED`.
+- **Recompilation APK** : Binaire final compilé et synchronisé à la racine [WanaAllmand.apk](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/WanaAllmand.apk).

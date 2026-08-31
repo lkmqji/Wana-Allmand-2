@@ -15,6 +15,7 @@
         "@capacitor/android": "^8.5.0",
         "@capacitor/app": "^8.1.1",
         "@capacitor/core": "^8.5.0",
+        "@capacitor/keyboard": "^8.0.5",
         "@capacitor/status-bar": "^8.0.3",
         "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4",
         "canvas-confetti": "^1.9.4",

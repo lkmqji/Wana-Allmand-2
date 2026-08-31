@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "954044665510",
+    "project_id": "wana-allmand",
+    "storage_bucket": "wana-allmand.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:954044665510:android:a8eecff1b5573bceebee67",
+        "android_client_info": {
+          "package_name": "com.allmand.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "954044665510-9quujc9e3ig0mis2ndvrkv50d0554ldu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBg5Ld3l1FDRPm6aucZA50q10JJp918QCc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "954044665510-9quujc9e3ig0mis2ndvrkv50d0554ldu.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

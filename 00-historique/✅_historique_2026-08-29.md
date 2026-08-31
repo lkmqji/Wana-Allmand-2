@@ -1,4 +1,8 @@
-# Historique des modifications - Wana Allmand
+# ✅ Historique des modifications - Wana Allmand
+
+> [!NOTE]
+> Ce fichier a déjà été intégralement synchronisé avec le MASTER_PRODUCT_TECHNICAL_CONTEXT.md. Une analyse rapide suffit (fast analysis).
+
 
 ## Entrée : 2026-08-29 18:15:30 (UTC+01:00)
 - Rédaction et formalisation du document exhaustif "Master Product & Technical Context" (Architecture technique, UX, Mécaniques métier, Audio, Résilience PWA/Socket, Thèmes et Arborescence des composants) destiné à la transmission aux équipes de développement et agents IA.
@@ -9,18 +13,18 @@
   - `memory-leak-detection` : Diagnostic et traçage des fuites de mémoire (WebSockets, Web Audio API, listeners et cycle de vie React).
 ## Entrée : 2026-08-29 19:01:45 (UTC+01:00)
 - Optimisation majeure des performances frontend (ultra 'snappy' UI) selon les compétences `@vercel-react-best-practices`, `@react-vite-best-practices` et `@memory-leak-detection` :
-  - **Saisie instantanée & Élimination des re-renders** :
+  - **Saisie instantanée & Ã‰limination des re-renders** :
     - Isolation du chronomètre dans des sous-composants mémoïsés (`GameTimerBadge` et `VengeanceTimerBar`) afin que les ticks à 10Hz ne déclenchent aucun re-rendu sur l'arbre de composants parent ni sur les champs de saisie.
     - Isolation du champ de saisie de texte (`GameInputForm`) avec son propre état local pour une frappe instantanée (0ms de latence, zéro saccade).
     - Stabilisation des écouteurs Socket.IO via `useRef` pour éviter la destruction et réinscription continue des 16 listeners d'événements à chaque réponse ou changement de question.
   - **Prévention des fuites de mémoire (UI & Audio)** :
     - Suppression de l'instanciation non gérée `new AudioContext()` dans `Game.jsx` au profit du gestionnaire singleton `sfxManager`.
-    - Déconnexion systématique des nœuds Web Audio (oscillateurs, gains, filtres) à la fin de leur lecture (`onended`) et ajout de la méthode `dispose()`.
+    - Déconnexion systématique des nÅ“uds Web Audio (oscillateurs, gains, filtres) à la fin de leur lecture (`onended`) et ajout de la méthode `dispose()`.
     - Stabilisation des écouteurs globaux de clics et raccourcis dans `AudioContext.jsx` avec des `useRef` pour éliminer l'accumulation d'écouteurs lors des réglages de volume.
-    - Nettoyage rigoureux de tous les `setTimeout` et `setInterval` au démontage des composants, et arrêt automatique de `window.speechSynthesis` pour préserver les ressources sur les longues sessions.
+    - Nettoyage rigoureux de tous les `setTimeout` et `setInterval` au démontage des composants, et arrÃªt automatique de `window.speechSynthesis` pour préserver les ressources sur les longues sessions.
   - **Performances CSS & Accélération matérielle (GPU)** :
     - Refonte des animations de secousse (`errorShake` et `shake`) avec `translate3d(x, 0, 0)`, `transform: translateZ(0)` et `will-change: transform`.
-    - Accélération matérielle GPU pour les boutons 3D (`.btn`, `.btn-primary`, `.btn-secondary`, `.btn-success`, `.btn-danger`) et les boîtes de jeu Glassmorphism (`.vengeance-game-box`, `.card`).
+    - Accélération matérielle GPU pour les boutons 3D (`.btn`, `.btn-primary`, `.btn-secondary`, `.btn-success`, `.btn-danger`) et les boÃ®tes de jeu Glassmorphism (`.vengeance-game-box`, `.card`).
     - Animation de la jauge de temps de vengeance optimisée en GPU via `transform: scaleX(...)` pour éliminer les reflows/repaints layout à chaque dixième de seconde.
 
 ## Entrée : 2026-08-29 19:22:00 (UTC+01:00)
@@ -47,26 +51,26 @@
 
 ## Entrée : 2026-08-29 19:45:00 (UTC+01:00)
 - **Correctif d'affichage global et activation en 1 clic pour l'Administrateur** :
-  - Restructuration du rendu principal dans [App.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/App.jsx) (`renderMainContent`) pour que le fragment racine monte `<Agentation />` en continu sur tous les écrans (Écran de connexion, TitleScreen, Vengeance, Duel, Dashboard).
+  - Restructuration du rendu principal dans [App.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/App.jsx) (`renderMainContent`) pour que le fragment racine monte `<Agentation />` en continu sur tous les écrans (Ã‰cran de connexion, TitleScreen, Vengeance, Duel, Dashboard).
   - Ajout du support de détection d'administrateur flexible (`VITE_ADMIN_UID` + `localStorage` override + helper console `window.enableAdmin()`).
   - Ajout d'une section dédiée "Espace Administrateur" dans l'onglet Profil ([Profil.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/Profil.jsx)) permettant d'activer ou désactiver les privilèges administrateur et de voir l'état du bouton Agentation en temps réel.
 
 ## Entrée : 2026-08-29 19:58:00 (UTC+01:00)
 - **Correction et réinitialisation du chronomètre à chaque manche (Game.jsx)** :
-  - Ajout de la clé dynamique `key={round_${questionIndex}}` et de la prop `questionIndex` sur le composant isolé `GameTimerBadge` dans [Game.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/Game.jsx). Le chronomètre se réinitialise désormais immédiatement à 15s au début de chaque nouvelle manche même après être tombé à 0s.
-- **Accessibilité du bouton "PRÊT ? GO !" en Mode Vengeance (VengeanceMode.jsx & index.css)** :
+  - Ajout de la clé dynamique `key={round_${questionIndex}}` et de la prop `questionIndex` sur le composant isolé `GameTimerBadge` dans [Game.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/Game.jsx). Le chronomètre se réinitialise désormais immédiatement à 15s au début de chaque nouvelle manche mÃªme après Ãªtre tombé à 0s.
+- **Accessibilité du bouton "PRÃŠT ? GO !" en Mode Vengeance (VengeanceMode.jsx & index.css)** :
   - Ajustement du conteneur `.vengeance-arena` dans [index.css](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/index.css) avec `justify-content: flex-start` et padding compact adapté aux écrans d'ordinateurs portables (ex: hauteur 695px).
-  - Réduction optimisée des espacements et des tailles de police dans la boîte de présentation d'introduction de [VengeanceMode.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/VengeanceMode.jsx) afin que le bouton "PRÊT ? GO ! 🚀" soit immédiatement visible sans nécessiter de défilement vers le bas.
+  - Réduction optimisée des espacements et des tailles de police dans la boÃ®te de présentation d'introduction de [VengeanceMode.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/VengeanceMode.jsx) afin que le bouton "PRÃŠT ? GO ! ðŸš€" soit immédiatement visible sans nécessiter de défilement vers le bas.
 - **Ajout des boutons d'insertion rapide des 3 articles allemands (der, die, das)** :
   - Ajout de 3 boutons cliquables colorés (`der`, `die`, `das`) sous le champ de saisie dans [VengeanceMode.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/VengeanceMode.jsx). Un clic insère ou remplace l'article actuel tout en conservant le focus sur le champ pour continuer à taper sans interruption.
-- **Ajout des caractères spéciaux allemands les plus utilisés (ä, ö, ü, ß, Ä, Ö, Ü)** :
-  - Ajout d'une barre de touches virtuelles tactiles pour insérer instantanément `ä`, `ö`, `ü`, `ß`, `Ä`, `Ö`, `Ü` à l'endroit précis du curseur dans [VengeanceMode.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/VengeanceMode.jsx).
+- **Ajout des caractères spéciaux allemands les plus utilisés (Ã¤, Ã¶, Ã¼, ÃŸ, Ã„, Ã–, Ãœ)** :
+  - Ajout d'une barre de touches virtuelles tactiles pour insérer instantanément `Ã¤`, `Ã¶`, `Ã¼`, `ÃŸ`, `Ã„`, `Ã–`, `Ãœ` à l'endroit précis du curseur dans [VengeanceMode.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/VengeanceMode.jsx).
 
 ## Entrée : 2026-08-29 20:08:00 (UTC+01:00)
 - **Conservation exclusive des minuscules pour les caractères spéciaux (VengeanceMode.jsx)** :
-  - Suppression des versions majuscules `Ä`, `Ö`, `Ü` dans la barre virtuelle du Mode Vengeance pour ne conserver que les caractères minuscules usuels : `ä`, `ö`, `ü`, `ß`.
+  - Suppression des versions majuscules `Ã„`, `Ã–`, `Ãœ` dans la barre virtuelle du Mode Vengeance pour ne conserver que les caractères minuscules usuels : `Ã¤`, `Ã¶`, `Ã¼`, `ÃŸ`.
 - **Ajout des boutons rapides des pronoms/articles et caractères spéciaux dans la carte de Duel principale (Game.jsx)** :
-  - Intégration de la barre de boutons rapides (`der`, `die`, `das` et `ä`, `ö`, `ü`, `ß`) directement sous le champ de saisie dans le composant [Game.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/Game.jsx) (`GameInputForm`). Un simple clic insère ou remplace l'article ou le caractère spécial tout en maintenant le focus actif pour une frappe ultra-rapide.
+  - Intégration de la barre de boutons rapides (`der`, `die`, `das` et `Ã¤`, `Ã¶`, `Ã¼`, `ÃŸ`) directement sous le champ de saisie dans le composant [Game.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/Game.jsx) (`GameInputForm`). Un simple clic insère ou remplace l'article ou le caractère spécial tout en maintenant le focus actif pour une frappe ultra-rapide.
 
 ## Entrée : 2026-08-29 20:40:00 (UTC+01:00)
 - **Annulation et retour à l'état initial du projet (Revert Android/Capacitor)** :
@@ -79,25 +83,25 @@
 - **Renforcement de la résilience réseau (Mobile, 4G et Mise en veille)** :
   - Client (`App.jsx`) : Ajout d'une détection robuste des sorties de veille (`visibilitychange`, `focus`, `pageshow`) pour forcer la reconnexion automatique du socket via `socket.connect()` s'il a été déconnecté.
   - Serveur (`server/index.js`) : Augmentation de la tolérance aux micro-coupures réseau (4G/Tunnels) en ajustant le `pingInterval` à 25s et le `pingTimeout` à 60s.
-  - Client (`useSocketEvent.js`) : Retrait de la condition bloquante (`typeof handler !== 'function'`) au montage du hook, permettant à l'écouteur d'être attaché même si le `handler` initial n'est pas encore défini.
+  - Client (`useSocketEvent.js`) : Retrait de la condition bloquante (`typeof handler !== 'function'`) au montage du hook, permettant à l'écouteur d'Ãªtre attaché mÃªme si le `handler` initial n'est pas encore défini.
   - Audit : Vérification complète de l'absence de fuites d'écouteurs "fantômes" `socket.on` dans `App.jsx` ; aucun nettoyage n'était manquant.
 
-### 22:04 - Architecture R�seau Mobile Indestructible (Solutions 1, 2, 3, 4)
-- Ajout d'une d�connexion proactive (socket.disconnect()) lorsque l'application passe en arri�re-plan pour �viter les sessions corrompues et les joueurs fant�mes.
-- Ajout du rafra�chissement asynchrone du jeton Firebase (uth.currentUser.getIdToken(true)) avant de relancer la connexion au retour au premier plan.
-- Cr�ation d'un heartbeat applicatif c�t� client (ping/pong toutes les 25s) pour d�tecter les micro-coupures et fermer manuellement la socket si 3 pings sont perdus.
-- Ajout de l'�couteur ping_app c�t� serveur Express.
-- Maintien de la correction du crash 'Cannot access A before initialization' en conservant les �tats au-dessus du useEffect.
+### 22:04 - Architecture Réseau Mobile Indestructible (Solutions 1, 2, 3, 4)
+- Ajout d'une déconnexion proactive (socket.disconnect()) lorsque l'application passe en arrière-plan pour éviter les sessions corrompues et les joueurs fantômes.
+- Ajout du rafraîchissement asynchrone du jeton Firebase (uth.currentUser.getIdToken(true)) avant de relancer la connexion au retour au premier plan.
+- Création d'un heartbeat applicatif côté client (ping/pong toutes les 25s) pour détecter les micro-coupures et fermer manuellement la socket si 3 pings sont perdus.
+- Ajout de l'écouteur ping_app côté serveur Express.
+- Maintien de la correction du crash 'Cannot access A before initialization' en conservant les états au-dessus du useEffect.
 
-### 22:20 - Fermeture imm�diate de session et retour accueil � la d�connexion d'un joueur
-- Annulation de toutes les tentatives d'�couteurs de mise en veille / heartbeat applicatif / reconnexion complexe.
-- Mise en place de la fermeture imm�diate : si un joueur quitte la partie ou le salon (ou se d�connecte), la session est instantan�ment supprim�e sur le serveur.
-- �mission de l'�v�nement 'session_closed' � tous les participants.
-- Redirection imm�diate des deux joueurs vers la page d'accueil (vue 'home') avec r�initialisation compl�te de l'�tat de la session.
+### 22:20 - Fermeture immédiate de session et retour accueil à la déconnexion d'un joueur
+- Annulation de toutes les tentatives d'écouteurs de mise en veille / heartbeat applicatif / reconnexion complexe.
+- Mise en place de la fermeture immédiate : si un joueur quitte la partie ou le salon (ou se déconnecte), la session est instantanément supprimée sur le serveur.
+- Émission de l'événement 'session_closed' à tous les participants.
+- Redirection immédiate des deux joueurs vers la page d'accueil (vue 'home') avec réinitialisation complète de l'état de la session.
 
 ### 22:28 - Notification explicite de fermeture du lobby
-- Personnalisation du message de notification affich� au joueur restant lorsque l'autre joueur se d�connecte : 'Le lobby est ferm� � cause de la d�connexion de l'autre joueur'.
-- �mission de la notification sous forme de toast d'alerte lors du retour automatique � l'accueil.
+- Personnalisation du message de notification affiché au joueur restant lorsque l'autre joueur se déconnecte : 'Le lobby est fermé à cause de la déconnexion de l'autre joueur'.
+- Émission de la notification sous forme de toast d'alerte lors du retour automatique à l'accueil.
 
 ### 22:40 - Ajout des outils de diagnostic et de monitoring serveur en production
 - Cration du module de diagnostic [server/utils/diagnostics.js](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/server/utils/diagnostics.js) intgr au dmarrage de [server/index.js](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/server/index.js).
@@ -112,7 +116,7 @@
   - Détection automatique et destruction immédiate de toute session dont le nombre de joueurs tombe à 0.
 - **Indexation MongoDB Mongoose (User.js, List.js, MatchSchedule.js, Notification.js, Config.js)** :
   - User.js : Indexation de irebaseId, 
-ame, xp, lastSeen et index composé { xp: -1, gamesWon: -1 } pour accélérer drastiquement les requêtes de classement et de profil sous les 50ms.
+ame, xp, lastSeen et index composé { xp: -1, gamesWon: -1 } pour accélérer drastiquement les requÃªtes de classement et de profil sous les 50ms.
   - List.js : Indexation de userId, isPublic, createdAt et index composés { isPublic: 1, createdAt: -1 } et { userId: 1, createdAt: -1 } pour les listes publiques et personnelles.
   - MatchSchedule.js : Indexation de hostId, guestId, scheduledDate, status et index composés pour les plannings de match.
   - Notification.js : Indexation de userId, createdAt et index composé { userId: 1, createdAt: -1 }.
@@ -120,24 +124,24 @@ ame, xp, lastSeen et index composé { xp: -1, gamesWon: -1 } pour accélérer dr
 - **Optimisation CPU & Event Loop (server/utils/levenshtein.js)** :
   - Remplacement de l'allocation d'une matrice 2D par un tableau 1D typé Int32Array à empreinte mémoire minimale (\min(N, M))$ sans pression sur le Garbage Collector.
   - Ajout de chemins rapides (*fast-paths*) pour les correspondances exactes sans calculs.
-  - Ajout d'une sortie anticipée basée sur la différence de longueur de chaîne (*length-differential early-exit*) avant d'exécuter la boucle de Levenshtein.
+  - Ajout d'une sortie anticipée basée sur la différence de longueur de chaÃ®ne (*length-differential early-exit*) avant d'exécuter la boucle de Levenshtein.
 
 
-### 23:45 - Intégration du Nouveau Mode de Jeu « Tir à la Corde » (Rayon Énergétique)
+### 23:45 - Intégration du Nouveau Mode de Jeu Â« Tir à la Corde Â» (Rayon Ã‰nergétique)
 - **Ajout du mode de jeu dans le sélecteur du Lobby (`PlayDropdown`)** :
-  - Intégration de l'option « ⚡ Tir à la Corde » (`tug_of_war`) aux côtés du Mode Classique et du Mode Survie.
+  - Intégration de l'option Â« âš¡ Tir à la Corde Â» (`tug_of_war`) aux côtés du Mode Classique et du Mode Survie.
   - Thème dynamique Cyan/Bleu électrique avec animations de lueur et label adapté selon le mode actif.
 - **Création du moteur de jeu et des composants visuels (`client/src/components/`)** :
-  - `TugOfWarArena.jsx` : Arène de jeu complète avec boucle de match, gestion des listes de vocabulaire actives, bot réactif IA (Valkyrie-AI), barres d'aide pour caractères spéciaux allemands (`ä, ö, ü, ß`) et articles (`der, die, das`), et modales de fin de match (Victoire/Défaite avec gains d'XP et de Pièces).
-  - `TugOfWarBeam.jsx` : Pipeline d'énergie dynamique Cyan vs Crimson avec nœud central de singularité et pourcentages de force en temps réel.
+  - `TugOfWarArena.jsx` : Arène de jeu complète avec boucle de match, gestion des listes de vocabulaire actives, bot réactif IA (Valkyrie-AI), barres d'aide pour caractères spéciaux allemands (`Ã¤, Ã¶, Ã¼, ÃŸ`) et articles (`der, die, das`), et modales de fin de match (Victoire/Défaite avec gains d'XP et de Pièces).
+  - `TugOfWarBeam.jsx` : Pipeline d'énergie dynamique Cyan vs Crimson avec nÅ“ud central de singularité et pourcentages de force en temps réel.
   - `ParticleBurst.jsx` : Système de particules 60fps en Canvas avec cristaux en losange rotatifs pour les impacts Emeraude (Perfect), Ambre (Typo) et Cramoisi (Error).
   - `TypoFallingVFX.jsx` : Effet physique de chute et de rotation des lettres erronées.
 - **Moteur sonore & algorithme de détection (`client/src/utils/`)** :
   - `soundEngine.js` : Moteur sonore Web Audio API zéro-dépendance (synthèse d'arpèges C5-C6, onde triangle et onde en dent de scie).
-  - `levenshtein.js` : Calcul de distance de Levenshtein avec normalisation allemande (`ä->ae, ö->oe, ü->ue, ß->ss`) et détection des fautes tolérées.
+  - `levenshtein.js` : Calcul de distance de Levenshtein avec normalisation allemande (`Ã¤->ae, Ã¶->oe, Ã¼->ue, ÃŸ->ss`) et détection des fautes tolérées.
 - **Contrôles de l'application (Pause, Reprendre, Quitter, Menu)** :
-  - Bouton Pause ⏸️ suspendant immédiatement les attaques du bot et affichant les options « Reprendre », « Recommencer » et « Quitter vers le salon / menu ».
-  - Bouton Mute 🔊/🔇 pour couper ou réactiver les effets sonores en direct.
+  - Bouton Pause â�¸ï¸� suspendant immédiatement les attaques du bot et affichant les options Â« Reprendre Â», Â« Recommencer Â» et Â« Quitter vers le salon / menu Â».
+  - Bouton Mute ðŸ”Š/ðŸ”‡ pour couper ou réactiver les effets sonores en direct.
 - **Intégration et Routing (`App.jsx`, `Lobby.jsx`, `Home.jsx`, `ListCard.jsx`, `ListPreviewModal.jsx`)** :
   - Ajout de l'état `tugOfWarSession` et de la vue `view === 'tug_of_war'` avec redirection vers le salon ou l'accueil en fin de partie.
   - Support du lancement du mode Tir à la Corde depuis le salon solo, les listes personnelles, les listes publiques et les listes par défaut.
