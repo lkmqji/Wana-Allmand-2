@@ -6,6 +6,8 @@ import { useSpotlightTarget } from '../hooks/useSpotlightTarget';
 import { useOnboarding } from '../context/OnboardingContext';
 import { speakText, stopSpeech } from '../utils/speech';
 import BattleConsole from './BattleConsole';
+import BattleCard from './BattleCard';
+import VirtualKeyboard from './VirtualKeyboard';
 
 const PRESET_PHRASES = [
   "💥 Ouch!",
@@ -1586,62 +1588,63 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
         transition: 'filter 0.3s ease, opacity 0.3s ease',
         opacity: isBlurred ? 0.6 : 1
       }}>
-        
-        {/* Scoreboard Header */}
-        <div className="score-board card" style={{ padding: '0.5rem 1rem', marginBottom: '1rem' }}>
-          {Object.values(players).map((p) => {
-            const isLeader = p.id === leaderId;
-            const isOvertaking = p.id === overtakerId;
-            return (
-              <div 
-                key={p.id} 
-                className={`player-score ${isOvertaking ? 'leader-overtake' : ''}`} 
-                style={{ color: p.id === socket?.id ? 'var(--primary)' : 'var(--text-main)' }}
-              >
-                {isLeader && <div className="leader-crown">👑</div>}
-                <div 
-                  className="name" 
-                  onClick={() => setSelectedProfileUser(p)} 
-                  style={{ cursor: 'pointer', textDecoration: 'underline' }} 
-                  title="Voir le profil du joueur"
-                >
-                  {formatPlayerName(p.name)} {p.id === socket?.id ? '(Vous)' : ''}
-                </div>
-                <div className="score">{p.score}</div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Central Game Card */}
-        <div className="card" style={{ textAlign: 'center', position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', padding: '1.5rem', marginTop: '1rem', minHeight: '380px' }}>
-          
-          {/* Question Index Badge */}
-          <div style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 600 }}>
-            {questionIndex + 1} / {totalQuestions}
-          </div>
-
-          <GameTimerBadge
-            key={`round_${questionIndex}`}
-            questionIndex={questionIndex}
-            initialDuration={initialRoundDuration}
-            isFrozenOrPaused={isGameFrozenOrPaused || (isActive && (currentStep === 'TYPE_HUND' || currentStep === 'ARTICLE_WARNING'))}
-            hasAnswered={hasAnswered}
-            roundResult={roundResult}
-            onTimeout={() => {
-              if (!isActive) submitAnswer('');
-            }}
-            timeRef={timeRemainingRef}
-            playTimeWarning={playTimeWarning}
-          />
-          
+        {/* Central Game Card wrapped in BattleCard */}
+        <BattleCard
+          mode="classic"
+          isShaking={shakeInput}
+          pauseSlot={null}
+          timerSlot={
+            <GameTimerBadge
+              key={`round_${questionIndex}`}
+              questionIndex={questionIndex}
+              initialDuration={initialRoundDuration}
+              isFrozenOrPaused={isGameFrozenOrPaused || (isActive && (currentStep === 'TYPE_HUND' || currentStep === 'ARTICLE_WARNING'))}
+              hasAnswered={hasAnswered}
+              roundResult={roundResult}
+              onTimeout={() => {
+                if (!isActive) submitAnswer('');
+              }}
+              timeRef={timeRemainingRef}
+              playTimeWarning={playTimeWarning}
+            />
+          }
+          progressSlot={
+            <span>{questionIndex + 1} / {totalQuestions}</span>
+          }
+          specialRuleSlot={
+            <div style={{ display: 'flex', gap: '1rem', width: '100%', justifyContent: 'center' }}>
+              {Object.values(players).map((p) => {
+                const isLeader = p.id === leaderId;
+                const isOvertaking = p.id === overtakerId;
+                return (
+                  <div 
+                    key={p.id} 
+                    className={`player-score ${isOvertaking ? 'leader-overtake' : ''}`} 
+                    style={{ color: p.id === socket?.id ? 'var(--primary)' : 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  >
+                    {isLeader && <div className="leader-crown">👑</div>}
+                    <div 
+                      className="name" 
+                      onClick={() => setSelectedProfileUser(p)} 
+                      style={{ cursor: 'pointer', textDecoration: 'underline' }} 
+                      title="Voir le profil du joueur"
+                    >
+                      {formatPlayerName(p.name)} {p.id === socket?.id ? '(Vous)' : ''}
+                    </div>
+                    <div className="score" style={{ fontWeight: 'bold' }}>{p.score}</div>
+                  </div>
+                );
+              })}
+            </div>
+          }
+        >
           <BattleConsole
             question={question || 'Chargement...'}
             inputValue={inputVal}
             onInputChange={setInputVal}
             onSubmit={handleSubmit}
             isDisabled={hasAnswered || isFrozen || isGameFrozenOrPaused || !!roundResult}
-            isError={shakeInput}
+            isError={false} // Handled by BattleCard isShaking
             inputPlaceholder={
               isActive
                 ? (currentStep === 'TYPE_HUND' ? "Tape 'Hund' sans l'article..." : (currentStep === 'ARTICLE_WARNING' ? "Tape 'der Hund' avec l'article..." : (isFrozen ? "GELÉ..." : "Ex: der Tisch")))
@@ -1772,7 +1775,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
               </div>
             </div>
           )}
-        </div>
+        </BattleCard>
       </div>
 
       {/* Full-Screen Telegram Burst Floating Reactions Layer */}
@@ -1805,6 +1808,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
         />
       )}
 
+      {/* Virtual Keyboard (Hidden on Desktop, Visible on Mobile via CSS) */}
+      <VirtualKeyboard />
     </div>
   );
 }

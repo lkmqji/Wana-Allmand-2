@@ -5,6 +5,8 @@ import { sound } from '../utils/soundEngine';
 import { ParticleBurst } from './ParticleBurst';
 import { TypoFallingVFX } from './TypoFallingVFX';
 import BattleConsole from './BattleConsole';
+import BattleCard from './BattleCard';
+import VirtualKeyboard from './VirtualKeyboard';
 
 const DEFAULT_DUEL_WORDS = [
   { question: 'la maison', answer: 'das Haus' },
@@ -433,41 +435,40 @@ export const TugOfWarArena = ({
           </div>
         )}
 
-        {/* Phase de Jeu Active */}
+        {/* Phase de Jeu Active wrapped in BattleCard */}
         {matchStatus === 'PLAYING' && (
-          <div 
-            className="glass-panel"
-            style={{
-              position: 'relative',
-              marginTop: '0.35rem',
-              padding: '0.9rem 0.85rem',
-              borderRadius: '20px',
-              border: '1.5px solid rgba(0, 242, 254, 0.35)',
-              background: 'rgba(18, 24, 38, 0.82)',
-              backdropFilter: 'blur(20px)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              textAlign: 'center',
-              boxShadow: '0 8px 30px rgba(0, 242, 254, 0.12)'
-            }}
+          <BattleCard
+            mode="tugofwar"
+            isShaking={false}
+            pauseSlot={null}
+            timerSlot={
+              <div style={{ fontSize: '0.9rem', color: '#00f2fe', fontWeight: 'bold' }}>
+                Mot {currentWordIndex + 1}
+              </div>
+            }
+            progressSlot={null}
+            specialRuleSlot={
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.9rem', color: '#ffbe0b', fontWeight: 'bold' }}>{wager * 2} 🪙 POT</span>
+              </div>
+            }
           >
-            {/* Effet visuel des lettres erronées qui tombent */}
-            <TypoFallingVFX dropped={droppedLetters} />
+            <div style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative' }}>
+              {/* Effet visuel des lettres erronées qui tombent */}
+              <TypoFallingVFX dropped={droppedLetters} />
 
-            <BattleConsole
-              question={currentWord.question}
-              inputValue={inputVal}
-              onInputChange={setInputVal}
-              onSubmit={handleSubmit}
-              isDisabled={matchStatus !== 'PLAYING'}
-              inputPlaceholder="Traduction en allemand..."
-              inputRef={inputRef}
-              theme="valkyrie"
-              articles={['der', 'die', 'das', 'ein', 'eine']}
-              specialChars={['ä', 'ö', 'ü', 'ß']}
-            />
-          </div>
+              <BattleConsole
+                question={currentWord.question}
+                inputValue={inputVal}
+                onInputChange={setInputVal}
+                onSubmit={handleSubmit}
+                isDisabled={matchStatus !== 'PLAYING'}
+                inputPlaceholder="Traduction en allemand..."
+                inputRef={inputRef}
+                theme="valkyrie"
+              />
+            </div>
+          </BattleCard>
         )}
 
         {/* Modale Victoire */}
@@ -655,6 +656,9 @@ export const TugOfWarArena = ({
         )}
 
       </div>
+
+      {/* Virtual Keyboard (Hidden on Desktop, Visible on Mobile via CSS) */}
+      <VirtualKeyboard />
     </div>
   );
 };

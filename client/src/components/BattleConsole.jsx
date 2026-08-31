@@ -1,45 +1,177 @@
-import React from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 /**
  * Composant unifié pour la zone de combat (Console de saisie)
- * Utilisé dans Game.jsx, VengeanceMode.jsx, et TugOfWarArena.jsx
+ * Refactorisé pour le standard 'BattleCard' avec 'Fake Input' pour Mobile.
+ * Zéro re-rendu de la carte parent grâce à la gestion locale de l'état pendant la frappe.
  */
 const BattleConsole = React.memo(function BattleConsole({
   // Slots & Content
   question,
   onSpeakQuestion,
-  topSlot,
   feedbackSlot,
-  bottomSlot,
+  topSlot, // Added for compatibility with Game.jsx (Traduisez en allemand)
   
-  // Input State
-  inputValue,
-  onInputChange,
+  // Input State (Maintenant utilisé uniquement pour reset/sync de l'extérieur)
+  inputValue: externalValue = '',
+  onInputChange: setExternalValue,
   onSubmit,
-  inputPlaceholder = 'Traduction en allemand...',
-  inputRef,
+  inputPlaceholder = 'Ex: der Tisch',
+  inputRef: externalInputRef,
   isDisabled = false,
-  isError = false,
   isCorrectionMode = false,
   
-  // Keyboard
-  articles = ['der', 'die', 'das'],
-  specialChars = ['ä', 'ö', 'ü', 'ß'],
-
-  // Theme (for minor color adjustments if needed)
-  theme = 'default' // 'default', 'vengeance', 'valkyrie'
+  // Theme
+  theme = 'default' 
 }) {
-  
+  // Local state for the input to prevent parent re-renders on every keystroke
+  const [localValue, setLocalValue] = useState(externalValue);
+  const fakeInputRef = useRef(null);
+
+  // Sync with external value when it changes (e.g., cleared after submit or changed by Joker)
+  useEffect(() => {
+    setLocalValue(externalValue || '');
+  }, [externalValue]);
+
+  // Handle local change and apply Smart Auto-Capitalization
+  const handleLocalChange = useCallback((newVal) => {
+    if (isDisabled) return;
+    
+    // Smart Auto-Capitalization: "der ", "die ", "das " -> capitalize next letter
+    let processedVal = newVal;
+    const lowerVal = processedVal.toLowerCase();
+    
+    if (lowerVal.startsWith('der ') || lowerVal.startsWith('die ') || lowerVal.startsWith('das ')) {
+      const parts = processedVal.split(' ');
+      if (parts.length > 1 && parts[1].length > 0) {
+        // Capitalize the first letter of the noun
+        parts[1] = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
+        processedVal = parts.join(' ');
+      }
+    }
+
+    setLocalValue(processedVal);
+  }, [isDisabled]);
+
+  // Expose the ref value for parents that might use it (rare)
+  if (externalInputRef) {
+    if (typeof externalInputRef === 'function') {
+      externalInputRef(fakeInputRef.current);
+    } else {
+      externalInputRef.current = fakeInputRef.current;
+    }
+  }
+
+  // WanaBoard Virtual Keyboard Event Listener
+  useEffect(() => {
+    const handleWanaKey = (e) => {
+      if (isDisabled) return;
+      const { key, action } = e.detail;
+
+      setLocalValue((prev) => {
+        let nextVal = prev || '';
+        
+        if (action === 'insert') {
+          nextVal = nextVal + key;
+        } else if (action === 'delete') {
+          nextVal = nextVal.slice(0, -1);
+        } else if (action === 'clear_all') {
+          nextVal = '';
+        } else if (action === 'submit') {
+          // Push to parent and submit
+          setExternalValue(nextVal);
+          setTimeout(() => {
+            if (onSubmit) onSubmit(new Event('submit'));
+          }, 0);
+          return prev;
+        }
+
+        handleLocalChange(nextVal);
+        return nextVal; // handled inside handleLocalChange mostly, but React setState needs the return
+      });
+    };
+
+    window.addEventListener('wana_key', handleWanaKey);
+    return () => window.removeEventListener('wana_key', handleWanaKey);
+  }, [isDisabled, onSubmit, setExternalValue, handleLocalChange]);
+
+  // Desktop Physical Keyboard Shortcuts & Typing
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Allow default behavior if they are using the quick chat input or other inputs outside this
+      if (document.activeElement && document.activeElement.tagName === 'INPUT' && !document.activeElement.classList.contains('fake-input')) {
+        return;
+      }
+      
+      if (isDisabled) return;
+
+      // Handle Submit
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        setExternalValue(localValue);
+        setTimeout(() => {
+          if (onSubmit) onSubmit(e);
+        }, 0);
+        return;
+      }
+
+      // Handle Backspace
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        setLocalValue(prev => {
+          const nextVal = (prev || '').slice(0, -1);
+          handleLocalChange(nextVal);
+          return nextVal;
+        });
+        return;
+      }
+
+      // Handle specific Desktop Shortcuts
+      if (e.key === '1') {
+        e.preventDefault();
+        handleArticleClick('der');
+        return;
+      }
+      if (e.key === '2') {
+        e.preventDefault();
+        handleArticleClick('die');
+        return;
+      }
+      if (e.key === '3') {
+        e.preventDefault();
+        handleArticleClick('das');
+        return;
+      }
+
+      // Handle regular typing (printable characters)
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setLocalValue(prev => {
+          const nextVal = (prev || '') + e.key;
+          handleLocalChange(nextVal);
+          return nextVal;
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isDisabled, localValue, onSubmit, setExternalValue, handleLocalChange]);
+
+
   const handleFormSubmit = (e) => {
     e.preventDefault();
     if (isDisabled) return;
-    if (onSubmit) onSubmit(e);
+    setExternalValue(localValue);
+    setTimeout(() => {
+      if (onSubmit) onSubmit(e);
+    }, 0);
   };
 
   const handleArticleClick = (article) => {
     if (isDisabled) return;
-    const current = inputValue || '';
-    const articlesList = ['der', 'die', 'das', 'den', 'dem', 'des', 'ein', 'eine', 'einen'];
+    const current = localValue || '';
+    const articlesList = ['der', 'die', 'das'];
     const parts = current.trimStart().split(/\s+/);
 
     let newVal = '';
@@ -50,45 +182,29 @@ const BattleConsole = React.memo(function BattleConsole({
       newVal = current ? `${article} ${current.trimStart()}` : `${article} `;
     }
 
-    onInputChange(newVal);
-    if (inputRef && inputRef.current) {
-      inputRef.current.focus();
-    }
+    handleLocalChange(newVal);
   };
 
   const handleSpecialCharClick = (char) => {
     if (isDisabled) return;
-    if (inputRef && inputRef.current) {
-      const input = inputRef.current;
-      const start = input.selectionStart ?? (inputValue || '').length;
-      const end = input.selectionEnd ?? (inputValue || '').length;
-      const nextVal = (inputValue || '').substring(0, start) + char + (inputValue || '').substring(end);
-      onInputChange(nextVal);
-      setTimeout(() => {
-        input.focus();
-        input.setSelectionRange(start + char.length, start + char.length);
-      }, 0);
-    } else {
-      onInputChange((inputValue || '') + char);
-    }
+    handleLocalChange((localValue || '') + char);
   };
+
+  const articles = ['der', 'die', 'das'];
+  const specialChars = ['ä', 'ö', 'ü', 'ß'];
 
   return (
     <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       
-      {/* 1. TOP SLOT (Timer, VFX, etc.) */}
-      {topSlot && (
-        <div style={{ width: '100%', marginBottom: '1rem', display: 'flex', justifyContent: 'center' }}>
-          {topSlot}
-        </div>
-      )}
+      {/* Optional Top Slot (Traduisez en allemand) */}
+      {topSlot && topSlot}
 
-      {/* 2. QUESTION HEADER */}
+      {/* QUESTION HEADER */}
       {question && (
-        <div style={{ textAlign: 'center', marginBottom: '1.5rem', width: '100%', maxWidth: '500px' }}>
-          {theme === 'vengeance' && (
+        <div style={{ textAlign: 'center', marginBottom: '2rem', width: '100%', maxWidth: '500px' }}>
+          {!topSlot && (
             <div style={{ fontSize: '0.9rem', color: '#f97316', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.4rem' }}>
-              Traduire en allemand :
+              Traduisez en allemand :
             </div>
           )}
           
@@ -131,57 +247,56 @@ const BattleConsole = React.memo(function BattleConsole({
               </button>
             )}
           </div>
-          
-          {bottomSlot}
         </div>
       )}
 
-      {/* 3. FEEDBACK SLOT (Active Correction, Flash messages) */}
+      {/* FEEDBACK SLOT (Active Correction, Flash messages) */}
       {feedbackSlot && (
         <div style={{ width: '100%', maxWidth: '440px', marginBottom: '1.2rem' }}>
           {feedbackSlot}
         </div>
       )}
 
-      {/* 4. FORM & INPUT */}
-      <form onSubmit={handleFormSubmit} className={isError ? 'error-shake' : ''} style={{ width: '100%', maxWidth: '440px', position: 'relative' }}>
+      {/* FORM & FAKE INPUT */}
+      <form onSubmit={handleFormSubmit} style={{ width: '100%', maxWidth: '440px', position: 'relative' }}>
         <div style={{ position: 'relative', width: '100%' }}>
-          <input
-            ref={inputRef}
-            type="text"
-            className="input-field"
-            placeholder={inputPlaceholder}
-            value={inputValue}
-            onChange={(e) => onInputChange(e.target.value)}
-            disabled={isDisabled}
-            autoComplete="off"
-            autoCorrect="off"
-            spellCheck="false"
-            autoFocus
+          
+          {/* FAKE INPUT replacing the native <input> */}
+          <div
+            ref={fakeInputRef}
+            className="fake-input"
+            tabIndex={isDisabled ? -1 : 0}
             style={{
-              width: '100%',
-              textAlign: 'center',
-              fontFamily: "'Outfit', sans-serif",
-              fontWeight: 800,
-              fontSize: '1.15rem',
-              padding: '1rem 3.5rem 1rem 1.5rem',
-              borderRadius: '24px',
-              backgroundColor: 'rgba(6, 8, 14, 0.75)',
-              borderColor: isCorrectionMode ? '#ef4444' : (isError ? '#ef4444' : (theme === 'valkyrie' ? 'rgba(0, 242, 254, 0.5)' : 'var(--border-color, rgba(255,255,255,0.2))')),
-              color: '#ffffff',
-              outline: 'none',
+              borderColor: isCorrectionMode ? '#ef4444' : (theme === 'valkyrie' ? 'rgba(0, 242, 254, 0.5)' : 'var(--border-color, rgba(255,255,255,0.2))'),
               boxShadow: isCorrectionMode ? '0 0 20px rgba(239, 68, 68, 0.4)' : (theme === 'valkyrie' ? 'inset 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 242, 254, 0.2)' : 'none'),
               borderWidth: isCorrectionMode ? '2px' : (theme === 'valkyrie' ? '1.5px' : '1px'),
-              borderStyle: 'solid',
-              transition: 'all 0.15s ease',
-              transform: 'translateZ(0)',
-              willChange: 'border-color'
+              opacity: isDisabled ? 0.6 : 1,
             }}
-          />
+            onClick={() => {
+              if (!isDisabled && typeof window !== 'undefined') {
+                // Sur mobile, on active le wrapper WanaBoard
+                if (window.innerWidth <= 768) {
+                  document.body.classList.add('mobile-keyboard-active');
+                }
+              }
+            }}
+          >
+            {localValue ? (
+              <>
+                {localValue}
+                {!isDisabled && <span className="cursor"></span>}
+              </>
+            ) : (
+              <span style={{ color: 'rgba(255, 255, 255, 0.3)', fontWeight: 400 }}>
+                {isCorrectionMode ? "Tapez la correction ici..." : inputPlaceholder}
+                {!isDisabled && <span className="cursor"></span>}
+              </span>
+            )}
+          </div>
 
           <button
             type="submit"
-            disabled={isDisabled || !(inputValue || '').trim()}
+            disabled={isDisabled || !(localValue || '').trim()}
             style={{
               position: 'absolute',
               right: '8px',
@@ -193,21 +308,21 @@ const BattleConsole = React.memo(function BattleConsole({
               border: 'none',
               background: isCorrectionMode
                 ? 'linear-gradient(135deg, #10b981, #059669)'
-                : ((inputValue || '').trim() 
+                : ((localValue || '').trim() 
                     ? (theme === 'valkyrie' ? 'linear-gradient(135deg, #00f2fe 0%, #3b82f6 100%)' : 'linear-gradient(135deg, #ef4444, #dc2626)') 
                     : 'rgba(255, 255, 255, 0.08)'),
-              color: theme === 'valkyrie' && (inputValue || '').trim() ? '#000000' : '#ffffff',
+              color: theme === 'valkyrie' && (localValue || '').trim() ? '#000000' : '#ffffff',
               fontSize: '1.2rem',
               fontWeight: 900,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              cursor: (isDisabled || !(inputValue || '').trim()) ? 'not-allowed' : 'pointer',
-              boxShadow: (inputValue || '').trim() 
+              cursor: (isDisabled || !(localValue || '').trim()) ? 'not-allowed' : 'pointer',
+              boxShadow: (localValue || '').trim() 
                 ? (isCorrectionMode ? '0 0 14px rgba(16, 185, 129, 0.4)' : (theme === 'valkyrie' ? '0 0 12px rgba(0, 242, 254, 0.6)' : '0 0 14px rgba(239, 68, 68, 0.4)')) 
                 : 'none',
               transition: 'all 0.15s ease',
-              opacity: (inputValue || '').trim() ? 1 : 0.45,
+              opacity: (localValue || '').trim() ? 1 : 0.45,
               flexShrink: 0
             }}
             title="Valider (Entrée)"
@@ -216,94 +331,92 @@ const BattleConsole = React.memo(function BattleConsole({
           </button>
         </div>
 
-        {/* 5. MINI-KEYBOARD (Articles & Chars) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'center', marginTop: '0.8rem', width: '100%' }}>
+        {/* MINI-KEYBOARD (Strictly 2 lines) - Hidden on Mobile via CSS */}
+        <div className="mobile-hide-special-chars" style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'center', marginTop: '0.8rem', width: '100%' }}>
           
-          {articles && articles.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', justifyContent: 'center' }}>
-              {articles.map(art => (
-                <button
-                  key={art}
-                  type="button"
-                  onClick={() => handleArticleClick(art)}
-                  disabled={isDisabled}
-                  style={{
-                    padding: '0.35rem 0.8rem',
-                    background: theme === 'valkyrie' ? 'rgba(0, 242, 254, 0.12)' : 'rgba(255, 255, 255, 0.08)',
-                    border: `1px solid ${theme === 'valkyrie' ? 'rgba(0, 242, 254, 0.3)' : 'rgba(255, 255, 255, 0.15)'}`,
-                    borderRadius: '8px',
-                    color: theme === 'valkyrie' ? '#00f2fe' : '#f8fafc',
-                    fontSize: '0.8rem',
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontWeight: 700,
-                    cursor: isDisabled ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.15s ease',
-                    opacity: isDisabled ? 0.5 : 1
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isDisabled) {
-                      e.currentTarget.style.background = theme === 'valkyrie' ? 'rgba(0, 242, 254, 0.25)' : 'rgba(255, 255, 255, 0.15)';
-                      e.currentTarget.style.borderColor = theme === 'valkyrie' ? '#00f2fe' : 'rgba(255, 255, 255, 0.3)';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isDisabled) {
-                      e.currentTarget.style.background = theme === 'valkyrie' ? 'rgba(0, 242, 254, 0.12)' : 'rgba(255, 255, 255, 0.08)';
-                      e.currentTarget.style.borderColor = theme === 'valkyrie' ? 'rgba(0, 242, 254, 0.3)' : 'rgba(255, 255, 255, 0.15)';
-                      e.currentTarget.style.transform = 'translateY(0)';
-                    }
-                  }}
-                  title={`Insérer / Remplacer par l'article '${art}'`}
-                >
-                  {art}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Ligne 1 : der, die, das */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', justifyContent: 'center' }}>
+            {articles.map((art, index) => (
+              <button
+                key={art}
+                type="button"
+                onClick={() => handleArticleClick(art)}
+                disabled={isDisabled}
+                style={{
+                  padding: '0.35rem 0.8rem',
+                  background: theme === 'valkyrie' ? 'rgba(0, 242, 254, 0.12)' : 'rgba(255, 255, 255, 0.08)',
+                  border: `1px solid ${theme === 'valkyrie' ? 'rgba(0, 242, 254, 0.3)' : 'rgba(255, 255, 255, 0.15)'}`,
+                  borderRadius: '8px',
+                  color: theme === 'valkyrie' ? '#00f2fe' : '#f8fafc',
+                  fontSize: '0.8rem',
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontWeight: 700,
+                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease',
+                  opacity: isDisabled ? 0.5 : 1
+                }}
+                onMouseEnter={(e) => {
+                  if (!isDisabled) {
+                    e.currentTarget.style.background = theme === 'valkyrie' ? 'rgba(0, 242, 254, 0.25)' : 'rgba(255, 255, 255, 0.15)';
+                    e.currentTarget.style.borderColor = theme === 'valkyrie' ? '#00f2fe' : 'rgba(255, 255, 255, 0.3)';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isDisabled) {
+                    e.currentTarget.style.background = theme === 'valkyrie' ? 'rgba(0, 242, 254, 0.12)' : 'rgba(255, 255, 255, 0.08)';
+                    e.currentTarget.style.borderColor = theme === 'valkyrie' ? 'rgba(0, 242, 254, 0.3)' : 'rgba(255, 255, 255, 0.15)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }
+                }}
+                title={`Raccourci: ${index + 1}`}
+              >
+                {art} <span style={{fontSize: '0.6rem', color: 'gray'}}>({index + 1})</span>
+              </button>
+            ))}
+          </div>
 
-          {specialChars && specialChars.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', justifyContent: 'center' }}>
-              {specialChars.map(char => (
-                <button
-                  key={char}
-                  type="button"
-                  onClick={() => handleSpecialCharClick(char)}
-                  disabled={isDisabled}
-                  style={{
-                    padding: '0.35rem 0.8rem',
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    borderRadius: '8px',
-                    color: '#f8fafc',
-                    fontSize: '0.8rem',
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontWeight: 700,
-                    cursor: isDisabled ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.15s ease',
-                    opacity: isDisabled ? 0.5 : 1
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isDisabled) {
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isDisabled) {
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
-                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-                      e.currentTarget.style.transform = 'translateY(0)';
-                    }
-                  }}
-                  title={`Insérer ${char}`}
-                >
-                  {char}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Ligne 2 : ä, ö, ü, ß */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', justifyContent: 'center' }}>
+            {specialChars.map(char => (
+              <button
+                key={char}
+                type="button"
+                onClick={() => handleSpecialCharClick(char)}
+                disabled={isDisabled}
+                style={{
+                  padding: '0.35rem 0.8rem',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  borderRadius: '8px',
+                  color: '#f8fafc',
+                  fontSize: '0.8rem',
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontWeight: 700,
+                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease',
+                  opacity: isDisabled ? 0.5 : 1
+                }}
+                onMouseEnter={(e) => {
+                  if (!isDisabled) {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isDisabled) {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }
+                }}
+                title={`Insérer ${char}`}
+              >
+                {char}
+              </button>
+            ))}
+          </div>
         </div>
       </form>
     </div>

@@ -2203,3 +2203,191 @@ h1, h2, h3, h4 {
   box-shadow: 0 12px 40px 0 rgba(0, 242, 254, 0.2);
   transform: translateY(-2px);
 }
+
+/* BattleCard Styles */
+.battle-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.battle-card.error-shake {
+  animation: errorShake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both !important;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 35px rgba(239, 68, 68, 0.6), inset 0 0 20px rgba(239, 68, 68, 0.3) !important;
+}
+
+/* =========================================================================
+   WanaBoard - Virtual Keyboard (Mobile)
+   ========================================================================= */
+
+/* Desktop layout (default): hide the virtual keyboard */
+.virtual-keyboard-wrapper {
+  display: none;
+}
+
+/* Fake Input styles (BattleConsole) */
+.fake-input {
+  width: 100%;
+  text-align: center;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 1.15rem;
+  padding: 1rem 3.5rem 1rem 1.5rem;
+  border-radius: 24px;
+  background-color: rgba(6, 8, 14, 0.75);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.2));
+  color: #ffffff;
+  outline: none;
+  transition: all 0.15s ease;
+  transform: translateZ(0);
+  will-change: border-color;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: text;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: none; /* prevent native selection to avoid keyboard popup on some devices */
+}
+.fake-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+}
+.fake-input .cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.15rem;
+  background-color: #ffffff;
+  animation: blink 1s step-end infinite;
+  margin-left: 2px;
+  vertical-align: middle;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Mobile layout overrides */
+@media (max-width: 768px) {
+  /* Prevent scroll bouncing on mobile when keyboard is active */
+  body.mobile-keyboard-active {
+    overflow: hidden !important;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* The main game container splitting 60/40 */
+  .mobile-keyboard-active #root,
+  .mobile-keyboard-active .app-container {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .mobile-keyboard-active .main-content-area {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Show virtual keyboard */
+  .virtual-keyboard-wrapper {
+    display: block;
+    flex: 0 0 auto; /* take up its needed height (approx 40%) */
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 10px 5px calc(10px + env(safe-area-inset-bottom)) 5px;
+    z-index: 1000;
+  }
+
+  .virtual-keyboard-container {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .keyboard-row {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+  }
+
+  .kb-key {
+    flex: 1;
+    max-width: 45px;
+    height: 48px;
+    border-radius: 8px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: all 0.1s ease;
+  }
+
+  /* Glassmorphism theme */
+  .kb-key.key-flat {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+  .kb-key.key-flat:active {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(2px);
+  }
+
+  /* Neumorphism 3D theme */
+  .kb-key.key-3d {
+    background: #1e293b;
+    border: 1px solid #334155;
+    box-shadow: 
+      inset 0 2px 0 rgba(255, 255, 255, 0.1),
+      0 4px 0 #0f172a,
+      0 5px 5px rgba(0, 0, 0, 0.4);
+    will-change: transform, box-shadow;
+  }
+  .kb-key.key-3d:active {
+    transform: translateY(4px);
+    box-shadow: 
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 0 0 #0f172a,
+      0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+
+  .kb-key-action {
+    background: rgba(255, 255, 255, 0.05) !important;
+    max-width: none;
+  }
+  
+  .kb-key-special {
+    font-size: 0.9rem;
+    height: 38px;
+    color: #94a3b8;
+  }
+
+  .kb-key-submit {
+    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+    border: none !important;
+    max-width: none;
+  }
+
+  /* Hide the old special buttons from BattleConsole on mobile */
+  .mobile-hide-special-chars {
+    display: none !important;
+  }
+}

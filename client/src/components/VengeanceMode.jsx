@@ -5,6 +5,8 @@ import { resolveWordPair } from '../utils/dictionary';
 import { useAudio, useSoundEffects } from '../context/AudioContext';
 import { speakText, stopSpeech } from '../utils/speech';
 import BattleConsole from './BattleConsole';
+import BattleCard from './BattleCard';
+import VirtualKeyboard from './VirtualKeyboard';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const ROUND_DURATION = 10.5; // 30% faster than 15s duel
@@ -1127,139 +1129,149 @@ export default function VengeanceMode({
         </div>
       </div>
 
-      {/* Main Game Box */}
-      <div 
-        className={`vengeance-game-box ${feedback?.type === 'success' || feedback?.type === 'purify' ? 'correct-flash' : ''} ${feedback?.type === 'wrong' || mustTypeCorrection ? 'wrong-flash' : ''} ${isExploding ? 'heart-icon-active' : ''}`}
+      {/* Main Game Box wrapped in BattleCard */}
+      <BattleCard
+        mode="vengeance"
+        isShaking={isShaking}
+        pauseSlot={null}
+        timerSlot={
+          <div style={{ width: '120px' }}>
+            <VengeanceTimerBar
+              isPlaying={isPlaying}
+              isCompleted={isCompleted}
+              currentWordKey={`${currentWord?.id || 0}_${currentIndex}`}
+              isAnswering={isAnswering}
+              mustTypeCorrection={mustTypeCorrection}
+              onTimeout={handleTimeout}
+              playTimeWarning={playTimeWarning}
+            />
+          </div>
+        }
+        progressSlot={
+          <div style={{ textAlign: 'center', fontSize: '0.88rem', color: 'var(--text-secondary, #94a3b8)', fontWeight: 600 }}>
+            {purifiedCount} / {batchTotal} {isSurvivalMode ? 'mots maîtrisés' : 'mots purifiés'}
+          </div>
+        }
+        specialRuleSlot={
+          <div className="vengeance-hearts-row" title={`Cœurs : ${heartsCount}/3`} style={{ display: 'flex', gap: '0.5rem' }}>
+            {[1, 2, 3].map(heartNum => {
+              const isFilled = heartsCount >= heartNum;
+              return (
+                <span
+                  key={heartNum}
+                  className={isFilled ? 'heart-icon-active' : ''}
+                  style={{
+                    display: 'inline-block',
+                    transition: 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                    opacity: isFilled ? 1 : 0.22,
+                    filter: isFilled ? 'none' : 'grayscale(90%) brightness(1.1)',
+                    transform: isFilled ? 'scale(1.15)' : 'scale(0.95)'
+                  }}
+                >
+                  ❤️
+                </span>
+              );
+            })}
+          </div>
+        }
       >
-        
-        {/* Visual Timer Bar (GPU Accelerated & Isolated) */}
-        <VengeanceTimerBar
-          isPlaying={isPlaying}
-          isCompleted={isCompleted}
-          currentWordKey={`${currentWord?.id || 0}_${currentIndex}`}
-          isAnswering={isAnswering}
-          mustTypeCorrection={mustTypeCorrection}
-          onTimeout={handleTimeout}
-          playTimeWarning={playTimeWarning}
-        />
-
-        {/* 3 Hearts Meter */}
-        <div className="vengeance-hearts-row" title={`Cœurs : ${heartsCount}/3`}>
-          {[1, 2, 3].map(heartNum => {
-            const isFilled = heartsCount >= heartNum;
-            return (
-              <span
-                key={heartNum}
-                className={isFilled ? 'heart-icon-active' : ''}
-                style={{
-                  display: 'inline-block',
-                  transition: 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                  opacity: isFilled ? 1 : 0.22,
-                  filter: isFilled ? 'none' : 'grayscale(90%) brightness(1.1)',
-                  transform: isFilled ? 'scale(1.15)' : 'scale(0.95)'
-                }}
-              >
-                ❤️
-              </span>
-            );
-          })}
-        </div>
-
-        <BattleConsole
-          question={currentWord.question || currentWord.word}
-          theme="vengeance"
-          inputValue={inputVal}
-          onInputChange={setInputVal}
-          onSubmit={handleSubmit}
-          isDisabled={isAnswering}
-          isError={isShaking}
-          isCorrectionMode={mustTypeCorrection}
-          inputPlaceholder={mustTypeCorrection ? "Tape le mot correct :" : "Écris la traduction en allemand..."}
-          inputRef={inputRef}
-          onSpeakQuestion={() => speakPromptWord(currentWord.question || currentWord.word, isSoundEnabled)}
-          bottomSlot={
-            currentWord.count > 1 && (
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
-                Raté {currentWord.count} fois par le passé
-              </div>
-            )
-          }
-          feedbackSlot={
-            mustTypeCorrection ? (
-              <div style={{
-                background: 'rgba(239, 68, 68, 0.12)',
-                border: '2px solid rgba(239, 68, 68, 0.6)',
-                borderRadius: '18px',
-                padding: '1.2rem 1.4rem',
-                textAlign: 'center',
-                boxShadow: '0 0 35px rgba(239, 68, 68, 0.3)',
-                animation: 'fadeIn 0.25s ease-out'
-              }}>
-                <div style={{ marginBottom: '0.4rem' }}>
-                  {renderFaultComparison(wrongAttempt, correctionText)}
+        <div className={`vengeance-inner-content ${feedback?.type === 'success' || feedback?.type === 'purify' ? 'correct-flash' : ''} ${feedback?.type === 'wrong' || mustTypeCorrection ? 'wrong-flash' : ''} ${isExploding ? 'heart-icon-active' : ''}`} style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <BattleConsole
+            question={currentWord.question || currentWord.word}
+            theme="vengeance"
+            inputValue={inputVal}
+            onInputChange={setInputVal}
+            onSubmit={handleSubmit}
+            isDisabled={isAnswering}
+            isError={false} // Handled by BattleCard isShaking
+            isCorrectionMode={mustTypeCorrection}
+            inputPlaceholder={mustTypeCorrection ? "Tape le mot correct :" : "Écris la traduction en allemand..."}
+            inputRef={inputRef}
+            onSpeakQuestion={() => speakPromptWord(currentWord.question || currentWord.word, isSoundEnabled)}
+            bottomSlot={
+              currentWord.count > 1 && (
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+                  Raté {currentWord.count} fois par le passé
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem' }}>
-                  <h2 style={{
-                    fontSize: '2.4rem',
-                    fontWeight: 900,
-                    color: 'var(--success-color, #4ade80)',
-                    textShadow: '0 0 25px rgba(74, 222, 128, 0.55)',
-                    margin: 0,
-                    letterSpacing: '0.5px'
-                  }}>
-                    {correctionText}
-                  </h2>
-                  <button
-                    type="button"
-                    onClick={() => speakGermanWord(correctionText, isSoundEnabled)}
-                    style={{
-                      background: 'rgba(74, 222, 128, 0.15)',
-                      border: '1px solid rgba(74, 222, 128, 0.4)',
-                      borderRadius: '50%',
-                      width: '36px',
-                      height: '36px',
-                      cursor: 'pointer',
-                      fontSize: '1.1rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#4ade80',
-                      transition: 'all 0.2s ease',
-                      flexShrink: 0
-                    }}
-                    title="Écouter la prononciation allemande"
-                  >
-                    🔊
-                  </button>
-                </div>
-              </div>
-            ) : feedback ? (
-              <div style={{
-                background: feedback.type === 'wrong' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)',
-                border: `1.5px solid ${feedback.type === 'wrong' ? '#ef4444' : '#22c55e'}`,
-                borderRadius: '12px',
-                padding: '0.8rem 1rem',
-                textAlign: 'center',
-                animation: 'fadeIn 0.2s ease-out'
-              }}>
-                <div style={{ fontWeight: 800, fontSize: '1rem', color: feedback.type === 'wrong' ? '#fca5a5' : '#86efac' }}>
-                  {feedback.message}
-                </div>
-                {feedback.type === 'wrong' && feedback.expected && (
-                  <div style={{ fontSize: '0.88rem', color: '#ffffff', marginTop: '0.3rem' }}>
-                    Réponse attendue : <strong>{feedback.expected}</strong>
+              )
+            }
+            feedbackSlot={
+              mustTypeCorrection ? (
+                <div style={{
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  border: '2px solid rgba(239, 68, 68, 0.6)',
+                  borderRadius: '18px',
+                  padding: '1.2rem 1.4rem',
+                  textAlign: 'center',
+                  boxShadow: '0 0 35px rgba(239, 68, 68, 0.3)',
+                  animation: 'fadeIn 0.25s ease-out',
+                  marginTop: '1rem'
+                }}>
+                  <div style={{ marginBottom: '0.4rem' }}>
+                    {renderFaultComparison(wrongAttempt, correctionText)}
                   </div>
-                )}
-              </div>
-            ) : null
-          }
-        />
-
-        {/* Clean, Single Centered Footer Text */}
-        <div style={{ textAlign: 'center', marginTop: '1.3rem', fontSize: '0.88rem', color: 'var(--text-secondary, #94a3b8)', fontWeight: 600 }}>
-          {purifiedCount} / {batchTotal} {isSurvivalMode ? 'mots maîtrisés' : 'mots purifiés'}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem' }}>
+                    <h2 style={{
+                      fontSize: '2.4rem',
+                      fontWeight: 900,
+                      color: 'var(--success-color, #4ade80)',
+                      textShadow: '0 0 25px rgba(74, 222, 128, 0.55)',
+                      margin: 0,
+                      letterSpacing: '0.5px'
+                    }}>
+                      {correctionText}
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => speakGermanWord(correctionText, isSoundEnabled)}
+                      style={{
+                        background: 'rgba(74, 222, 128, 0.15)',
+                        border: '1px solid rgba(74, 222, 128, 0.4)',
+                        borderRadius: '50%',
+                        width: '36px',
+                        height: '36px',
+                        cursor: 'pointer',
+                        fontSize: '1.1rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#4ade80',
+                        transition: 'all 0.2s ease',
+                        flexShrink: 0
+                      }}
+                      title="Écouter la prononciation allemande"
+                    >
+                      🔊
+                    </button>
+                  </div>
+                </div>
+              ) : feedback ? (
+                <div style={{
+                  background: feedback.type === 'wrong' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)',
+                  border: `1.5px solid ${feedback.type === 'wrong' ? '#ef4444' : '#22c55e'}`,
+                  borderRadius: '12px',
+                  padding: '0.8rem 1rem',
+                  textAlign: 'center',
+                  animation: 'fadeIn 0.2s ease-out',
+                  marginTop: '1rem'
+                }}>
+                  <div style={{ fontWeight: 800, fontSize: '1rem', color: feedback.type === 'wrong' ? '#fca5a5' : '#86efac' }}>
+                    {feedback.message}
+                  </div>
+                  {feedback.type === 'wrong' && feedback.expected && (
+                    <div style={{ fontSize: '0.88rem', color: '#ffffff', marginTop: '0.3rem' }}>
+                      Réponse attendue : <strong>{feedback.expected}</strong>
+                    </div>
+                  )}
+                </div>
+              ) : null
+            }
+          />
         </div>
-      </div>
+      </BattleCard>
+
+      {/* Virtual Keyboard (Hidden on Desktop, Visible on Mobile via CSS) */}
+      <VirtualKeyboard />
     </div>
   );
 }
