@@ -46,3 +46,12 @@
 
 ### 16:41 - Nettoyage des options obsolètes
 - **Suppression du réglage de taille du clavier** : L'interface permettant aux utilisateurs de modifier la taille du clavier virtuel (slider de 30% à 65%) a été retirée de la page Profil (`Profil.jsx`), et la logique d'initialisation de cette variable css (`--kb-height`) dans `App.jsx` a été supprimée puisque la disposition est désormais fixée strictement à 50% (`50dvh`).
+
+### 17:15 - Refonte de l'Architecture Mobile 60/40 (WanaBoard)
+- **Architecture 60/40** : L'écran mobile est désormais strictement verrouillé en mode portrait via `manifest.webmanifest`. L'arène prend précisément 60% de l'écran et le clavier WanaBoard 40%, empêchant tout chevauchement ou disparition du champ de saisie (`.mobile-keyboard-active`).
+- **Anti-écrasement Dynamique** : Intégration de `font-size: clamp()` sur le `.fake-input` pour s'assurer que les mots allemands particulièrement longs s'adaptent et ne brisent pas la grille.
+- **Ergonomie du Clavier (VirtualKeyboard)** :
+  - Ligne supérieure scindée en deux : articles (`der`, `die`, `das`) séparés des caractères spéciaux (`ä`, `ö`, `ü`, `ß`).
+  - Implémentation des couleurs sémantiques obligatoires : Entrée (`vert`), Effacer (`rouge`), Espace (`gris foncé`).
+  - Animation `translateY(4px)` pure (Game Feel mécanique 3D) au clic, sans changement de couleur.
+- **Comportement Menu/Chat** : Écoute de l'événement `wana_menu_toggle` par le clavier pour injecter dynamiquement la classe `.keyboard-hidden`, provoquant un glissement GPU (translateY(100%)) du clavier vers le bas et une expansion de la Carte de Jeu sur 100% de l'écran avec une transition fluide.

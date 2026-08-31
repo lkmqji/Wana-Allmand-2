@@ -20,8 +20,21 @@ const VirtualKeyboard = () => {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       document.body.classList.add('mobile-keyboard-active');
+      
+      // Setup listener for menu/chat open/close events to hide keyboard
+      const handleMenuToggle = (e) => {
+        if (e.detail?.isOpen) {
+          document.body.classList.add('keyboard-hidden');
+        } else {
+          document.body.classList.remove('keyboard-hidden');
+        }
+      };
+      window.addEventListener('wana_menu_toggle', handleMenuToggle);
+
       return () => {
         document.body.classList.remove('mobile-keyboard-active');
+        document.body.classList.remove('keyboard-hidden');
+        window.removeEventListener('wana_menu_toggle', handleMenuToggle);
       };
     }
   }, []);
@@ -96,9 +109,9 @@ const VirtualKeyboard = () => {
     <div className="virtual-keyboard-wrapper">
       <div className="virtual-keyboard-container">
         
-        {/* Top Row: Special Shortcuts */}
+        {/* Top Row: Special Shortcuts (Articles) */}
         <div className="keyboard-row special-row">
-          {['der', 'die', 'das', 'ä', 'ö', 'ü', 'ß'].map((char) => {
+          {['der', 'die', 'das'].map((char) => {
             let extraClass = '';
             if (char === 'der') extraClass = 'kb-key-der';
             if (char === 'die') extraClass = 'kb-key-die';
@@ -114,6 +127,19 @@ const VirtualKeyboard = () => {
               </button>
             );
           })}
+        </div>
+
+        {/* Row 2: Special Characters (Umlauts) */}
+        <div className="keyboard-row special-row">
+          {['ä', 'ö', 'ü', 'ß'].map((char) => (
+            <button
+              key={char}
+              className={`kb-key kb-key-special ${keyTheme}`}
+              onClick={(e) => { e.preventDefault(); handleKeyPress(char); }}
+            >
+              {char}
+            </button>
+          ))}
         </div>
 
         {/* Row 1 */}
@@ -182,7 +208,7 @@ const VirtualKeyboard = () => {
           <button
             className={`kb-key ${keyTheme}`}
             onClick={(e) => { e.preventDefault(); handleKeyPress(' '); }}
-            style={{ flex: 1, maxWidth: '60%' }}
+            style={{ flex: 1, maxWidth: '60%', background: '#475569', border: '1px solid #334155' }}
           >
             Espace
           </button>

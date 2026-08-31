@@ -36,8 +36,14 @@ La plateforme s'articule autour de 4 piliers de gameplay :
    - Les mots échoués durant n'importe quelle session sont capturés dans `failedWords` (DB & local).
    - Règle stricte des **3 Cœurs consécutifs** : 3 bonnes réponses d'affilée requises pour purifier définitivement un mot. Une erreur réinitialise le compteur du mot à 0 cœur.
 
-### 1.3 Ergonomie & Claviers d'Aide Virtuels
+### 1.3 Ergonomie & Claviers d'Aide Virtuels (WanaBoard)
+- **Architecture Mobile 60/40** : L'écran mobile est verrouillé en portrait et scindé mathématiquement : la Carte de Jeu occupe 60% de l'écran (avec texte adaptatif via `clamp()`) et le clavier WanaBoard 40%, garantissant que l'input n'est jamais caché.
 - **Saisie Ultra-Rapide** : Clavier d'aide contextuel intégré directement sous le champ de saisie sur tous les modes (`Game.jsx`, `VengeanceMode.jsx`, `TugOfWarArena.jsx`).
+- **Ergonomie du Clavier** : 
+  - Ligne 1 dédiée aux articles (der, die, das).
+  - Ligne 2 dédiée aux trémas/Eszett (ä, ö, ü, ß).
+  - Touches d'action colorées (Entrée en vert, Effacer en rouge).
+  - Sensation de frappe mécanique (Game Feel) via enfoncement 3D CSS sans re-rendu DOM coûteux.
 - **Insertion en 1 Clic** :
   - Articles allemands : `der`, `die`, `das` (remplace ou insère l'article sans désélectionner le champ).
   - Caractères spéciaux : `ä`, `ö`, `ü`, `ß` (insère à la position précise du curseur).
@@ -193,10 +199,14 @@ Le 29 août 2026 a marqué une série d'optimisations majeures de performance, d
 - **Gestion Propre du Web Audio** : Centralisation sur le singleton `sfxManager`, déconnexion systématique des nœuds oscillateurs/gains sur l'événement `onended`, libération `dispose()` et arrêt automatique de `window.speechSynthesis`.
 - **Accélération GPU CSS** : Remplacement des animations de secousse et jauges de progression par des transformations GPU 3D (`translate3d`, `scaleX`, `will-change: transform`).
 
-### 9.2 Ergonomie & Claviers Virtuels Allemands Intégrés
-- **Barres d'Insertion Rapide** : Ajout de boutons cliquables sous les champs de saisie dans `Game.jsx` et `VengeanceMode.jsx` :
-  - Pronoms / Articles : `der`, `die`, `das` (remplacement ou insertion intelligente).
-  - Caractères spéciaux : `ä`, `ö`, `ü`, `ß`.
+### 9.2 Ergonomie & Claviers Virtuels Allemands Intégrés (WanaBoard 60/40)
+- **Architecture 60/40 sur Mobile** : Implémentation d'un layout `100dvh` où l'arène prend exactement 60% et le clavier 40%, empêchant tout chevauchement du champ de saisie.
+- **Textes Dynamiques** : Utilisation de `clamp()` sur la police (`font-size: clamp(1rem, 5vw, 1.25rem)`) pour garantir qu'un long mot allemand ne brise jamais la grille 60/40.
+- **Barres d'Insertion Rapide** : Ajout de boutons cliquables sous les champs de saisie structurés par type :
+  - Ligne 1 : Pronoms / Articles : `der`, `die`, `das` (remplacement ou insertion intelligente).
+  - Ligne 2 : Caractères spéciaux : `ä`, `ö`, `ü`, `ß`.
+  - Couleurs sémantiques (Vert pour validation, Rouge pour suppression) et feeling mécanique 3D.
+- **Comportement Fluide** : Le clavier glisse vers le bas (`transform: translateY(100%)`) et la carte s'étend à 100% de l'écran de manière fluide à l'ouverture d'un menu ou chat.
 - **Accessibilité Mobile & Desktop** : Ajustement du conteneur du Mode Vengeance pour rendre le bouton « PRÊT ? GO ! » immédiatement visible sans nécessiter de défilement sur petits écrans.
 - **Réinitialisation Fiable des Manches** : Clé dynamique `key={round_${questionIndex}}` garantissant le redémarrage à 15s à chaque manche.
 

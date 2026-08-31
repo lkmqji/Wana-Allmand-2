@@ -2233,7 +2233,7 @@ h1, h2, h3, h4 {
   text-align: center;
   font-family: 'Outfit', sans-serif;
   font-weight: 800;
-  font-size: 1.15rem;
+  font-size: clamp(1rem, 5vw, 1.25rem); /* Anti-écrasement: rétrécit si l'écran est petit */
   padding: 1rem 3.5rem 1rem 1.5rem;
   border-radius: 24px;
   background-color: rgba(6, 8, 14, 0.75);
@@ -2280,13 +2280,27 @@ h1, h2, h3, h4 {
     height: 100%;
   }
 
-  /* The main game container splitting based on keyboard size */
-  .mobile-keyboard-active #root,
-  .mobile-keyboard-active .app-container {
-    height: 50dvh !important;
+  /* The main game container splitting based on keyboard size (60/40 Architecture) */
+  .mobile-keyboard-active #root {
+    height: 100dvh !important;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+  }
+
+  .mobile-keyboard-active .app-container {
+    height: 60dvh !important; /* Carte de Jeu prend 60% */
+    margin-bottom: 2dvh; /* Petite marge pour laisser respirer */
+    transition: height 0.3s ease, margin-bottom 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Quand un menu s'ouvre, le clavier se cache et la carte reprend 100% */
+  body.keyboard-hidden .app-container {
+    height: 100dvh !important;
+    margin-bottom: 0;
   }
 
   .mobile-keyboard-active .main-content-area {
@@ -2294,22 +2308,30 @@ h1, h2, h3, h4 {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    justify-content: space-evenly;
   }
 
-  /* Show virtual keyboard */
+  /* Show virtual keyboard (40%) */
   .virtual-keyboard-wrapper {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 50dvh !important;
+    height: 38dvh !important; /* Le reste de l'espace (100 - 60 - 2 = 38) */
     background: rgba(15, 23, 42, 0.95);
     backdrop-filter: blur(20px);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 10px 0 calc(10px + env(safe-area-inset-bottom)) 0;
+    padding: 10px 0; /* Choix 15B : on ignore safe-area-inset-bottom */
     z-index: 1000;
     display: flex;
     flex-direction: column;
+    transform: translateY(0);
+    transition: transform 0.3s ease;
+    will-change: transform;
+  }
+
+  body.keyboard-hidden .virtual-keyboard-wrapper {
+    transform: translateY(100%);
   }
 
   .virtual-keyboard-container {
@@ -2355,9 +2377,10 @@ h1, h2, h3, h4 {
   .kb-key-der { background: rgba(59, 130, 246, 0.2) !important; color: #60a5fa !important; border: 1px solid rgba(59, 130, 246, 0.4) !important; }
   .kb-key-die { background: rgba(236, 72, 153, 0.2) !important; color: #f472b6 !important; border: 1px solid rgba(236, 72, 153, 0.4) !important; }
   .kb-key-das { background: rgba(234, 179, 8, 0.2) !important; color: #facc15 !important; border: 1px solid rgba(234, 179, 8, 0.4) !important; }
-  .kb-key-der:active { background: rgba(59, 130, 246, 0.4) !important; }
-  .kb-key-die:active { background: rgba(236, 72, 153, 0.4) !important; }
-  .kb-key-das:active { background: rgba(234, 179, 8, 0.4) !important; }
+  /* No background color change on active for game feel */
+  .kb-key-der:active { transform: translateY(4px); }
+  .kb-key-die:active { transform: translateY(4px); }
+  .kb-key-das:active { transform: translateY(4px); }
 
   /* Glassmorphism theme */
   .kb-key.key-flat {
@@ -2366,8 +2389,7 @@ h1, h2, h3, h4 {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   }
   .kb-key.key-flat:active {
-    background: rgba(255, 255, 255, 0.25);
-    transform: translateY(2px);
+    transform: translateY(4px);
   }
 
   /* Neumorphism 3D theme */
