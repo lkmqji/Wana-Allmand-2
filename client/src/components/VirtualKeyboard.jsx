@@ -88,15 +88,22 @@ const VirtualKeyboard = () => {
         
         {/* Top Row: Special Shortcuts */}
         <div className="keyboard-row special-row">
-          {['der', 'die', 'das', 'ä', 'ö', 'ü', 'ß'].map((char) => (
-            <button
-              key={char}
-              className={`kb-key kb-key-special ${keyTheme}`}
-              onClick={(e) => { e.preventDefault(); handleKeyPress(char); }}
-            >
-              {char}
-            </button>
-          ))}
+          {['der', 'die', 'das', 'ä', 'ö', 'ü', 'ß'].map((char) => {
+            let extraClass = '';
+            if (char === 'der') extraClass = 'kb-key-der';
+            if (char === 'die') extraClass = 'kb-key-die';
+            if (char === 'das') extraClass = 'kb-key-das';
+
+            return (
+              <button
+                key={char}
+                className={`kb-key kb-key-special ${keyTheme} ${extraClass}`}
+                onClick={(e) => { e.preventDefault(); handleKeyPress(char); }}
+              >
+                {char}
+              </button>
+            );
+          })}
         </div>
 
         {/* Row 1 */}

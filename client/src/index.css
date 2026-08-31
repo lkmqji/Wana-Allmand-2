@@ -2280,14 +2280,13 @@ h1, h2, h3, h4 {
     height: 100%;
   }
 
-  /* The main game container splitting 60/40 */
+  /* The main game container splitting 55/45 */
   .mobile-keyboard-active #root,
   .mobile-keyboard-active .app-container {
-    height: 100dvh;
+    height: 55dvh !important;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding-bottom: 45dvh !important; /* Space for the fixed keyboard */
   }
 
   .mobile-keyboard-active .main-content-area {
@@ -2321,7 +2320,8 @@ h1, h2, h3, h4 {
     max-width: none;
     margin: 0;
     flex: 1;
-    justify-content: flex-end;
+    justify-content: space-evenly;
+    padding-bottom: 6px;
   }
 
   .keyboard-row {
@@ -2330,12 +2330,13 @@ h1, h2, h3, h4 {
     gap: 4px;
     width: 100%;
     padding: 0 4px; /* small padding for outer edges only */
+    flex: 1;
   }
 
   .kb-key {
     flex: 1;
     max-width: none; /* remove max-width so they expand fully */
-    height: 52px; /* slightly taller for 45% height */
+    height: auto; /* scales with flex */
     border-radius: 8px;
     font-family: 'Outfit', sans-serif;
     font-weight: 700;
@@ -2349,6 +2350,14 @@ h1, h2, h3, h4 {
     -webkit-tap-highlight-color: transparent;
     transition: all 0.1s ease;
   }
+
+  /* Specific Article Colors */
+  .kb-key-der { background: rgba(59, 130, 246, 0.2) !important; color: #60a5fa !important; border: 1px solid rgba(59, 130, 246, 0.4) !important; }
+  .kb-key-die { background: rgba(236, 72, 153, 0.2) !important; color: #f472b6 !important; border: 1px solid rgba(236, 72, 153, 0.4) !important; }
+  .kb-key-das { background: rgba(234, 179, 8, 0.2) !important; color: #facc15 !important; border: 1px solid rgba(234, 179, 8, 0.4) !important; }
+  .kb-key-der:active { background: rgba(59, 130, 246, 0.4) !important; }
+  .kb-key-die:active { background: rgba(236, 72, 153, 0.4) !important; }
+  .kb-key-das:active { background: rgba(234, 179, 8, 0.4) !important; }
 
   /* Glassmorphism theme */
   .kb-key.key-flat {
