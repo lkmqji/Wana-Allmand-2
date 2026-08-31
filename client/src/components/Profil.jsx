@@ -26,6 +26,17 @@ export default function Profil({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const isInitialMount = React.useRef(true);
 
+  const [keyboardSize, setKeyboardSize] = useState(() => {
+    return localStorage.getItem('wana_keyboard_size') || '45';
+  });
+
+  const handleKeyboardSizeChange = (val) => {
+    setKeyboardSize(val);
+    localStorage.setItem('wana_keyboard_size', val);
+    document.documentElement.style.setProperty('--kb-height', `${val}dvh`);
+    // Optional click sound handled in onChange via playClick if needed
+  };
+
   useEffect(() => {
     if (isInitialMount.current) {
       setNameInput(playerName || '');
@@ -484,6 +495,41 @@ export default function Profil({
                 );
               })}
             </div>
+            
+            {/* Keyboard Size Setting */}
+            <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
+                <span style={{ fontSize: '1.4rem' }}>📱</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Taille du Clavier Virtuel</h3>
+                  <div className="text-muted" style={{ fontSize: '0.8rem', marginTop: '2px' }}>
+                    Ajuste la proportion (hauteur) du clavier sur mobile.
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>30%</span>
+                <input
+                  type="range"
+                  min="30"
+                  max="65"
+                  step="5"
+                  value={keyboardSize}
+                  onChange={(e) => handleKeyboardSizeChange(e.target.value)}
+                  className="wana-range-slider"
+                  style={{
+                    flex: 1,
+                    '--progress': `${((keyboardSize - 30) / (65 - 30)) * 100}%`
+                  }}
+                  aria-label="Taille du clavier"
+                />
+                <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>65%</span>
+              </div>
+              <div style={{ textAlign: 'center', fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.5rem' }}>
+                {keyboardSize}%
+              </div>
+            </div>
+
           </div>
         </div>
       )}

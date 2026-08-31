@@ -2280,10 +2280,10 @@ h1, h2, h3, h4 {
     height: 100%;
   }
 
-  /* The main game container splitting 55/45 */
+  /* The main game container splitting based on keyboard size */
   .mobile-keyboard-active #root,
   .mobile-keyboard-active .app-container {
-    height: 55dvh !important;
+    height: calc(100dvh - var(--kb-height, 45dvh)) !important;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -2302,7 +2302,7 @@ h1, h2, h3, h4 {
     bottom: 0;
     left: 0;
     right: 0;
-    height: 45dvh; /* take up 45% of screen height */
+    height: var(--kb-height, 45dvh); /* take up dynamic screen height */
     background: rgba(15, 23, 42, 0.95);
     backdrop-filter: blur(20px);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
