@@ -27,7 +27,7 @@ export default function Profil({
   const isInitialMount = React.useRef(true);
 
   const [keyboardSize, setKeyboardSize] = useState(() => {
-    return localStorage.getItem('wana_keyboard_size') || '45';
+    return localStorage.getItem('wana_keyboard_size') || '40';
   });
 
   const handleKeyboardSizeChange = (val) => {

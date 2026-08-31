@@ -101,7 +101,7 @@ function App() {
     if (savedSize) {
       document.documentElement.style.setProperty('--kb-height', `${savedSize}dvh`);
     } else {
-      document.documentElement.style.setProperty('--kb-height', `45dvh`);
+      document.documentElement.style.setProperty('--kb-height', `40dvh`);
     }
   }, []);
 
