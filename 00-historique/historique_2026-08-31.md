@@ -19,3 +19,24 @@
 
 ### 00:48 - Fix Déploiement Vercel
 - **Conflit de dépendances NPM** : Ajout du fichier `.npmrc` avec `legacy-peer-deps=true` dans le dossier client pour forcer l'installation sur Vercel malgré les avertissements de version de `@capacitor/core`.
+
+### 15:58 - Fix Disposition Clavier Mobile
+- **Correction Layout Portrait** : Forçage de la disposition 50/50 stricte (50dvh) entre la zone principale contenant la console de saisie (moitié supérieure) et le clavier virtuel (moitié inférieure) sur les écrans mobiles avec désactivation du défilement.
+
+### 01:15 - Uniformisation des trois modes de jeu
+- Uniformisation des trois modes de jeu (Standard, Vengeance, Tir à la Corde) en utilisant le composant Wrapper central `BattleCard`.
+- Intégration de `BattleCard` dans `Game.jsx`, extraction du scoreboard dans le `specialRuleSlot`.
+- Intégration de `BattleCard` dans `VengeanceMode.jsx`, déplacement de la jauge de cœurs et du chronomètre.
+- Intégration de `BattleCard` dans `TugOfWarArena.jsx` pour encapsuler la console de saisie tout en gardant l'animation cohérente.
+- Amélioration de `BattleCard` pour avoir un `flex: 1` et s'adapter proprement au parent sans forcer un `100vh` rigide.
+
+### 01:50 - Implémentation du WanaBoard et Fake Input
+- Création du composant `VirtualKeyboard.jsx` (WanaBoard) avec support QWERTY/AZERTY, haptique, et touches spéciales allemandes.
+- Modification de `BattleConsole.jsx` : Remplacement du champ natif par un 'Fake Input' autonome pour éviter les cascades de re-rendus de Game.jsx et bloquer l'ouverture du clavier mobile natif.
+- Ajout de la 'Smart Logic' d'auto-capitalisation (der, die, das + Majuscule) dans `BattleConsole`.
+- Mise à jour de `index.css` pour structurer l'écran mobile en 60% haut / 40% bas et fixer l'écran (`overflow: hidden`).
+- Intégration du composant `VirtualKeyboard` dans `Game.jsx`, `VengeanceMode.jsx`, et `TugOfWarArena.jsx`.
+
+### 16:03 - Standardisation du Format d'Historique et Nettoyage
+- **Règle de nommage d'historique** : Création du fichier `.agents/rules/historique.md` imposant le format strict `historique_YYYY-MM-DD.md`.
+- **Nettoyage 00-historique** : Fusion des fichiers doublons du 31/08/2026 (`2026-08-31.md`, `2026-08-31-wanaboard.md`) dans le fichier unique `historique_2026-08-31.md` et suppression des doublons.
