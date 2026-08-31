@@ -66,3 +66,7 @@
 
 ### 17:44 - Amélioration du Game Feel du WanaBoard
 - **Son & Haptique** : Ajout du retour sonore (`sfx.playClick()`) en plus de la vibration haptique existante à chaque appui sur une touche du clavier virtuel (`VirtualKeyboard.jsx`) pour un meilleur feedback utilisateur.
+
+### 18:03 - Synchronisation Web vers Android (Capacitor Sync)
+- **Transplantation (Build & Sync)** : Compilation du projet Web (`vite build`) et synchronisation de l'arborescence compilée vers l'environnement natif Android (`cap sync android`).
+- **Intégrité Mobile** : L'injection a mis à jour le dossier `android/app/src/main/assets/public/` avec les nouveautés du jour (WanaBoard, BattleConsole) tout en préservant scrupuleusement l'anatomie mobile (`build.gradle`, `AndroidManifest.xml` et les paramètres d'UI natifs).
