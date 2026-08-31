@@ -63,3 +63,6 @@
 ### 17:35 - Fix Définitif du Chevauchement 60/40 (MinHeight)
 - **Ajustement des conteneurs racines** : Suppression du `min-height: 100vh` en dur sur `.vengeance-arena` (dans `index.css`) et du `minHeight: 100dvh` sur `TugOfWarArena.jsx`.
 - Remplacement par `height: 100%; flex: 1; overflow: hidden;` afin d'autoriser ces conteneurs à rétrécir à `60dvh` lorsque `.mobile-keyboard-active` est actif. Ceci empêche définitivement le clavier de venir écraser ou recouvrir le champ de saisie par le bas.
+
+### 17:44 - Amélioration du Game Feel du WanaBoard
+- **Son & Haptique** : Ajout du retour sonore (`sfx.playClick()`) en plus de la vibration haptique existante à chaque appui sur une touche du clavier virtuel (`VirtualKeyboard.jsx`) pour un meilleur feedback utilisateur.

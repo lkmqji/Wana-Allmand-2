@@ -206,6 +206,7 @@ Le 29 août 2026 a marqué une série d'optimisations majeures de performance, d
   - Ligne 1 : Pronoms / Articles : `der`, `die`, `das` (remplacement ou insertion intelligente).
   - Ligne 2 : Caractères spéciaux : `ä`, `ö`, `ü`, `ß`.
   - Couleurs sémantiques (Vert pour validation, Rouge pour suppression) et feeling mécanique 3D.
+  - Retour sonore (`sfxManager.playClick()`) couplé à la vibration haptique native.
 - **Comportement Fluide (Menu/Pause)** : Le clavier glisse vers le bas (`transform: translateY(100%)`) et la carte s'étend à 100% de l'écran de manière fluide à l'ouverture d'un menu, chat ou menu de Pause via l'état `isHidden`.
 - **Stabilité Flexbox (Fix 60/40)** : L'ensemble des conteneurs racines des modes (y compris `VengeanceMode` et `TugOfWarArena`) n'utilisent plus de hauteur forcée (`min-height: 100vh`). Ils utilisent `height: 100%; flex: 1; overflow: hidden;` afin de se rétracter parfaitement à `60dvh` lorsque `.mobile-keyboard-active` est actif. À l'intérieur, le conteneur `BattleCard` garantit un espacement (`space-evenly`) empêchant l'écrasement de l'input.
 - **Accessibilité Mobile & Desktop** : Ajustement du conteneur du Mode Vengeance pour rendre le bouton « PRÊT ? GO ! » immédiatement visible sans nécessiter de défilement sur petits écrans.

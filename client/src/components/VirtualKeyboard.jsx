@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { sfx } from '../utils/sfxManager';
 
 /**
  * WanaBoard - Clavier Virtuel Mobile
@@ -46,6 +47,7 @@ const VirtualKeyboard = ({ isHidden = false }) => {
   }, [isHidden]);
 
   const hapticFeedback = () => {
+    sfx.playClick();
     if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
       // API may not work on iOS depending on settings, but works great on Android.
       try {
