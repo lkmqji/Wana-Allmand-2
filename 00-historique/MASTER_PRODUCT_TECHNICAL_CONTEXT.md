@@ -77,10 +77,14 @@ La plateforme s'articule autour de 4 piliers de gameplay :
 
 ### 2.4 Spécificités Mobiles & Cross-Platform (Capacitor)
 L'application web est encapsulée via Capacitor pour offrir une expérience Android/iOS native irréprochable :
-- **Authentification** : Remplacement des popups web par le plugin natif `@codetrix-studio/capacitor-google-auth` pour garantir la connexion Google (nécessite le Web Client ID dans `strings.xml`).
-- **Barre d'État (StatusBar)** : Immersive et thématisée. `@capacitor/status-bar` est configuré au démarrage pour adopter la couleur `--bg-main` (Dark/Midnight `#0b0f19`) avec un texte Light (`Style.Dark`), supprimant la barre blanche par défaut.
-- **Verrouillage Clavier Natif** : L'ergonomie reposant sur le *WanaBoard* (clavier virtuel 40% de l'écran), le clavier de l'OS (Gboard, etc.) ne doit jamais s'ouvrir. Le plugin `@capacitor/keyboard` est configuré avec `resize: "none"`, et le champ de saisie (`BattleConsole.jsx`) utilise un faux input (`div` avec `tabIndex="0"` et `inputMode="none"`) pour empêcher l'invocation du clavier natif.
-- **Bouton Retour Matériel (Android)** : `@capacitor/app` intercepte l'événement `hardwareBackPress`. Si un menu (Pause, Résultat) est ouvert, le bouton ferme ce menu (ex: via `requestTogglePause`). Si l'utilisateur est sur l'accueil, une confirmation de sortie est demandée.
+- **Écran de Démarrage Animé (SplashScreen)** : `AppSplashScreen.jsx` offre un Cold Start fluide avec logo néon animé et barre de progression (0 à 100% en 1.2s), éliminant tout flash ou texte brut au démarrage.
+- **Authentification Native Google Auth** : Remplacement des popups web par le plugin natif `@codetrix-studio/capacitor-google-auth` pour garantir la connexion Google (avec configuration dans `strings.xml` et `google-services.json`).
+- **Barre d'État (StatusBar) Dynamique** : `@capacitor/status-bar` est synchronisé en temps réel sur le thème actif (`THEME_STATUS_BAR` dans `App.jsx`) avec inversion automatique du contraste d'icônes (`Style.Dark` / `Style.Light`).
+- **Verrouillage Portrait Matériel** : `android:screenOrientation="portrait"` configuré sur `MainActivity` dans `AndroidManifest.xml`.
+- **Safe Areas & Découpe Caméra (Notch)** : Prise en charge intégrale de `env(safe-area-inset-top)` et `env(safe-area-inset-bottom)` dans `index.css` et `Layout.jsx`.
+- **Verrouillage Clavier Natif** : L'ergonomie reposant sur le *WanaBoard* (clavier virtuel 40% de l'écran), le clavier de l'OS (Gboard, etc.) ne doit jamais s'ouvrir. Le plugin `@capacitor/keyboard` est configuré avec `resize: "none"`, et le champ de saisie (`BattleConsole.jsx`) utilise un faux input (`div` avec `tabIndex="0"` et `inputMode="none"`).
+- **Retour Haptique (Vibrations)** : Module `utils/haptics.js` universel couplé aux effets sonores (`AudioContext.jsx`) pour des micro-vibrations lors de la saisie, des succès et des erreurs.
+- **Bouton Retour Matériel (Android)** : `@capacitor/app` intercepte `hardwareBackPress` pour fermer les menus/pause ou demander confirmation avant de quitter.
 - **Synthèse Vocale (TTS)** : Bascule dynamique sur `@capacitor-community/text-to-speech` sur mobile pour éviter les bugs de mute natifs, et repli sur `window.speechSynthesis` sur web classique.
 
 ---

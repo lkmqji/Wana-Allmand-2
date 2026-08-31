@@ -325,19 +325,20 @@ body {
   }
   
   .main-area {
-    padding-top: var(--header-height);
+    padding-top: calc(var(--header-height) + env(safe-area-inset-top, 0px));
   }
   
   .main-content {
     padding: 1.5rem 1rem;
-    padding-bottom: calc(1.5rem + var(--bottom-nav-height));
+    padding-bottom: calc(1.5rem + var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
   }
 
   .mobile-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: var(--header-height);
+    height: calc(var(--header-height) + env(safe-area-inset-top, 0px));
+    padding-top: env(safe-area-inset-top, 0px);
     position: fixed;
     top: 0;
     left: 0;

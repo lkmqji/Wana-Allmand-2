@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { sfx } from '../utils/sfxManager';
+import { triggerHaptic } from '../utils/haptics';
 
 const AudioContext = createContext(null);
 
@@ -329,18 +330,22 @@ export function AudioProvider({ children }) {
   }, []);
 
   const playClick = useCallback(() => {
+    triggerHaptic('light');
     sfx.playClick(isSoundEnabledRef.current);
   }, []);
 
   const playSuccess = useCallback(() => {
+    triggerHaptic('success');
     sfx.playSuccess(isSoundEnabledRef.current);
   }, []);
 
   const playError = useCallback(() => {
+    triggerHaptic('error');
     sfx.playError(isSoundEnabledRef.current);
   }, []);
 
   const playExplosion = useCallback(() => {
+    triggerHaptic('heavy');
     sfx.playExplosion(isSoundEnabledRef.current);
   }, []);
 
@@ -388,14 +393,17 @@ export function AudioProvider({ children }) {
 
   // SFX Methods - Progression & Results
   const playVictory = useCallback(() => {
+    triggerHaptic('success');
     sfx.playVictory(isSoundEnabledRef.current);
   }, []);
 
   const playDefeat = useCallback(() => {
+    triggerHaptic('error');
     sfx.playDefeat(isSoundEnabledRef.current);
   }, []);
 
   const playLevelUp = useCallback(() => {
+    triggerHaptic('medium');
     sfx.playLevelUp(isSoundEnabledRef.current);
   }, []);
 

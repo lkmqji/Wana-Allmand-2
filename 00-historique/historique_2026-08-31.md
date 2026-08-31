@@ -98,3 +98,18 @@
 ### 19:35 - Permissions Réseau & Stabilisation Résolution DNS
 - **Permissions Android** : Ajout explicite des permissions `ACCESS_NETWORK_STATE` et `ACCESS_WIFI_STATE` dans `AndroidManifest.xml` pour stabiliser les requêtes OAuth Google et éviter les erreurs `ERR_NAME_NOT_RESOLVED`.
 - **Recompilation APK** : Binaire final compilé et synchronisé à la racine [WanaAllmand.apk](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/WanaAllmand.apk).
+
+### 20:07 - Optimisations Visuelles & Apparence Android (APK)
+- **SplashScreen Brandé Animé (`AppSplashScreen.jsx`)** : Remplacement de l'ancien texte de chargement brut par un écran de démarrage complet avec logo néon animé, nom du jeu, effet de halo lumineux et barre de progression fluide (0 à 100% en 1.2s) garantissant un démarrage réactif (Cold Start optimiste).
+- **StatusBar Dynamique & Thèmes** : Synchronisation temps réel de la couleur d'arrière-plan de la barre d'état et du contraste des icônes (`Style.Dark` / `Style.Light`) dans `App.jsx` selon le thème actif choisi (Midnight, Sakura, Hacker, Emerald, Sunset, etc.).
+- **Verrouillage d'Orientation Portrait Natif** : Ajout de `android:screenOrientation="portrait"` directement dans l'activité `MainActivity` de `client/android/app/src/main/AndroidManifest.xml` pour un blocage matériel 0ms de latence et 0 overhead JS.
+- **Sécurisation Safe-Area & Notch Caméra** : Intégration de `env(safe-area-inset-top)` et `env(safe-area-inset-bottom)` sur le header mobile et les conteneurs racines dans `index.css`, éliminant tout risque de chevauchement avec l'îlot ou l'encoche de caméra frontale.
+- **Retour Haptique Universel (`haptics.js`)** : Création d'un module de vibrations haptiques couplé automatiquement à `AudioContext.jsx` (`playClick`, `playSuccess`, `playError`, `playVictory`, `playDefeat`) pour enrichir le Game Feel sur les téléphones Android.
+
+### 20:10 - Recompilation & Livraison du Binaire APK Mis à Jour
+- **Compilation Gradle (`assembleDebug`)** : Compilation réussie avec le JDK 17 embarqué sous Windows (`C:\Program Files\Android\Android Studio\jbr`).
+- **Livrable APK Final** : Fichier [WanaAllmand.apk](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/WanaAllmand.apk) (19.19 Mo) généré et synchronisé à la racine du projet.
+
+
+
+

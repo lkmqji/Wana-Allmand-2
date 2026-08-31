@@ -13,6 +13,7 @@ import InviteModal from './components/InviteModal';
 import RightPanel from './components/RightPanel';
 import TitleScreen from './components/TitleScreen';
 import InstallGate from './components/InstallGate';
+import AppSplashScreen from './components/AppSplashScreen';
 import { exampleLists } from './data/exampleLists';
 import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -23,6 +24,18 @@ import { formatPlayerName, getClientPlayerKey } from './utils/formatters';
 import { useSoundEffects, useAudio } from './context/AudioContext';
 import { sfx } from './utils/sfxManager';
 import { Agentation } from 'agentation';
+
+// Configuration dynamique des couleurs de la barre de statut pour chaque thème
+const THEME_STATUS_BAR = {
+  midnight: { color: '#0b0f19', style: Style.Dark },
+  sakura: { color: '#fff5f8', style: Style.Light },
+  hacker: { color: '#030704', style: Style.Dark },
+  deepspace: { color: '#050811', style: Style.Dark },
+  emerald: { color: '#021a12', style: Style.Dark },
+  sunset: { color: '#1a0b1e', style: Style.Dark },
+  nordic: { color: '#0f172a', style: Style.Dark },
+  dracula: { color: '#1e102a', style: Style.Dark }
+};
 
 // Strict Standalone PWA detection helper with Desktop (PC/Mac) bypass
 const evaluateStandalone = () => {
@@ -94,6 +107,7 @@ function App() {
   const isStandalone = standaloneDebug.isStandalone;
   const { playMessageReceived, playNotification, setIsInGame } = useAudio();
   const [hasEnteredApp, setHasEnteredApp] = useState(false);
+  const [isSplashLoading, setIsSplashLoading] = useState(true);
 
   const [view, setView] = useState('home'); // home, lobby, game, results
 
@@ -446,15 +460,8 @@ function App() {
 
     // Configurer la barre de statut Capacitor et le bouton de retour
     if (Capacitor.isNativePlatform()) {
-      // Barre de statut
-      StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
-      StatusBar.setBackgroundColor({ color: '#0b0f19' }).catch(() => {});
-
       // Bouton Retour matériel
       const backButtonListener = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
-        // Obtenir la vue actuelle directement depuis React n'est pas toujours facile dans un listener global, 
-        // donc on peut émettre un event custom, ou utiliser la variable de vue depuis l'état (si on la met dans une ref)
-        // Pour l'instant, on dispatch un événement 'hardwareBackPress' que les composants peuvent écouter.
         const event = new CustomEvent('hardwareBackPress', { detail: { canGoBack } });
         window.dispatchEvent(event);
       });
@@ -477,6 +484,15 @@ function App() {
       }
     };
   }, []);
+
+  // Synchronisation dynamique temps réel de la barre de statut Android avec le thème actif
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      const themeConfig = THEME_STATUS_BAR[theme] || THEME_STATUS_BAR.midnight;
+      StatusBar.setStyle({ style: themeConfig.style }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: themeConfig.color }).catch(() => {});
+    }
+  }, [theme]);
 
   // Detect ?admin in URL - ONLY for the admin user
   useEffect(() => {
@@ -1016,12 +1032,8 @@ function App() {
     return <InstallGate />;
   }
 
-  if (isAuthLoading) {
-    return (
-      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <h2 style={{ color: 'var(--primary)' }}>Chargement...</h2>
-      </div>
-    );
+  if (isAuthLoading || isSplashLoading) {
+    return <AppSplashScreen onFinish={() => setIsSplashLoading(false)} minDurationMs={1200} />;
   }
 
   const renderMainContent = () => {
