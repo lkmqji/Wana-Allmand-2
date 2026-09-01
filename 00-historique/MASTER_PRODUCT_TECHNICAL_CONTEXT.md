@@ -325,3 +325,9 @@ Le 29 ao√ªt 2026 a marqu√© une s√©rie d'optimisations majeures de performance, d
   - **Vibrations** : Haptique `success` sur chaque paire, `error` (avec p√©nalit√© de blocage de 2s et r√©initialisation du combo), et `success_heavy` pour la validation totale.
   - **Particules** : √âmission de Confettis (`canvas-confetti`) lors de la compl√©tion totale.
 - **Logique Serveur** : Int√©gr√©e dans `GameManager.js` avec l'√©v√©nement `submit_matching_pairs` qui r√©compense instantan√©ment le joueur avec un jackpot massif d'XP (+300) s'il r√©ussit avant la fin du temps imparti, sans p√©naliser l'adversaire (r√©solution en "aveugle").
+
+## 10.6. GÈnÈration IA (AIGeneratorView)
+- **Localisation** : client/src/components/AIGeneratorView.jsx et server/index.js (route /api/extract).
+- **Description** : Permet aux utilisateurs d'extraire automatiquement du vocabulaire ‡ partir d'un fichier multimÈdia (Image, PDF) ou de texte collÈ, avec des options de filtrage linguistique avancÈes.
+- **Moteur IA** : Utilise le SDK @google/genai (modËle Gemini 3.6 Flash) pour traiter des prompts dynamiques incluant des instructions systËme pour configurer le comportement (exclusion des prÈnoms, ajout des articles der/die/das, etc.).
+- **IntÈgration** : Remplace les anciens boutons 'GÈnÈration IA' et 'Coller du texte' de Home.jsx par un accËs direct ‡ cette interface premium.

@@ -17,6 +17,20 @@ const { formatPlayerName } = require('./utils/formatters');
 const dns = require('dns');
 try { dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']); } catch (e) { /* ignore */ }
 require('dotenv').config();
+const { GoogleGenAI, Type } = require('@google/genai');
+
+let genAIClient = null;
+function getGenAI() {
+    if (!genAIClient) {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) throw new Error('GEMINI_API_KEY is missing from environment variables.');
+        genAIClient = new GoogleGenAI({
+            apiKey,
+            httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+        });
+    }
+    return genAIClient;
+}
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI)
@@ -297,70 +311,162 @@ app.post('/api/upload', upload.single('pdf'), async (req, res) => {
     }
 });
 
-// Endpoint for AI text/file extraction
+// Endpoint for AI text/file extraction (Advanced version)
 app.post('/api/extract', upload.single('file'), async (req, res) => {
+    console.log("--- Extract Route Reached ---");
+    console.log("GEMINI_API_KEY present:", !!process.env.GEMINI_API_KEY);
+    console.log("req.body.text:", !!req.body.text, "req.file:", !!req.file);
     try {
-        const text = req.body.text || "";
+        const text = req.body.text || req.body.rawText || "";
         const file = req.file;
-        
+        let options = {};
+        try {
+            if (req.body.options) {
+                options = typeof req.body.options === 'string' ? JSON.parse(req.body.options) : req.body.options;
+            }
+        } catch (e) { console.warn("Failed to parse options"); }
+
         if (!text.trim() && !file) {
             return res.status(400).json({ error: "Aucun contenu fourni." });
         }
 
         if (process.env.GEMINI_API_KEY) {
             try {
-                let prompt = `Tu es un assistant linguistique. Extrais toutes les paires de mots ou phrases (Français -> Anglais -> Allemand avec article der/die/das si nom) du contenu fourni. Renvoie STRICTEMENT un tableau JSON au format exact: [{"question": "mot français", "english": "english translation", "answer": "mot allemand avec article"}] sans texte additionnel. Si un texte t'est fourni, base toi dessus. Si une image/audio/fichier t'est fourni, extrais-en le vocabulaire.\n\nTexte supplémentaire:\n${text}`;
-                
+                const ai = getGenAI();
+                const parts = [];
+
                 if (text.startsWith("THEME:")) {
                     const theme = text.replace("THEME:", "").trim();
-                    prompt = `Tu es un assistant linguistique. Génère une liste de 15 mots essentiels ou pertinents (niveau A2/B1) sur le thème suivant : "${theme}". Renvoie STRICTEMENT un tableau JSON au format exact: [{"question": "mot français", "english": "english translation", "answer": "mot allemand avec article der/die/das"}] sans texte additionnel.`;
-                }
+                    const prompt = `Tu es un assistant linguistique. Génère une liste de 15 mots essentiels ou pertinents (niveau A2/B1) sur le thème suivant : "${theme}". Renvoie STRICTEMENT un tableau JSON au format exact: [{"question": "mot français", "english": "english translation", "answer": "mot allemand avec article der/die/das"}] sans texte additionnel.`;
+                    parts.push({ text: prompt });
+                } else {
+                    const sourceLang = options.sourceLang || 'Français / English / العربية';
+                    const targetLang = options.targetLang || 'Allemand';
+                    const excludeProperNouns = options.excludeProperNouns !== false;
+                    const excludeLocations = options.excludeLocations !== false;
+                    const excludeBasicGrammar = options.excludeBasicGrammar !== false;
+                    const includeArticles = options.includeArticles !== false;
+                    const includePlurals = options.includePlurals !== false;
 
-                const parts = [{ text: prompt }];
-                
-                if (file) {
-                    const mimeType = file.mimetype;
-                    const base64Data = file.buffer.toString('base64');
-                    parts.push({
-                        inline_data: {
-                            mime_type: mimeType,
-                            data: base64Data
+                    const systemInstruction = `Tu es un expert linguiste et professeur de langues polyglotte spécialisé dans l'apprentissage de l'allemand.
+Ta tâche est d'analyser le contenu fourni et d'en extraire le vocabulaire structuré :
+
+DANS LA PREMIÈRE COLONNE (frenchText):
+Pour CHAQUE mot ou expression extrait, tu DOIS fournir sa traduction ou le mot source (Français/Anglais/Arabe). S'il y a plusieurs mots, sépare par |.
+
+DANS LA DEUXIÈME COLONNE (germanText):
+- Pour chaque NOM : ${includeArticles ? "Ajoute l'article défini (der, die, das)." : "Fournis sans article."} ${includePlurals ? "Indique la terminaison du pluriel." : ""}
+- Pour chaque VERBE : Mets-le à l'INFINITIF.
+- Pour chaque ADJECTIF/ADVERBE/EXPRESSION : Traduction naturelle.
+
+RÈGLES DE FILTRAGE :
+- ${excludeProperNouns ? 'EXCLUS STRICTEMENT les prénoms et noms de personnes.' : ''}
+- ${excludeLocations ? 'EXCLUS STRICTEMENT les noms de villes et pays.' : ''}
+- ${excludeBasicGrammar ? 'EXCLUS les mots de grammaire trop basiques.' : ''}
+
+Classifie dans : NOMS, VERBES, ADJECTIFS_ADVERBES, EXPRESSIONS.`;
+
+                    const promptText = `Analyse ce contenu et extrais le vocabulaire dans la 1ère colonne (Français/Anglais/Arabe) et la 2ème colonne (${targetLang}) en suivant rigoureusement les consignes.`;
+
+                    if (file) {
+                        parts.push({
+                            inlineData: {
+                                mimeType: file.mimetype,
+                                data: file.buffer.toString('base64')
+                            }
+                        });
+                        parts.push({ text: promptText });
+                    } else if (text) {
+                        parts.push({ text: `Voici le texte à analyser :\n\n${text}\n\n${promptText}` });
+                    }
+
+                    const response = await ai.models.generateContent({
+                        model: 'gemini-1.5-flash',
+                        contents: { parts },
+                        config: {
+                            systemInstruction,
+                            responseMimeType: 'application/json',
+                            responseSchema: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    detectedLanguage: { type: Type.STRING },
+                                    notes: { type: Type.STRING },
+                                    vocabulary: {
+                                        type: Type.ARRAY,
+                                        items: {
+                                            type: Type.OBJECT,
+                                            properties: {
+                                                category: { type: Type.STRING },
+                                                frenchText: { type: Type.STRING },
+                                                englishText: { type: Type.STRING },
+                                                arabicText: { type: Type.STRING },
+                                                germanText: { type: Type.STRING }
+                                            },
+                                            required: ['category', 'germanText']
+                                        }
+                                    }
+                                },
+                                required: ['vocabulary']
+                            }
                         }
                     });
-                }
-                
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: parts }]
-                    })
-                });
-                
-                const data = await response.json();
-                if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-                    let rawText = data.candidates[0].content.parts[0].text.trim();
-                    if (rawText.startsWith('```json')) rawText = rawText.replace(/^```json/, '').replace(/```$/, '').trim();
-                    if (rawText.startsWith('```')) rawText = rawText.replace(/^```/, '').replace(/```$/, '').trim();
-                    const parsed = JSON.parse(rawText);
-                    const vocabList = parsed.map((item, idx) => ({ 
-                        id: idx + 1, 
-                        question: item.question, 
-                        english: item.english || "",
-                        answer: item.answer 
-                    }));
+
+                    const parsed = JSON.parse(response.text || '{}');
+                    const rawVocab = Array.isArray(parsed.vocabulary) ? parsed.vocabulary : [];
+                    
+                    const vocabList = rawVocab.map((item, idx) => {
+                        const q = [item.frenchText, item.englishText, item.arabicText].filter(Boolean).join(' | ');
+                        return {
+                            id: Date.now() + idx,
+                            question: q || '???',
+                            english: item.englishText || "",
+                            answer: item.germanText || '???',
+                            category: item.category || 'EXPRESSIONS'
+                        };
+                    }).filter(w => w.question !== '???' && w.answer !== '???');
+
+                    console.log("Generated vocabList length:", vocabList.length);
+
                     if (vocabList.length > 0) {
-                        return res.json({ vocabList });
+                        return res.json({ 
+                            vocabList, 
+                            detectedInfo: {
+                                detectedLanguage: parsed.detectedLanguage,
+                                notes: parsed.notes
+                            }
+                        });
                     }
+                    console.warn("vocabList was empty, falling through to text parser...");
                 }
             } catch (aiErr) {
-                console.error("Gemini API call error, falling back to line parsing:", aiErr);
+                console.error("Gemini API call error:", aiErr);
+                // Fallback to legacy structure if the new one fails (e.g., using gemini-1.5-flash for THEME)
+                if (text.startsWith("THEME:")) {
+                   try {
+                       const theme = text.replace("THEME:", "").trim();
+                       const prompt = `Génère 15 mots sur le thème "${theme}". JSON: [{"question": "français", "english": "anglais", "answer": "allemand avec article"}]`;
+                       const fallbackResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+                           method: 'POST',
+                           headers: { 'Content-Type': 'application/json' },
+                           body: JSON.stringify({ contents: [{ parts: [{text: prompt}] }] })
+                       });
+                       const fallbackData = await fallbackResponse.json();
+                       let rawText = fallbackData.candidates[0].content.parts[0].text.trim();
+                       if (rawText.startsWith('```json')) rawText = rawText.replace(/^```json/, '').replace(/```$/, '').trim();
+                       if (rawText.startsWith('```')) rawText = rawText.replace(/^```/, '').replace(/```$/, '').trim();
+                       const parsed = JSON.parse(rawText);
+                       const vocabList = parsed.map((item, idx) => ({ id: idx+1, question: item.question, answer: item.answer }));
+                       return res.json({ vocabList });
+                   } catch(fallbackErr) {
+                       console.error("Fallback error", fallbackErr);
+                   }
+                }
             }
         }
 
         // Fallback rule-based line parser (only works for text)
-        if (!text) {
-             return res.status(500).json({ error: "L'IA est requise pour extraire le vocabulaire depuis un fichier média." });
+        if (!text || text.startsWith("THEME:")) {
+             return res.status(500).json({ error: "L'IA est requise pour extraire le vocabulaire depuis un fichier média ou un thème." });
         }
         const lines = text.split('\n').filter(l => l.includes('=') || l.includes('-') || l.includes(':'));
         const vocabList = lines.map((line, idx) => {
