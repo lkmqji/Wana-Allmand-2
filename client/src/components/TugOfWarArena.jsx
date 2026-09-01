@@ -468,6 +468,7 @@ export const TugOfWarArena = ({
                 inputPlaceholder="Traduction en allemand..."
                 inputRef={inputRef}
                 theme="valkyrie"
+                adminAnswer={currentWord?.answer}
               />
             </div>
           </BattleCard>

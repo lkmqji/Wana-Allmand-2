@@ -340,3 +340,6 @@ Le 29 aoÃ»t 2026 a marquÃ© une sÃ©rie d'optimisations majeures de performance, d
  -   * * S t a n d a r d i s a t i o n * *   :   S t a n d a r d i s a t i o n   d u   \ j u s t i f y - c o n t e n t :   s p a c e - b e t w e e n \   s u r   l e s   v u e s   ( V e n g e a n c e M o d e . j s x ,   T u g O f W a r A r e n a . j s x )   e t   r é d u c t i o n   d e s   m a r g e s   d e s   h e a d e r s   p o u r   c o m p a c t e r   l ' U I . 
   
  
+## Mise à jour (2026-09-01)
+- **BattleConsole** : Ajout d'une fonctionnalité *Admin* via la prop dminAnswer. Un bouton caché (A) permet de remplir l'input avec la bonne réponse (en minuscule) pour les tests et la démo (intégré dans VengeanceMode et TugOfWarArena).
+- Correction CSS: Résolution d'une erreur de syntaxe dans index.css (rétablissement de la directive @keyframes pour shake-hard) qui bloquait le processus de build (2026-09-01).

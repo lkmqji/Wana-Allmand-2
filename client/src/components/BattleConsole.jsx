@@ -20,6 +20,7 @@ const BattleConsole = React.memo(function BattleConsole({
   inputRef: externalInputRef,
   isDisabled = false,
   isCorrectionMode = false,
+  adminAnswer = '',
   
   // Theme
   theme = 'default' 
@@ -262,6 +263,35 @@ const BattleConsole = React.memo(function BattleConsole({
         <div style={{ position: 'relative', width: '100%', flexShrink: 0 }}>
           
           {/* FAKE INPUT replacing the native <input> */}
+          {adminAnswer && (
+            <button
+              type="button"
+              onClick={() => {
+                if (isDisabled) return;
+                const ans = adminAnswer.toLowerCase();
+                handleLocalChange(ans);
+              }}
+              style={{
+                position: 'absolute',
+                left: '-35px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: '#475569',
+                color: 'white',
+                border: '1px solid #64748b',
+                borderRadius: '8px',
+                padding: '4px 8px',
+                fontSize: '0.8rem',
+                cursor: isDisabled ? 'not-allowed' : 'pointer',
+                opacity: isDisabled ? 0.5 : 1,
+                zIndex: 10,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}
+              title="Admin: Remplir la réponse auto (minuscule)"
+            >
+              A
+            </button>
+          )}
           <div
             ref={fakeInputRef}
             className="fake-input"

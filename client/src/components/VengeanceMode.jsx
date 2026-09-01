@@ -1189,6 +1189,7 @@ export default function VengeanceMode({
             isCorrectionMode={mustTypeCorrection}
             inputPlaceholder={mustTypeCorrection ? "Tape le mot correct :" : "Écris la traduction en allemand..."}
             inputRef={inputRef}
+            adminAnswer={currentWord.word}
             onSpeakQuestion={() => speakPromptWord(currentWord.question || currentWord.word, isSoundEnabled)}
             bottomSlot={
               currentWord.count > 1 && (
