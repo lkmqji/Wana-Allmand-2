@@ -1016,7 +1016,7 @@ function App() {
       await loginWithGoogle();
     } catch (err) {
       console.error('Manual login error:', err);
-      if (err?.code !== 'auth/popup-closed-by-user') {
+      if (err?.code !== 'auth/popup-closed-by-user' && err?.code !== 'auth/cancelled-popup-request') {
         alert("Erreur de connexion : " + (err.message || err.code || "Impossible de se connecter avec Google."));
       }
     }
