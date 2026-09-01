@@ -42,7 +42,7 @@ const BattleCard = ({
           width: '100%',
           maxWidth: '600px',
           minHeight: '480px',
-          padding: '1.5rem',
+          padding: mode === 'classic' ? '1.5rem' : '1rem',
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
@@ -57,7 +57,7 @@ const BattleCard = ({
         }}
       >
         {/* 3. En-tête de la Carte (Inside Card - Top) */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', width: '100%', minHeight: '40px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: mode === 'classic' ? '1.5rem' : '0.75rem', width: '100%', minHeight: mode === 'classic' ? '40px' : 'auto' }}>
           {/* Gauche : Timer */}
           <div style={{ minWidth: '60px', display: 'flex', justifyContent: 'flex-start' }}>
             {timerSlot}

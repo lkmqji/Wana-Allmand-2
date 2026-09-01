@@ -455,7 +455,7 @@ export const TugOfWarArena = ({
               </div>
             }
           >
-            <div style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-evenly', height: '100%', overflow: 'hidden', position: 'relative' }}>
+            <div style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', overflow: 'hidden', position: 'relative' }}>
               {/* Effet visuel des lettres erronées qui tombent */}
               <TypoFallingVFX dropped={droppedLetters} />
 

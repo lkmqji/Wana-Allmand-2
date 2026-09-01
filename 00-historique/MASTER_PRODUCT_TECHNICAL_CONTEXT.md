@@ -333,3 +333,10 @@ Le 29 ao√ªt 2026 a marqu√© une s√©rie d'optimisations majeures de performance, d
 - **IntÈgration** : Remplace les anciens boutons 'GÈnÈration IA' et 'Coller du texte' de Home.jsx par un accËs direct ‡ cette interface premium.
 
 - **Options d'Administration Avanc√©es :** Le panel Super Admin permet d√©sormais d'activer dynamiquement des r√®gles de gameplay via le param√®tre \orceMatchingPairs\ enregistr√© en MongoDB. Cela force la boucle de jeu √† d√©clencher ce mini-jeu √† 100% de probabilit√© pour faciliter le debug.
+
+ # #   1 0 . 7 .   L a y o u t   &   C S S   6 0 / 4 0   ( M o b i l e ) 
+ -   * * F l e x b o x   S h r i n k   I s s u e   ( R È s o l u ) * *   :   L ' a r c h i t e c t u r e   d e   l a   c a r t e   ( B a t t l e C a r d )   e n   m o d e   V e n g e a n c e   e t   T i r   ‡   l a   C o r d e   s ' È c r a s a i t .   
+ -   * * C o r r e c t i f   I n p u t * *   :   \  l e x - s h r i n k :   0 \ ,   \ w h i t e - s p a c e :   n o w r a p \ ,   \ o v e r f l o w :   h i d d e n \   e t   \ 	 e x t - o v e r f l o w :   e l l i p s i s \   a p p l i q u È s   ‡   l ' i n p u t   e t   s e s   w r a p p e r s   ( \ B a t t l e C o n s o l e . j s x \   e t   \ i n d e x . c s s \ ) . 
+ -   * * S t a n d a r d i s a t i o n * *   :   S t a n d a r d i s a t i o n   d u   \ j u s t i f y - c o n t e n t :   s p a c e - b e t w e e n \   s u r   l e s   v u e s   ( V e n g e a n c e M o d e . j s x ,   T u g O f W a r A r e n a . j s x )   e t   r È d u c t i o n   d e s   m a r g e s   d e s   h e a d e r s   p o u r   c o m p a c t e r   l ' U I . 
+  
+ 

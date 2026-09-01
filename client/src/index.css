@@ -2245,6 +2245,10 @@ h1, h2, h3, h4 {
   transform: translateZ(0);
   will-change: border-color;
   min-height: 56px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   display: flex;
   align-items: center;
   justify-content: center;

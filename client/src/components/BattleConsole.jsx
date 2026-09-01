@@ -258,8 +258,8 @@ const BattleConsole = React.memo(function BattleConsole({
       )}
 
       {/* FORM & FAKE INPUT */}
-      <form onSubmit={handleFormSubmit} style={{ width: '100%', maxWidth: '440px', position: 'relative' }}>
-        <div style={{ position: 'relative', width: '100%' }}>
+      <form onSubmit={handleFormSubmit} style={{ width: '100%', maxWidth: '440px', position: 'relative', flexShrink: 0 }}>
+        <div style={{ position: 'relative', width: '100%', flexShrink: 0 }}>
           
           {/* FAKE INPUT replacing the native <input> */}
           <div
