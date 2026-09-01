@@ -343,3 +343,6 @@ Le 29 aoÃ»t 2026 a marquÃ© une sÃ©rie d'optimisations majeures de performance, d
 ## Mise à jour (2026-09-01)
 - **BattleConsole** : Ajout d'une fonctionnalité *Admin* via la prop dminAnswer. Un bouton caché (A) permet de remplir l'input avec la bonne réponse (en minuscule) pour les tests et la démo (intégré dans VengeanceMode et TugOfWarArena).
 - Correction CSS: Résolution d'une erreur de syntaxe dans index.css (rétablissement de la directive @keyframes pour shake-hard) qui bloquait le processus de build (2026-09-01).
+
+## Mise Ã  jour (01 Sept 2026)
+- **Composants & Logique UI :** Le composant `MatchingPairs.jsx` dÃ©pend impÃ©rativement des classes CSS `.selected`, `.matched` et `.error` dans `index.css` pour fournir un retour visuel aux joueurs lors de la sÃ©lection. Sans elles, l'interface semble inactive.

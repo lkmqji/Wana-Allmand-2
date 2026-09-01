@@ -5,7 +5,7 @@ import { speakText } from '../utils/speech';
 import confetti from 'canvas-confetti';
 
 export default function MatchingPairs({ pairs, onSubmit, timeLimit = 15 }) {
-  const { playPitchUp, playMatchError, playMatchSuccess } = useAudio();
+  const { playSuccess, playError, playVictory } = useAudio();
   const [selectedLeft, setSelectedLeft] = useState(null);
   const [selectedRight, setSelectedRight] = useState(null);
   const [matchedIds, setMatchedIds] = useState([]);
@@ -34,7 +34,7 @@ export default function MatchingPairs({ pairs, onSubmit, timeLimit = 15 }) {
     setIsBlocked(true);
     if (lId === rId) {
       // Match!
-      playPitchUp(comboLevel);
+      playSuccess();
       setComboLevel(prev => prev + 1);
       triggerHaptic('success');
       setMatchedIds(prev => [...prev, lId]);
@@ -50,7 +50,7 @@ export default function MatchingPairs({ pairs, onSubmit, timeLimit = 15 }) {
       if (matchedIds.length + 1 === leftWords.length) {
         // All matched!
         setTimeout(() => {
-          playMatchSuccess();
+          playVictory();
           triggerHaptic('success_heavy');
           confetti({
             particleCount: 150,
@@ -64,7 +64,7 @@ export default function MatchingPairs({ pairs, onSubmit, timeLimit = 15 }) {
       }
     } else {
       // Error
-      playMatchError();
+      playError();
       triggerHaptic('error');
       setErrorIds({ left: lId, right: rId });
       setComboLevel(0);
@@ -82,32 +82,29 @@ export default function MatchingPairs({ pairs, onSubmit, timeLimit = 15 }) {
   const onLeftClick = (id) => {
     if (isBlocked || matchedIds.includes(id)) return;
     triggerHaptic('light');
-    
     if (selectedLeft === id) {
       setSelectedLeft(null);
-      return;
-    }
-    
-    setSelectedLeft(id);
-    if (selectedRight) {
-      handleMatch(id, selectedRight);
+    } else {
+      setSelectedLeft(id);
     }
   };
 
   const onRightClick = (id) => {
     if (isBlocked || matchedIds.includes(id)) return;
     triggerHaptic('light');
-
     if (selectedRight === id) {
       setSelectedRight(null);
-      return;
-    }
-
-    setSelectedRight(id);
-    if (selectedLeft) {
-      handleMatch(selectedLeft, id);
+    } else {
+      setSelectedRight(id);
     }
   };
+
+  useEffect(() => {
+    if (selectedLeft !== null && selectedRight !== null && !isBlocked) {
+      handleMatch(selectedLeft, selectedRight);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLeft, selectedRight, isBlocked]);
 
   const progressPercent = Math.max(0, (timeLeft / timeLimit) * 100);
 

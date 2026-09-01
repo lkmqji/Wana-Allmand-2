@@ -2499,6 +2499,30 @@ h1, h2, h3, h4 {
   box-shadow: 0 4px 0 rgba(0,0,0,0.2);
   display: flex;
   align-items: center;
+  justify-content: center;
+}
+
+.matching-btn.selected {
+  border-color: var(--primary);
+  background: rgba(99, 102, 241, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 var(--primary-shadow);
+}
+
+.matching-btn.matched {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+  opacity: 0.6;
+  pointer-events: none;
+  transform: scale(0.95);
+  box-shadow: 0 2px 0 var(--success-shadow);
+}
+
+.matching-btn.error {
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
 }
 
 .shake-hard {
