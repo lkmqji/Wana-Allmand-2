@@ -313,3 +313,15 @@ Le 29 août 2026 a marqué une série d'optimisations majeures de performance, d
   - `Profil.jsx` : Carte dédiée « 🎓 Tutoriel d'Apprentissage » permettant de relancer à volonté le tutoriel complet via `resetOnboarding()`.
 - **Auto-Centrage & Smooth Scroll** : `OnboardingContext.jsx` déclenche `scrollIntoView({ behavior: 'smooth', block: 'center' })` avec recalcul en continu (`requestAnimationFrame`) lors de chaque transition d'étape pour garantir que l'élément mis en surbrillance est parfaitement visible et centré.
 - **Game Feel & Audio** : Déclenchement coordonné des effets sonores Web Audio (`playNotification`, `playAlert`, `playVictory`, `playClick`) et vibrations haptiques à chaque transition d'étape.
+
+### 10.5 Mini-Jeu Aléatoire "Matching Pairs" (Course aux Paires)
+- **Concept** : Mini-jeu de rapidité intervenant de manière aléatoire (50% de probabilité) entre deux manches du Duel Classique. Le joueur doit relier 5 paires de mots (Français ➔ Allemand) en moins de 15 secondes.
+- **Mécanique & UI** :
+  - L'arène affiche le composant autonome `MatchingPairs.jsx` en lieu et place du `BattleConsole`.
+  - Le `VirtualKeyboard` est temporairement masqué pour maximiser l'espace.
+  - Le chronomètre principal est suspendu au profit d'une barre de progression locale (15s).
+- **Game Feel & Feedback** :
+  - **Pitch Crescendo** : Le singleton audio `sfxManager` génère un son dont le pitch (fréquence de base) augmente à chaque nouvelle paire validée, renforçant le stress positif (`playPitchUp`).
+  - **Vibrations** : Haptique `success` sur chaque paire, `error` (avec pénalité de blocage de 2s et réinitialisation du combo), et `success_heavy` pour la validation totale.
+  - **Particules** : Émission de Confettis (`canvas-confetti`) lors de la complétion totale.
+- **Logique Serveur** : Intégrée dans `GameManager.js` avec l'événement `submit_matching_pairs` qui récompense instantanément le joueur avec un jackpot massif d'XP (+300) s'il réussit avant la fin du temps imparti, sans pénaliser l'adversaire (résolution en "aveugle").

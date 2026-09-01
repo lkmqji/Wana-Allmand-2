@@ -284,6 +284,38 @@ class SFXManager {
     }
   }
 
+  playPitchUp(enabled = true, comboLevel = 0) {
+    if (!enabled) return;
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+      const startTime = ctx.currentTime;
+      
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      // Base frequency C4, goes up a semitone per comboLevel
+      const C4 = 261.63;
+      const baseFreq = C4 * Math.pow(1.05946, comboLevel * 2); // 2 semitones per combo
+      
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(baseFreq, startTime);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, startTime + 0.1);
+      
+      gain.gain.setValueAtTime(0.001, startTime);
+      gain.gain.linearRampToValueAtTime(0.12, startTime + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.25);
+      
+      osc.connect(gain);
+      gain.connect(this.getDestination() || ctx.destination);
+      
+      osc.start(startTime);
+      osc.stop(startTime + 0.3);
+    } catch (e) {
+      console.debug('SFX PitchUp error:', e);
+    }
+  }
+
   playError(enabled = true) {
     if (!enabled) return;
     try {

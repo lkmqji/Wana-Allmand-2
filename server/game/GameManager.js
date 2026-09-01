@@ -212,7 +212,47 @@ class GameManager {
             return { finished: true };
         }
 
-        return { finished: false, question: session.vocabList[session.currentQuestionIndex] };
+        // 50% chance to trigger matching pairs mini-game if we have at least 5 words in the vocab list
+        if (session.vocabList.length >= 5 && Math.random() < 0.5) {
+            // Pick 5 random words
+            const shuffledVocab = [...session.vocabList].sort(() => 0.5 - Math.random());
+            const selectedPairs = shuffledVocab.slice(0, 5);
+            
+            // Create left and right sides
+            const leftWords = selectedPairs.map(p => ({ id: p.id || p.question, text: p.question }));
+            const rightWords = selectedPairs.map(p => ({ id: p.id || p.question, text: p.answer }));
+            
+            // Shuffle both independently
+            leftWords.sort(() => 0.5 - Math.random());
+            rightWords.sort(() => 0.5 - Math.random());
+            
+            return {
+                finished: false,
+                question_type: 'matching_pairs',
+                pairs: { left: leftWords, right: rightWords }
+            };
+        }
+
+        return { finished: false, question_type: 'classic', question: session.vocabList[session.currentQuestionIndex] };
+    }
+
+    submitMatchingPairs(sessionId, playerId) {
+        const session = this.sessions.get(sessionId);
+        if (!session || session.status !== 'playing') return null;
+
+        session.lastActivity = Date.now();
+        
+        // Jackpot score: +300 points for being the first to finish
+        const jackpotScore = 300;
+        session.players[playerId].score += jackpotScore;
+        session.answersThisRound = Object.keys(session.players).length; // Force allAnswered true so round ends
+
+        return {
+            allAnswered: true,
+            playerScore: session.players[playerId].score,
+            powerUpTarget: null,
+            winnerName: session.players[playerId].name
+        };
     }
 }
 

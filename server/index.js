@@ -1226,6 +1226,16 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('submit_matching_pairs', ({ sessionId }) => {
+        const result = gameManager.submitMatchingPairs(sessionId, socket.id);
+        
+        if (result && result.allAnswered) {
+            const session = gameManager.getSession(sessionId);
+            clearTimeout(session.roundTimer);
+            handleRoundEnd(sessionId);
+        }
+    });
+
     socket.on('use_joker', (sessionId) => {
         const session = gameManager.getSession(sessionId);
         if (session && session.status === 'playing') {

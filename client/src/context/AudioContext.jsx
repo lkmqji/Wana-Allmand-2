@@ -370,6 +370,10 @@ export function AudioProvider({ children }) {
     sfx.playReactionBurst(isSoundEnabledRef.current);
   }, []);
 
+  const playPitchUp = useCallback(() => {
+    sfx.playPitchUp(isSoundEnabledRef.current);
+  }, []);
+
   // SFX Methods - Gameplay & Duel
   const playCountdownTick = useCallback(() => {
     sfx.playCountdownTick(isSoundEnabledRef.current);
