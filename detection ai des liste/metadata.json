@@ -1,0 +1,6 @@
+{
+  "name": "Vocab2LaTeX - Vocabulaire Allemand & Générateur LaTeX",
+  "description": "Analyse n'importe quel fichier (PDF, image, texte, audio, document) pour en extraire le vocabulaire allemand filtré avec articles (der/die/das) et générer le code LaTeX longtable parfait.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
