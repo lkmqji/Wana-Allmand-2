@@ -29,7 +29,8 @@ export const TugOfWarArena = ({
   level = 1,
   user = null,
   onEndMatch = () => {},
-  onBackHome = () => {}
+  onBackHome = () => {},
+  isAdmin = false
 }) => {
   // Normalize provided words list or fallback to default
   const activeWords = useMemo(() => {
@@ -468,7 +469,7 @@ export const TugOfWarArena = ({
                 inputPlaceholder="Traduction en allemand..."
                 inputRef={inputRef}
                 theme="valkyrie"
-                adminAnswer={currentWord?.answer}
+                adminAnswer={isAdmin ? currentWord?.answer : null}
               />
             </div>
           </BattleCard>

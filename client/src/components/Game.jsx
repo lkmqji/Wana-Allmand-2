@@ -103,7 +103,7 @@ const GameTimerBadge = React.memo(function GameTimerBadge({
 });
 
 
-export default function Game({ socket, session, playerName = '', avatar = '🦊', chatMessages = [], setChatMessages }) {
+export default function Game({ socket, session, playerName = '', avatar = '🦊', chatMessages = [], setChatMessages, isAdmin = false }) {
   const {
     playMessageSent,
     playReactionBurst,
@@ -1676,6 +1676,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
                   onSubmit={handleSubmit}
                   isDisabled={hasAnswered || isFrozen || isGameFrozenOrPaused}
                   isError={false} // Handled by BattleCard isShaking
+                  adminAnswer={isAdmin ? session?.vocabList?.[questionIndex]?.answer : null}
                   inputPlaceholder={
                     isActive
                       ? (currentStep === 'TYPE_HUND' ? "Tape 'Hund' sans l'article..." : (currentStep === 'ARTICLE_WARNING' ? "Tape 'der Hund' avec l'article..." : (isFrozen ? "GELÉ..." : "Ex: der Tisch")))

@@ -242,7 +242,8 @@ export default function VengeanceMode({
   avatar = '🔥',
   allLists = [],
   isSurvivalMode = false,
-  modeTitle = 'Mode Vengeance'
+  modeTitle = 'Mode Vengeance',
+  isAdmin = false
 }) {
   const { isSoundEnabled, isGameMusicMuted, toggleGameMusicMute } = useAudio();
   const { playSuccess, playError, playExplosion, playCountdownGo, playTimeWarning } = useSoundEffects();
@@ -1187,6 +1188,7 @@ export default function VengeanceMode({
             isDisabled={isAnswering}
             isError={false} // Handled by BattleCard isShaking
             isCorrectionMode={mustTypeCorrection}
+            adminAnswer={isAdmin ? (currentWord?.word || currentWord?.answer) : null}
             inputPlaceholder={mustTypeCorrection ? "Tape le mot correct :" : "Écris la traduction en allemand..."}
             inputRef={inputRef}
             adminAnswer={currentWord.word}

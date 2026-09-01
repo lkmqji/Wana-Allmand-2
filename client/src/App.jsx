@@ -1150,6 +1150,7 @@ function App() {
             playerName={playerName}
             avatar={avatar}
             user={user}
+            isAdmin={isAdmin}
             onEndMatch={(result) => {
               if (result?.won && user?.uid) {
                 fetch(`${API_URL}/api/leaderboard`)
@@ -1184,6 +1185,7 @@ function App() {
             isSurvivalMode={Boolean(survivalSession)}
             modeTitle={survivalSession?.title || 'Mode Vengeance'}
             user={user}
+            isAdmin={isAdmin}
             onPurify={survivalSession ? null : handlePurifySuccess}
             onBackHome={() => {
               setSurvivalSession(null);
@@ -1211,6 +1213,7 @@ function App() {
             avatar={avatar} 
             chatMessages={chatMessages} 
             setChatMessages={setChatMessages} 
+            isAdmin={isAdmin}
           />
         </div>
       );

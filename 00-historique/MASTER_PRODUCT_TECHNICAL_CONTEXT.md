@@ -338,7 +338,8 @@ Le 29 aoÃ»t 2026 a marquÃ© une sÃ©rie d'optimisations majeures de performance, d
  -   * * F l e x b o x   S h r i n k   I s s u e   ( R é s o l u ) * *   :   L ' a r c h i t e c t u r e   d e   l a   c a r t e   ( B a t t l e C a r d )   e n   m o d e   V e n g e a n c e   e t   T i r   à   l a   C o r d e   s ' é c r a s a i t .   
  -   * * C o r r e c t i f   I n p u t * *   :   \  l e x - s h r i n k :   0 \ ,   \ w h i t e - s p a c e :   n o w r a p \ ,   \ o v e r f l o w :   h i d d e n \   e t   \ 	 e x t - o v e r f l o w :   e l l i p s i s \   a p p l i q u é s   à   l ' i n p u t   e t   s e s   w r a p p e r s   ( \ B a t t l e C o n s o l e . j s x \   e t   \ i n d e x . c s s \ ) . 
  -   * * S t a n d a r d i s a t i o n * *   :   S t a n d a r d i s a t i o n   d u   \ j u s t i f y - c o n t e n t :   s p a c e - b e t w e e n \   s u r   l e s   v u e s   ( V e n g e a n c e M o d e . j s x ,   T u g O f W a r A r e n a . j s x )   e t   r é d u c t i o n   d e s   m a r g e s   d e s   h e a d e r s   p o u r   c o m p a c t e r   l ' U I . 
-  
+ 
+ 
  
 ## Mise à jour (2026-09-01)
 - **BattleConsole** : Ajout d'une fonctionnalité *Admin* via la prop dminAnswer. Un bouton caché (A) permet de remplir l'input avec la bonne réponse (en minuscule) pour les tests et la démo (intégré dans VengeanceMode et TugOfWarArena).
