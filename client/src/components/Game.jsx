@@ -190,6 +190,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     }
   }, [isActive, currentStep, inputRef]);
 
+  const questionTypeRef = useRef('classic');
   const timeRemainingRef = useRef(15);
   const hasAnsweredRef = useRef(hasAnswered);
   const isGameFrozenOrPausedRef = useRef(false);
@@ -325,6 +326,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     const onNewQuestion = (data) => {
       setQuestion(data.question || '');
       setQuestionType(data.question_type || 'classic');
+      questionTypeRef.current = data.question_type || 'classic';
       setMatchingPairs(data.pairs || null);
       setQuestionIndex(data.questionIndex || 0);
       setTotalQuestions(data.totalQuestions);
@@ -370,7 +372,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
         });
       }
 
-      if (result.correctAnswer) {
+      if (result.correctAnswer && questionTypeRef.current !== 'matching_pairs') {
         if (audioTimeoutRef.current) clearTimeout(audioTimeoutRef.current);
         audioTimeoutRef.current = setTimeout(() => playAudio(result.correctAnswer), 500);
       }
@@ -1747,15 +1749,17 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
               style={{ padding: '1rem 0', animation: 'fadeIn 0.5s ease-out', cursor: 'pointer' }}
               onClick={handleReadyForNext}
             >
-              <div style={{ background: 'var(--bg-main)', border: '2px solid var(--border-color)', padding: '1rem', borderRadius: '12px', display: 'inline-block', marginBottom: '1rem', position: 'relative' }}>
-                <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>La bonne réponse était :</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center' }}>
-                  <h2 style={{ fontSize: '2rem', margin: 0, color: 'var(--text-main)' }}>{roundResult.correctAnswer}</h2>
-                  <button onClick={(e) => { e.stopPropagation(); playAudio(roundResult.correctAnswer); }} style={{ background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '1.2rem' }}>
-                    🔊
-                  </button>
+              {questionType !== 'matching_pairs' && (
+                <div style={{ background: 'var(--bg-main)', border: '2px solid var(--border-color)', padding: '1rem', borderRadius: '12px', display: 'inline-block', marginBottom: '1rem', position: 'relative' }}>
+                  <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>La bonne réponse était :</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center' }}>
+                    <h2 style={{ fontSize: '2rem', margin: 0, color: 'var(--text-main)' }}>{roundResult.correctAnswer}</h2>
+                    <button onClick={(e) => { e.stopPropagation(); playAudio(roundResult.correctAnswer); }} style={{ background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '1.2rem' }}>
+                      🔊
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {Object.values(roundResult.players).map(p => {

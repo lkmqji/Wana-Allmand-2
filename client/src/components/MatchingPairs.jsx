@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAudio } from '../context/AudioContext';
 import { triggerHaptic } from '../utils/haptics';
+import { speakText } from '../utils/speech';
 import confetti from 'canvas-confetti';
 
 export default function MatchingPairs({ pairs, onSubmit, timeLimit = 15 }) {
@@ -37,6 +38,11 @@ export default function MatchingPairs({ pairs, onSubmit, timeLimit = 15 }) {
       setComboLevel(prev => prev + 1);
       triggerHaptic('success');
       setMatchedIds(prev => [...prev, lId]);
+      
+      const matchedRightWord = rightWords.find(w => w.id === rId);
+      if (matchedRightWord) {
+        speakText(matchedRightWord.text, 'de-DE');
+      }
       
       setSelectedLeft(null);
       setSelectedRight(null);

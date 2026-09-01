@@ -34,7 +34,17 @@ function getGenAI() {
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Connected to MongoDB'))
+  .then(async () => {
+      console.log('Connected to MongoDB');
+      try {
+          const config = await Config.findOne({ key: 'app_config' });
+          if (config && config.forceMatchingPairs !== undefined) {
+              gameManager.forceMatchingPairs = config.forceMatchingPairs;
+          }
+      } catch (err) {
+          console.error('Error loading config on startup:', err);
+      }
+  })
   .catch(err => console.error('MongoDB connection error:', err));
 
 const app = express();
@@ -81,6 +91,7 @@ app.get('/api/config', async (req, res) => {
             guestMode: config.guestMode ?? true,
             maintenanceMode: config.maintenanceMode ?? false,
             requirePwaInstall: config.requirePwaInstall ?? false,
+            forceMatchingPairs: config.forceMatchingPairs ?? false,
             announcement: config.announcement || ''
         });
     } catch (err) {
@@ -175,11 +186,16 @@ app.post('/api/admin/config', verifyAdmin, async (req, res) => {
             io.emit('admin_announcement', value);
         }
 
+        if (setting === 'forceMatchingPairs') {
+            gameManager.forceMatchingPairs = value;
+        }
+
         // Broadcast real-time config updates (e.g., requirePwaInstall, guestMode, maintenanceMode)
         io.emit('config_updated', {
             guestMode: config.guestMode ?? true,
             maintenanceMode: config.maintenanceMode ?? false,
             requirePwaInstall: config.requirePwaInstall ?? false,
+            forceMatchingPairs: config.forceMatchingPairs ?? false,
             announcement: config.announcement || '',
             [setting]: value
         });

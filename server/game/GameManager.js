@@ -5,6 +5,7 @@ class GameManager {
     constructor() {
         // sessions map: sessionId -> session object
         this.sessions = new Map();
+        this.forceMatchingPairs = false;
 
         // Periodic Garbage Collection sweep for stale/abandoned sessions (every 15 minutes)
         // unref() ensures this background timer does not hold open the Node.js event loop
@@ -212,8 +213,9 @@ class GameManager {
             return { finished: true };
         }
 
-        // 50% chance to trigger matching pairs mini-game if we have at least 5 words in the vocab list
-        if (session.vocabList.length >= 5 && Math.random() < 0.5) {
+        // Probability to trigger matching pairs mini-game if we have at least 5 words in the vocab list
+        const chance = this.forceMatchingPairs ? 1.0 : 0.5;
+        if (session.vocabList.length >= 5 && Math.random() < chance) {
             // Pick 5 random words
             const shuffledVocab = [...session.vocabList].sort(() => 0.5 - Math.random());
             const selectedPairs = shuffledVocab.slice(0, 5);

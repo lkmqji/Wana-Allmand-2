@@ -2503,38 +2503,6 @@ h1, h2, h3, h4 {
   -webkit-tap-highlight-color: transparent;
 }
 
-.matching-btn:active {
-  transform: translateY(4px);
-  box-shadow: 0 0px 0 rgba(0,0,0,0.2);
-}
-
-.matching-btn.selected {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: #3b82f6;
-  color: #60a5fa;
-  transform: translateY(2px);
-  box-shadow: 0 2px 0 rgba(0,0,0,0.2);
-}
-
-.matching-btn.matched {
-  background: rgba(255,255,255,0.05);
-  border-color: transparent;
-  color: rgba(255,255,255,0.2);
-  box-shadow: none;
-  pointer-events: none;
-  transform: translateY(4px);
-}
-
-.matching-btn.error {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: #ef4444;
-  color: #f87171;
-}
-
-@keyframes shake-hard {
-  0% { transform: translate(1px, 1px) rotate(0deg); }
-  10% { transform: translate(-3px, -2px) rotate(-2deg); }
-  20% { transform: translate(-3px, 0px) rotate(2deg); }
   30% { transform: translate(3px, 2px) rotate(0deg); }
   40% { transform: translate(1px, -1px) rotate(2deg); }
   50% { transform: translate(-1px, 2px) rotate(-2deg); }

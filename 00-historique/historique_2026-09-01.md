@@ -21,3 +21,15 @@
 - **Création du composant Frontend** : Développement de AIGeneratorView.jsx, une interface premium pour coller du texte ou déposer un fichier multimédia afin d'extraire et traduire du vocabulaire.
 - **Intégration Frontend** : Modification de Home.jsx pour intégrer directement AIGeneratorView via le bouton 'Génération IA' qui remplace les anciennes boîtes grisées.
 - **Configuration** : Ajout automatique du package @google/genai au serveur et sécurisation de la récupération de la clé via process.env.GEMINI_API_KEY.
+
+## 4. Correction UX Mini-Jeu Course aux Paires
+- **Date et Heure :** 2026-09-01 19:54
+- Ajout de la disparition (via \isibility: hidden\) des paires correctes tout en conservant leur place dans la grille pour Ã©viter de briser la mise en page.
+- IntÃ©gration de la prononciation vocale (\speakText\) pour chaque mot allemand correctement trouvÃ©.
+- RÃ©tablissement de l'animation CSS \shake-hard\ pour produire un tremblement visuel lors d'une erreur d'association.
+- Suppression de l'affichage textuel (bloc 'La bonne rÃ©ponse Ã©tait') et du TTS de fin de manche si le mode de jeu est 'matching_pairs', ne laissant ainsi apparaÃ®tre que l'XP gagnÃ©e.
+
+## 5. Panel Administrateur - Forcer le mode Course aux Paires
+- **Date et Heure :** 2026-09-01 20:00
+- Ajout d'un bouton (Toggle) dans le Panel Super Admin (onglet *SystÃ¨me & RÃ©glages*) permettant de forcer l'apparition du mini-jeu Matching Pairs pour chaque manche (lorsque la liste s'y prÃªte).
+- Modification du \GameManager.js\ cÃ´tÃ© serveur pour respecter la configuration \orceMatchingPairs\ stockÃ©e en BDD.

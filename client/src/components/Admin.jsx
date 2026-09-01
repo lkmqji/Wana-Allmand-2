@@ -10,6 +10,7 @@ export default function Admin({ user, onClose }) {
     guestMode: true,
     maintenanceMode: false,
     requirePwaInstall: false,
+    forceMatchingPairs: false,
     announcement: ""
   });
   const [overview, setOverview] = useState(null);
@@ -78,6 +79,7 @@ export default function Admin({ user, onClose }) {
           guestMode: cfgData.guestMode ?? true,
           maintenanceMode: cfgData.maintenanceMode ?? false,
           requirePwaInstall: cfgData.requirePwaInstall ?? false,
+          forceMatchingPairs: cfgData.forceMatchingPairs ?? false,
           announcement: cfgData.announcement || ""
         });
         setAnnouncementText(cfgData.announcement || "");
@@ -793,6 +795,35 @@ export default function Admin({ user, onClose }) {
                       <span style={{
                         position: "absolute", top: "3px",
                         left: config.requirePwaInstall ? "30px" : "3px",
+                        width: "24px", height: "24px", borderRadius: "50%",
+                        background: "white", transition: "left 0.3s", display: "block"
+                      }} />
+                    </button>
+                  </div>
+
+                  {/* Force Matching Pairs Setting */}
+                  <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1.2rem", border: "1px solid rgba(236,72,153,0.3)", background: "linear-gradient(135deg, rgba(236,72,153,0.06), transparent)" }}>
+                    <div>
+                      <div style={{ fontWeight: "bold", fontSize: "1rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                        <span>🎴</span>
+                        <span>Forcer le mode "Course aux Paires"</span>
+                      </div>
+                      <div style={{ color: "var(--text-muted)", fontSize: "0.85rem", marginTop: "0.2rem" }}>
+                        Si activé, chaque manche déclenchera obligatoirement le mini-jeu (si la liste contient 5 mots ou +).
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => toggleConfig("forceMatchingPairs", config.forceMatchingPairs)}
+                      disabled={saving === "forceMatchingPairs"}
+                      style={{
+                        flexShrink: 0, width: "58px", height: "30px", borderRadius: "15px",
+                        background: config.forceMatchingPairs ? "var(--primary)" : "rgba(255,255,255,0.15)",
+                        border: "none", cursor: "pointer", position: "relative", transition: "background 0.3s"
+                      }}
+                    >
+                      <span style={{
+                        position: "absolute", top: "3px",
+                        left: config.forceMatchingPairs ? "30px" : "3px",
                         width: "24px", height: "24px", borderRadius: "50%",
                         background: "white", transition: "left 0.3s", display: "block"
                       }} />

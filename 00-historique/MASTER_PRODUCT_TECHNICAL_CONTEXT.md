@@ -331,3 +331,5 @@ Le 29 aoÃ»t 2026 a marquÃ© une sÃ©rie d'optimisations majeures de performance, d
 - **Description** : Permet aux utilisateurs d'extraire automatiquement du vocabulaire à partir d'un fichier multimédia (Image, PDF) ou de texte collé, avec des options de filtrage linguistique avancées.
 - **Moteur IA** : Utilise le SDK @google/genai (modèle Gemini 3.6 Flash) pour traiter des prompts dynamiques incluant des instructions système pour configurer le comportement (exclusion des prénoms, ajout des articles der/die/das, etc.).
 - **Intégration** : Remplace les anciens boutons 'Génération IA' et 'Coller du texte' de Home.jsx par un accès direct à cette interface premium.
+
+- **Options d'Administration AvancÃ©es :** Le panel Super Admin permet dÃ©sormais d'activer dynamiquement des rÃ¨gles de gameplay via le paramÃ¨tre \orceMatchingPairs\ enregistrÃ© en MongoDB. Cela force la boucle de jeu Ã  dÃ©clencher ce mini-jeu Ã  100% de probabilitÃ© pour faciliter le debug.
