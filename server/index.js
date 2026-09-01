@@ -2005,12 +2005,20 @@ function sendNextQuestion(sessionId) {
         session.isPaused = false;
         session.pauseReason = null;
 
-        io.to(sessionId).emit('new_question', {
-            question: next.question.question,
+        const payload = {
             questionIndex: session.currentQuestionIndex,
             totalQuestions: session.vocabList.length,
-            duration: session.settings.timePerWord
-        });
+            duration: session.settings.timePerWord,
+            question_type: next.question_type
+        };
+
+        if (next.question_type === 'matching_pairs') {
+            payload.pairs = next.pairs;
+        } else {
+            payload.question = next.question.question;
+        }
+
+        io.to(sessionId).emit('new_question', payload);
 
         // Start timer only if not in tutorial/infinite mode
         if (session.settings.timePerWord < 300 && !session.settings.isTutorial) {

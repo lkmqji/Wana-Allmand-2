@@ -1649,161 +1649,158 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             </div>
           }
         >
-          {questionType === 'matching_pairs' && matchingPairs ? (
-            <MatchingPairs 
-              pairs={matchingPairs} 
-              timeLimit={initialRoundDuration}
-              onSubmit={(success) => {
-                if (hasAnsweredRef.current || isGameFrozenOrPausedRef.current) return;
-                if (!success) return; // Server timer will handle timeout
-                
-                setHasAnswered(true);
-                hasAnsweredRef.current = true;
-                socket.emit('submit_matching_pairs', {
-                  sessionId: sessionRef.current?.id,
-                });
-              }}
-            />
-          ) : (
-            <>
-              <BattleConsole
-                question={question || 'Chargement...'}
-                inputValue={inputVal}
-                onInputChange={setInputVal}
-                onSubmit={handleSubmit}
-                isDisabled={hasAnswered || isFrozen || isGameFrozenOrPaused || !!roundResult}
-                isError={false} // Handled by BattleCard isShaking
-                inputPlaceholder={
-                  isActive
-                    ? (currentStep === 'TYPE_HUND' ? "Tape 'Hund' sans l'article..." : (currentStep === 'ARTICLE_WARNING' ? "Tape 'der Hund' avec l'article..." : (isFrozen ? "GELÉ..." : "Ex: der Tisch")))
-                    : (isFrozen ? "GELÉ..." : "Ex: der Tisch")
-                }
-                inputRef={inputRef}
-                theme="default"
-                topSlot={
-                  <h2 style={{ fontSize: '1rem', color: 'var(--text-muted)', marginBottom: '0.5rem', textAlign: 'center' }}>
-                    Traduisez en allemand :
-                  </h2>
-                }
+          {!roundResult ? (
+            questionType === 'matching_pairs' && matchingPairs ? (
+              <MatchingPairs 
+                pairs={matchingPairs} 
+                timeLimit={initialRoundDuration}
+                onSubmit={(success) => {
+                  if (hasAnsweredRef.current || isGameFrozenOrPausedRef.current) return;
+                  if (!success) return; // Server timer will handle timeout
+                  
+                  setHasAnswered(true);
+                  hasAnsweredRef.current = true;
+                  socket.emit('submit_matching_pairs', {
+                    sessionId: sessionRef.current?.id,
+                  });
+                }}
               />
+            ) : (
+              <div style={{ display: 'block' }}>
+                <BattleConsole
+                  question={question || 'Chargement...'}
+                  inputValue={inputVal}
+                  onInputChange={setInputVal}
+                  onSubmit={handleSubmit}
+                  isDisabled={hasAnswered || isFrozen || isGameFrozenOrPaused}
+                  isError={false} // Handled by BattleCard isShaking
+                  inputPlaceholder={
+                    isActive
+                      ? (currentStep === 'TYPE_HUND' ? "Tape 'Hund' sans l'article..." : (currentStep === 'ARTICLE_WARNING' ? "Tape 'der Hund' avec l'article..." : (isFrozen ? "GELÉ..." : "Ex: der Tisch")))
+                      : (isFrozen ? "GELÉ..." : "Ex: der Tisch")
+                  }
+                  inputRef={inputRef}
+                  theme="default"
+                  topSlot={
+                    <h2 style={{ fontSize: '1rem', color: 'var(--text-muted)', marginBottom: '0.5rem', textAlign: 'center' }}>
+                      Traduisez en allemand :
+                    </h2>
+                  }
+                />
 
-              {!roundResult ? (
-                <div style={{ display: 'block' }}>
-                  {/* Joker Button */}
-                  <div style={{ position: 'relative', display: 'inline-block', marginTop: '1rem' }}>
-                    <button 
-                      onClick={handleUseJoker} 
-                      disabled={jokers <= 0 || hasAnswered || jokerHint || isGameFrozenOrPaused} 
-                      style={{ 
-                        background: 'var(--warning)', 
-                        color: 'white', 
-                        border: 'none',
-                        width: '44px', 
-                        height: '44px', 
-                        borderRadius: '50%',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        cursor: 'pointer',
-                        opacity: (jokers <= 0 || hasAnswered || jokerHint || isGameFrozenOrPaused) ? 0.5 : 1,
-                        boxShadow: '0 4px 10px rgba(245, 158, 11, 0.3)'
-                      }}
-                      title="Utiliser un Joker"
-                    >
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M9 18h6"></path>
-                        <path d="M10 22h4"></path>
-                        <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .34 2.02 1.5 3.5.76.76 1.23 1.52 1.41 2.5"></path>
-                      </svg>
-                    </button>
-                    <span style={{ 
-                      position: 'absolute', 
-                      top: '-5px', 
-                      right: '-5px', 
-                      background: 'var(--danger)', 
-                      color: 'white',
-                      fontSize: '0.75rem', 
-                      fontWeight: 'bold',
-                      width: '20px',
-                      height: '20px',
+                <div style={{ position: 'relative', display: 'inline-block', marginTop: '1rem' }}>
+                  <button 
+                    onClick={handleUseJoker} 
+                    disabled={jokers <= 0 || hasAnswered || jokerHint || isGameFrozenOrPaused} 
+                    style={{ 
+                      background: 'var(--warning)', 
+                      color: 'white', 
+                      border: 'none',
+                      width: '44px', 
+                      height: '44px', 
+                      borderRadius: '50%',
                       display: 'flex',
                       justifyContent: 'center',
                       alignItems: 'center',
-                      borderRadius: '50%',
-                      border: '2px solid var(--bg-main)'
-                    }}>
-                      {jokers}
-                    </span>
-                    {jokerHint && <div style={{ marginTop: '0.75rem', color: 'var(--warning)', fontSize: '1.1rem', fontWeight: 'bold' }}>Indice : {jokerHint}</div>}
-                  </div>
+                      cursor: 'pointer',
+                      opacity: (jokers <= 0 || hasAnswered || jokerHint || isGameFrozenOrPaused) ? 0.5 : 1,
+                      boxShadow: '0 4px 10px rgba(245, 158, 11, 0.3)'
+                    }}
+                    title="Utiliser un Joker"
+                  >
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 18h6"></path>
+                      <path d="M10 22h4"></path>
+                      <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .34 2.02 1.5 3.5.76.76 1.23 1.52 1.41 2.5"></path>
+                    </svg>
+                  </button>
+                  <span style={{ 
+                    position: 'absolute', 
+                    top: '-5px', 
+                    right: '-5px', 
+                    background: 'var(--danger)', 
+                    color: 'white',
+                    fontSize: '0.75rem', 
+                    fontWeight: 'bold',
+                    width: '20px',
+                    height: '20px',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    borderRadius: '50%',
+                    border: '2px solid var(--bg-main)'
+                  }}>
+                    {jokers}
+                  </span>
+                  {jokerHint && <div style={{ marginTop: '0.75rem', color: 'var(--warning)', fontSize: '1.1rem', fontWeight: 'bold' }}>Indice : {jokerHint}</div>}
+                </div>
 
-                  {isFrozen && (
-                    <div style={{ background: 'rgba(56, 189, 248, 0.2)', color: 'var(--text-main)', padding: '0.75rem', borderRadius: '8px', marginTop: '1rem', border: '1px solid #38bdf8', fontSize: '0.9rem' }}>
-                      🥶 <strong>GELÉ !</strong> L'adversaire a répondu juste 3 fois de suite !
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div 
-                  style={{ padding: '1rem 0', animation: 'fadeIn 0.5s ease-out', cursor: 'pointer' }}
-                  onClick={handleReadyForNext}
-                >
-                  <div style={{ background: 'var(--bg-main)', border: '2px solid var(--border-color)', padding: '1rem', borderRadius: '12px', display: 'inline-block', marginBottom: '1rem', position: 'relative' }}>
-                    <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>La bonne réponse était :</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center' }}>
-                      <h2 style={{ fontSize: '2rem', margin: 0, color: 'var(--text-main)' }}>{roundResult.correctAnswer}</h2>
-                      <button onClick={(e) => { e.stopPropagation(); playAudio(roundResult.correctAnswer); }} style={{ background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '1.2rem' }}>
-                        🔊
-                      </button>
-                    </div>
+                {isFrozen && (
+                  <div style={{ background: 'rgba(56, 189, 248, 0.2)', color: 'var(--text-main)', padding: '0.75rem', borderRadius: '8px', marginTop: '1rem', border: '1px solid #38bdf8', fontSize: '0.9rem' }}>
+                    🥶 <strong>GELÉ !</strong> L'adversaire a répondu juste 3 fois de suite !
                   </div>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {Object.values(roundResult.players).map(p => {
-                      const playerAns = p.answers[questionIndex];
-                      const isCorrect = playerAns?.score >= 100;
-                      return (
-                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-surface-hover)', borderRadius: '12px', border: '2px solid var(--border-color)', alignItems: 'center' }}>
-                          <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{formatPlayerName(p.name)}</span>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                              <span style={{ fontWeight: 'bold' }}>
-                                {renderDiff(roundResult.correctAnswer, playerAns?.answer, isCorrect, playerAns?.isTypo)}
-                              </span>
-                              {playerAns && (
-                                <span style={{ fontSize: '1rem', color: 'var(--warning)', fontWeight: 'bold' }}>
-                                  +{playerAns.score} pts
-                                </span>
-                              )}
-                            </div>
-                            {playerAns?.isTypo && (
-                              <div style={{ fontSize: '0.8rem', color: 'var(--warning)', marginTop: '2px' }}>Faute de frappe tolérée</div>
-                            )}
-                          </div>
+                )}
+              </div>
+            )
+          ) : (
+            <div 
+              style={{ padding: '1rem 0', animation: 'fadeIn 0.5s ease-out', cursor: 'pointer' }}
+              onClick={handleReadyForNext}
+            >
+              <div style={{ background: 'var(--bg-main)', border: '2px solid var(--border-color)', padding: '1rem', borderRadius: '12px', display: 'inline-block', marginBottom: '1rem', position: 'relative' }}>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>La bonne réponse était :</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center' }}>
+                  <h2 style={{ fontSize: '2rem', margin: 0, color: 'var(--text-main)' }}>{roundResult.correctAnswer}</h2>
+                  <button onClick={(e) => { e.stopPropagation(); playAudio(roundResult.correctAnswer); }} style={{ background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '1.2rem' }}>
+                    🔊
+                  </button>
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {Object.values(roundResult.players).map(p => {
+                  const playerAns = p.answers[questionIndex];
+                  const isCorrect = playerAns?.score >= 100;
+                  return (
+                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-surface-hover)', borderRadius: '12px', border: '2px solid var(--border-color)', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{formatPlayerName(p.name)}</span>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                          <span style={{ fontWeight: 'bold' }}>
+                            {renderDiff(roundResult.correctAnswer, playerAns?.answer, isCorrect, playerAns?.isTypo)}
+                          </span>
+                          {playerAns && (
+                            <span style={{ fontSize: '1rem', color: 'var(--warning)', fontWeight: 'bold' }}>
+                              +{playerAns.score} pts
+                            </span>
+                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-                  
-                  {/* Tap anywhere to continue */}
-                  <div style={{ marginTop: '1.5rem' }}>
-                    {iAmReady ? (
-                      readyCount.total > 1 ? (
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                          ⏳ En attente de l'adversaire... ({readyCount.ready}/{readyCount.total})
-                        </p>
-                      ) : (
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>⏳</p>
-                      )
-                    ) : (
-                      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', opacity: 0.7 }}>
-                        Appuyez sur Entrée ou touchez l'écran
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </>
+                        {playerAns?.isTypo && (
+                          <div style={{ fontSize: '0.8rem', color: 'var(--warning)', marginTop: '2px' }}>Faute de frappe tolérée</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              {/* Tap anywhere to continue */}
+              <div style={{ marginTop: '1.5rem' }}>
+                {iAmReady ? (
+                  readyCount.total > 1 ? (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                      ⏳ En attente de l'adversaire... ({readyCount.ready}/{readyCount.total})
+                    </p>
+                  ) : (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>⏳</p>
+                  )
+                ) : (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', opacity: 0.7 }}>
+                    Appuyez sur Entrée ou touchez l'écran
+                  </p>
+                )}
+              </div>
+            </div>
           )}
         </BattleCard>
       </div>
