@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { exampleLists, getAllDefaultWords } from '../data/exampleLists';
 import { formatPlayerName, extractEmoji, generateBurstParticles } from '../utils/formatters';
 import { useSoundEffects } from '../context/AudioContext';
@@ -140,16 +140,9 @@ export default function Lobby({
     setRoundsInput(String(settings.rounds || words.length));
   }, [settings.rounds, words.length]);
 
-  // Request online users & public lists on lobby mount
+  // Request online users on lobby mount
   useEffect(() => {
     socket.emit('get_online_users');
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-    fetch(`${API_URL}/api/lists/public`)
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) setPublicLists(data);
-      })
-      .catch(console.error);
   }, [socket]);
 
   // Fetch public community lists when modal opens
@@ -168,12 +161,17 @@ export default function Lobby({
   }, [showCommunityPicker]);
 
   // Calculate full vocabulary pool available across current session, example chapters & community lists
-  const totalAvailablePool = getAllDefaultWords([
-    { words: session?.vocabList || [] },
-    { words: words || [] },
-    ...publicLists
-  ]);
-  const maxAvailableWordsCount = Math.max(words.length, totalAvailablePool.length);
+  const totalAvailablePool = useMemo(() => {
+    return getAllDefaultWords([
+      { words: session?.vocabList || [] },
+      { words: words || [] },
+      ...publicLists
+    ]);
+  }, [session?.vocabList, words, publicLists]);
+  
+  const maxAvailableWordsCount = useMemo(() => {
+    return Math.max(words.length, totalAvailablePool.length);
+  }, [words.length, totalAvailablePool.length]);
 
   // Floating reactions burst state & 5s cooldown
   const [floatingReactions, setFloatingReactions] = useState([]);

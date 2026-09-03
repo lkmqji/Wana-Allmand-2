@@ -348,3 +348,5 @@ Le 29 août 2026 a marqué une série d'optimisations majeures de performance, d
 - **Optimisation des Performances Serveur & BDD** : Remplacement des requêtes massives User.find().reduce() par des agrégations MongoDB native ($group) pour éviter la saturation RAM (OOM) et les blocages de l'Event Loop (Lag > 100ms). Ajout de la pagination (skip/limit) sur l'overview admin. Refonte de la récupération des notifications : suppression du $or combiné au tri (blocking sort MongoDB) au profit de deux requêtes Promise.all parallèles fusionnées et triées en mémoire vive côté serveur.
 
 - **Correctif Déploiement (2026-09-03)** : Correction d'une erreur de syntaxe (ES Modules vs CommonJS) dans server/utils/exampleLists.js qui faisait crasher le déploiement sur Render (remplacement de export const par module.exports).
+
+- **Lobby.jsx** : Optimisation des performances via l'utilisation de useMemo pour la fusion des mots par d�faut et la suppression des doubles requ�tes r�seau � l'initialisation du composant.

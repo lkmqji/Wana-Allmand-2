@@ -9,3 +9,7 @@
 - **[09:37]** Correction d'un bug majeur où le bouton "DUEL RAPIDE SOLO" ne réagissait plus (blocage silencieux complet) :
   - **Serveur (`server/index.js`)** : Ajout d'une vérification `mongoose.connection.readyState === 1` pour empêcher Mongoose de bloquer indéfiniment la requête de lobby aléatoire si MongoDB est injoignable.
   - **Client (`client/src/components/Home.jsx`)** : Ajout d'un timeout de 3 secondes lors de la création d'une session (`socket.connect()`) pour afficher un message d'alerte explicite si le serveur principal est hors ligne.
+
+### 03/09/2026 10:50 - Optimisation de performance du composant Lobby
+- Utilisation de useMemo dans Lobby.jsx pour �viter les calculs intensifs sur getAllDefaultWords � chaque rendu.
+- Suppression d'un fetch r�seau redondant de publicLists lors de l'initialisation du Lobby qui encombrait inutilement la bande passante et le chargement initial.
