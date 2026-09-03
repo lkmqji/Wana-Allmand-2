@@ -6,3 +6,6 @@
   - Ajout d'une pagination (`skip`, `limit`) sur la route administrateur des utilisateurs.
   - Optimisation de la requête des notifications : remplacement d'une clause `$or` effectuant un tri bloquant en mémoire, par l'exécution de deux requêtes parallèles via `Promise.all` fusionnées et triées de manière optimisée côté Node.js.
 - **[09:21]** Correction d'un bug de syntaxe ES Modules (export const) bloquant le dploiement Render dans server/utils/exampleLists.js. Remplacement par une exportation CommonJS (module.exports).
+- **[09:37]** Correction d'un bug majeur où le bouton "DUEL RAPIDE SOLO" ne réagissait plus (blocage silencieux complet) :
+  - **Serveur (`server/index.js`)** : Ajout d'une vérification `mongoose.connection.readyState === 1` pour empêcher Mongoose de bloquer indéfiniment la requête de lobby aléatoire si MongoDB est injoignable.
+  - **Client (`client/src/components/Home.jsx`)** : Ajout d'un timeout de 3 secondes lors de la création d'une session (`socket.connect()`) pour afficher un message d'alerte explicite si le serveur principal est hors ligne.

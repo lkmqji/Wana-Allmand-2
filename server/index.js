@@ -1172,8 +1172,11 @@ io.on('connection', (socket) => {
         
         if (mode === 'random_duel') {
             try {
-                // Fetch public lists from DB
-                const publicLists = await List.find({ isPublic: true }, 'words').lean();
+                // Fetch public lists from DB only if connected to avoid hanging
+                let publicLists = [];
+                if (mongoose.connection.readyState === 1) {
+                    publicLists = await List.find({ isPublic: true }, 'words').lean();
+                }
                 const allWords = [];
                 // Add example lists
                 exampleLists.forEach(list => allWords.push(...(list.words || [])));

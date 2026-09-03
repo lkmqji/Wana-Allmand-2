@@ -531,7 +531,14 @@ export default function Home({
 
     if (socket && !socket.connected) {
       socket.connect();
-      socket.once('connect', emitCreate);
+      const connectTimeout = setTimeout(() => {
+        socket.off('connect', emitCreate);
+        alert("Serveur hors ligne. Impossible de se connecter.");
+      }, 3000);
+      socket.once('connect', () => {
+        clearTimeout(connectTimeout);
+        emitCreate();
+      });
     } else if (socket) {
       emitCreate();
     }
