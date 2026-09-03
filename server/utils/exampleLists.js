@@ -185,7 +185,7 @@ const exampleLists = [
   }
 ];
 
-export const getAllDefaultWords = (additionalLists = []) => {
+const getAllDefaultWords = (additionalLists = []) => {
   const pool = [];
   const seen = new Set();
 
@@ -217,4 +217,4 @@ export const getAllDefaultWords = (additionalLists = []) => {
   return pool;
 };
 
-module.exports = { exampleLists };
+module.exports = { exampleLists, getAllDefaultWords };

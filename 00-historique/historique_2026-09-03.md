@@ -5,3 +5,4 @@
   - Remplacement de `.find().reduce()` par le pipeline d'agrégation MongoDB natif (`$group`) pour calculer les statistiques sans charger les utilisateurs en mémoire.
   - Ajout d'une pagination (`skip`, `limit`) sur la route administrateur des utilisateurs.
   - Optimisation de la requête des notifications : remplacement d'une clause `$or` effectuant un tri bloquant en mémoire, par l'exécution de deux requêtes parallèles via `Promise.all` fusionnées et triées de manière optimisée côté Node.js.
+- **[09:21]** Correction d'un bug de syntaxe ES Modules (export const) bloquant le dploiement Render dans server/utils/exampleLists.js. Remplacement par une exportation CommonJS (module.exports).
