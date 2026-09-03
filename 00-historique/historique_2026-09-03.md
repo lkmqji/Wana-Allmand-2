@@ -13,3 +13,7 @@
 ### 03/09/2026 10:50 - Optimisation de performance du composant Lobby
 - Utilisation de useMemo dans Lobby.jsx pour éviter les calculs intensifs sur getAllDefaultWords à chaque rendu.
 - Suppression d'un fetch réseau redondant de publicLists lors de l'initialisation du Lobby qui encombrait inutilement la bande passante et le chargement initial.
+
+### 03/09/2026 10:56 - Correction du problème de serveur hors ligne sur cold-start
+- Suppression du timeout (délai) strict de 3 secondes dans \handlePlaySolo\ et ajout de la gestion de reconnexion dans \handleJoin\ (\Home.jsx\).
+- Ces méthodes attendent désormais indéfiniment l'événement \connect\ si le socket n'est pas connecté, ce qui résout le problème de l'erreur 'Serveur hors ligne' lorsque le backend (Render/etc) est en veille et met 30 à 60s pour se rallumer.

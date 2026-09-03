@@ -350,3 +350,5 @@ Le 29 aoÃ»t 2026 a marquÃ© une sÃ©rie d'optimisations majeures de performance, d
 - **Correctif DÃ©ploiement (2026-09-03)** : Correction d'une erreur de syntaxe (ES Modules vs CommonJS) dans server/utils/exampleLists.js qui faisait crasher le dÃ©ploiement sur Render (remplacement de export const par module.exports).
 
 - **Lobby.jsx** : Optimisation des performances via l'utilisation de useMemo pour la fusion des mots par défaut et la suppression des doubles requêtes réseau à l'initialisation du composant.
+
+- **Home.jsx / Connexion Socket** : Suppression du timeout de 3s dans \handlePlaySolo\ et ajout de la gestion asynchrone \socket.once('connect')\ dans \handleJoin\ pour permettre au frontend d'attendre sereinement le réveil (cold start) du backend sans lever d'erreur 'Serveur hors ligne'.

@@ -497,13 +497,22 @@ export default function Home({
     e.preventDefault();
     if (joinCode.length === 4) {
       const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Invité`;
-      socket.emit('join_session', {
-        sessionId: joinCode.toUpperCase(),
-        playerName: finalName,
-        firebaseId: user?.uid,
-        avatar,
-        clientPlayerKey: getClientPlayerKey()
-      });
+      const emitJoin = () => {
+        socket.emit('join_session', {
+          sessionId: joinCode.toUpperCase(),
+          playerName: finalName,
+          firebaseId: user?.uid,
+          avatar,
+          clientPlayerKey: getClientPlayerKey()
+        });
+      };
+      
+      if (socket && !socket.connected) {
+        socket.connect();
+        socket.once('connect', emitJoin);
+      } else if (socket) {
+        emitJoin();
+      }
     }
   };
 
@@ -531,14 +540,7 @@ export default function Home({
 
     if (socket && !socket.connected) {
       socket.connect();
-      const connectTimeout = setTimeout(() => {
-        socket.off('connect', emitCreate);
-        alert("Serveur hors ligne. Impossible de se connecter.");
-      }, 3000);
-      socket.once('connect', () => {
-        clearTimeout(connectTimeout);
-        emitCreate();
-      });
+      socket.once('connect', emitCreate);
     } else if (socket) {
       emitCreate();
     }
