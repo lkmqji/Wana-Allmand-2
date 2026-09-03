@@ -324,26 +324,25 @@ Le 29 ao√ªt 2026 a marqu√© une s√©rie d'optimisations majeures de performance, d
   - **Pitch Crescendo** : Le singleton audio `sfxManager` g√©n√®re un son dont le pitch (fr√©quence de base) augmente √† chaque nouvelle paire valid√©e, renfor√ßant le stress positif (`playPitchUp`).
   - **Vibrations** : Haptique `success` sur chaque paire, `error` (avec p√©nalit√© de blocage de 2s et r√©initialisation du combo), et `success_heavy` pour la validation totale.
   - **Particules** : √âmission de Confettis (`canvas-confetti`) lors de la compl√©tion totale.
-- **Logique Serveur** : Int√©gr√©e dans `GameManager.js` avec l'√©v√©nement `submit_matching_pairs` qui r√©compense instantan√©ment le joueur avec un jackpot massif d'XP (+300) s'il r√©ussit avant la fin du temps imparti, sans p√©naliser l'adversaire (r√©solution en "aveugle").
+  - **CSS & UI** : Utilisation des classes `.selected`, `.matched`, et `.error` pour un retour visuel robuste, avec r√©solution des race conditions via `useEffect`.
+- **Logique Serveur** : Int√©gr√©e dans `GameManager.js` avec l'√©v√©nement `submit_matching_pairs` qui r√©compense instantan√©ment le joueur avec un jackpot d'XP (+300).
 
-## 10.6. GÈnÈration IA (AIGeneratorView)
-- **Localisation** : client/src/components/AIGeneratorView.jsx et server/index.js (route /api/extract).
-- **Description** : Permet aux utilisateurs d'extraire automatiquement du vocabulaire ‡ partir d'un fichier multimÈdia (Image, PDF) ou de texte collÈ, avec des options de filtrage linguistique avancÈes.
-- **Moteur IA** : Utilise le SDK @google/genai (modËle Gemini 3.6 Flash) pour traiter des prompts dynamiques incluant des instructions systËme pour configurer le comportement (exclusion des prÈnoms, ajout des articles der/die/das, etc.).
-- **IntÈgration** : Remplace les anciens boutons 'GÈnÈration IA' et 'Coller du texte' de Home.jsx par un accËs direct ‡ cette interface premium.
+### 10.6 G√©n√©ration IA (AIGeneratorView)
+- **Localisation** : `client/src/components/AIGeneratorView.jsx` et `server/index.js` (route `/api/extract`).
+- **Description** : Permet aux utilisateurs d'extraire automatiquement du vocabulaire √† partir d'un fichier multim√©dia (Image, PDF) ou de texte coll√©, avec des options de filtrage linguistique avanc√©es.
+- **Moteur IA** : Utilise le SDK `@google/genai` (mod√®le Gemini 3.6 Flash) pour traiter des prompts dynamiques incluant des instructions syst√®me pour configurer le comportement (exclusion des pr√©noms, ajout des articles der/die/das, etc.).
+- **Int√©gration** : Remplace les anciens boutons 'G√©n√©ration IA' et 'Coller du texte' de `Home.jsx` par un acc√®s direct √† cette interface premium.
 
-- **Options d'Administration Avanc√©es :** Le panel Super Admin permet d√©sormais d'activer dynamiquement des r√®gles de gameplay via le param√®tre \orceMatchingPairs\ enregistr√© en MongoDB. Cela force la boucle de jeu √† d√©clencher ce mini-jeu √† 100% de probabilit√© pour faciliter le debug.
+### 10.7 Layout & CSS 60/40 (Mobile)
+- **Architecture de la carte (BattleCard)** : Standardisation du `justify-content: space-between` sur les vues (VengeanceMode.jsx, TugOfWarArena.jsx) et r√©duction des marges des headers pour compacter l'UI.
+- **Protection Anti-√âcrasement (Input)** : `flex-shrink: 0`, `white-space: nowrap`, `overflow: hidden` et `text-overflow: ellipsis` appliqu√©s √† l'input et ses wrappers (`BattleConsole.jsx` et `index.css`) pour prot√©ger le champ de saisie contre l'√©crasement sur les petits √©crans.
 
- # #   1 0 . 7 .   L a y o u t   &   C S S   6 0 / 4 0   ( M o b i l e ) 
- -   * * F l e x b o x   S h r i n k   I s s u e   ( R È s o l u ) * *   :   L ' a r c h i t e c t u r e   d e   l a   c a r t e   ( B a t t l e C a r d )   e n   m o d e   V e n g e a n c e   e t   T i r   ‡   l a   C o r d e   s ' È c r a s a i t .   
- -   * * C o r r e c t i f   I n p u t * *   :   \  l e x - s h r i n k :   0 \ ,   \ w h i t e - s p a c e :   n o w r a p \ ,   \ o v e r f l o w :   h i d d e n \   e t   \ 	 e x t - o v e r f l o w :   e l l i p s i s \   a p p l i q u È s   ‡   l ' i n p u t   e t   s e s   w r a p p e r s   ( \ B a t t l e C o n s o l e . j s x \   e t   \ i n d e x . c s s \ ) . 
- -   * * S t a n d a r d i s a t i o n * *   :   S t a n d a r d i s a t i o n   d u   \ j u s t i f y - c o n t e n t :   s p a c e - b e t w e e n \   s u r   l e s   v u e s   ( V e n g e a n c e M o d e . j s x ,   T u g O f W a r A r e n a . j s x )   e t   r È d u c t i o n   d e s   m a r g e s   d e s   h e a d e r s   p o u r   c o m p a c t e r   l ' U I . 
- 
- 
- 
-## Mise ‡ jour (2026-09-01)
-- **BattleConsole** : Ajout d'une fonctionnalitÈ *Admin* via la prop dminAnswer. Un bouton cachÈ (A) permet de remplir l'input avec la bonne rÈponse (en minuscule) pour les tests et la dÈmo (intÈgrÈ dans VengeanceMode et TugOfWarArena).
-- Correction CSS: RÈsolution d'une erreur de syntaxe dans index.css (rÈtablissement de la directive @keyframes pour shake-hard) qui bloquait le processus de build (2026-09-01).
+### 10.8 Fonctionnalit√©s d'Administration Avanc√©es
+- **Auto-remplissage (Admin Answer)** : Dans `BattleConsole.jsx`, une prop `adminAnswer` est transmise depuis `Game.jsx`, `VengeanceMode.jsx`, et `TugOfWarArena.jsx` pour les administrateurs. Un bouton discret 'A' permet de remplir automatiquement l'input avec la bonne r√©ponse pour faciliter le debug et les d√©monstrations.
+- **For√ßage du Mini-Jeu** : Le panel Super Admin permet de forcer dynamiquement l'apparition du mini-jeu Matching Pairs pour chaque manche via le param√®tre `forceMatchingPairs` enregistr√© en MongoDB.
 
-## Mise √† jour (01 Sept 2026)
-- **Composants & Logique UI :** Le composant `MatchingPairs.jsx` d√©pend imp√©rativement des classes CSS `.selected`, `.matched` et `.error` dans `index.css` pour fournir un retour visuel aux joueurs lors de la s√©lection. Sans elles, l'interface semble inactive.
+
+## Mise ‡ jour (2026-09-03)
+- **Optimisation de la crÈation de Lobby (Duel Rapide Solo)** : Modification de l'architecture pour dÈplacer la logique de sÈlection alÈatoire des mots vers le backend (server/index.js). Le client n'envoie plus la totalitÈ des mots concatÈnÈs via Websocket, mais utilise un flag `mode: 'random_duel'`. Le serveur rÈcupËre les listes publiques de MongoDB, les combine avec exampleLists.js (copiÈ cÙtÈ serveur), les mÈlange, et sÈlectionne au maximum 50 mots pour la session. Cela Èlimine les gels de l'interface (UI freeze) et les dÈlais de Websocket.
+
+- **Optimisation des Performances Serveur & BDD** : Remplacement des requ√™tes massives User.find().reduce() par des agr√©gations MongoDB native ($group) pour √©viter la saturation RAM (OOM) et les blocages de l'Event Loop (Lag > 100ms). Ajout de la pagination (skip/limit) sur l'overview admin. Refonte de la r√©cup√©ration des notifications : suppression du $or combin√© au tri (blocking sort MongoDB) au profit de deux requ√™tes Promise.all parall√®les fusionn√©es et tri√©es en m√©moire vive c√¥t√© serveur.

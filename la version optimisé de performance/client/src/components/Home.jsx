@@ -7,9 +7,6 @@ import Profil from './Profil';
 import ListPreviewModal from './ListPreviewModal';
 import PlayDropdown from './PlayDropdown';
 import UserProfileModal from './UserProfileModal';
-import AIGeneratorView from './AIGeneratorView';
-import { useSpotlightTarget } from '../hooks/useSpotlightTarget';
-import { useOnboarding } from '../context/OnboardingContext';
 
 const listsCache = {
   public: null,
@@ -52,13 +49,7 @@ export default function Home({
   onEditFailedWord,
   onClearAllFailedWords
 }) {
-  const duelSpotlightRef = useSpotlightTarget('STEP_DUEL');
-  const specialModesSpotlightRef = useSpotlightTarget('STEP_SPECIAL_MODES');
-  const listsSpotlightRef = useSpotlightTarget('STEP_LISTS');
-  const vengeanceSpotlightRef = useSpotlightTarget('STEP_VENGEANCE');
-  const soloSpotlightRef = useSpotlightTarget(['STEP_SOLO', 'INTRO']);
   const [listSubTab, setListSubTab] = useState('my_lists'); // 'my_lists' | 'failed_words'
-  const [showAIGenerator, setShowAIGenerator] = useState(false);
   const [showMistakesModal, setShowMistakesModal] = useState(false);
   const [previewList, setPreviewList] = useState(null);
   const [selectedProfileUser, setSelectedProfileUser] = useState(null);
@@ -100,7 +91,7 @@ export default function Home({
     return title.includes(q) || desc.includes(q) || hasWordMatch;
   });
 
-  const handleStartDirectSession = (wordList, customSettings = {}) => {
+  const handleStartDirectSession = (wordList) => {
     const validWords = (wordList || []).map(w => {
       const q = (w.question || w.frenchPrompt || w.french || '').trim();
       const a = (w.answer || w.germanWord || w.german || w.word || '').trim();
@@ -109,31 +100,19 @@ export default function Home({
 
     if (validWords.length === 0) return alert("Aucun mot valide dans cette liste !");
 
-    const isTutorial = isActive && currentStep === 'INTRO';
-
-    const emitCreate = () => {
-      const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Hôte`;
-      socket.emit('create_session', {
-        vocabList: validWords.map((w, idx) => ({ ...w, id: idx + 1 })),
-        settings: { 
-          rounds: validWords.length, 
-          timePerWord: isTutorial ? 999 : (customSettings.timePerWord || 15), 
-          powerupsEnabled: false,
-          ...customSettings
-        },
-        playerName: finalName,
-        firebaseId: user?.uid,
-        avatar,
-        clientPlayerKey: getClientPlayerKey()
-      });
-    };
-
     if (socket && !socket.connected) {
       socket.connect();
-      socket.once('connect', emitCreate);
-    } else if (socket) {
-      emitCreate();
     }
+
+    const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Hôte`;
+    socket.emit('create_session', {
+      vocabList: validWords.map((w, idx) => ({ ...w, id: idx + 1 })),
+      settings: { rounds: validWords.length, timePerWord: 15, powerupsEnabled: false },
+      playerName: finalName,
+      firebaseId: user?.uid,
+      avatar,
+      clientPlayerKey: getClientPlayerKey()
+    });
   };
 
   const toggleAutoSave = () => {
@@ -507,58 +486,31 @@ export default function Home({
     }
   };
 
-  const { isActive, currentStep, nextStep } = useOnboarding();
-
   const handlePlaySolo = () => {
-    if (isActive && (currentStep === 'STEP_SOLO' || currentStep === 'INTRO')) {
-      const tutorialWord = [{ id: 999, question: 'le chien', answer: 'der Hund' }];
-      handleStartDirectSession(tutorialWord);
-      // We don't advance the step here, we let the Game component advance it so the spotlight transitions correctly
+    const allWords = [];
+    exampleLists.forEach(list => allWords.push(...list.words));
+    publicLists.forEach(list => allWords.push(...list.words));
+    
+    if (allWords.length === 0) {
+      alert("Aucun mot disponible !");
       return;
     }
 
-    const emitCreate = () => {
-      const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Hôte`;
-      socket.emit('create_session', {
-        mode: 'random_duel',
-        settings: { timePerWord: 15, powerupsEnabled: false },
-        playerName: finalName,
-        firebaseId: user?.uid,
-        avatar,
-        clientPlayerKey: getClientPlayerKey()
-      });
-    };
-
-    if (socket && !socket.connected) {
-      socket.connect();
-      socket.once('connect', emitCreate);
-    } else if (socket) {
-      emitCreate();
-    }
+    const shuffled = allWords.sort(() => 0.5 - Math.random());
+    const count = Math.max(1, Math.min(parseInt(soloWordCount) || 10, allWords.length));
+    const selectedWords = shuffled.slice(0, count).map((w, idx) => ({ ...w, id: idx + 1 }));
+    
+    handleStartDirectSession(selectedWords);
   };
 
   return (
     <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       
-      {showAIGenerator ? (
-        <AIGeneratorView 
-          onBack={() => setShowAIGenerator(false)}
-          onSessionReady={async (vocabList, detectedInfo) => {
-             setShowAIGenerator(false);
-             if (autoSaveEnabled && user) {
-               await saveList(vocabList, `Extraction IA - ${detectedInfo?.detectedLanguage || new Date().toLocaleDateString()}`);
-             }
-             handleStartDirectSession(vocabList);
-          }}
-        />
-      ) : (
-        <>
-          {/* ------------------- LEARN TAB ------------------- */}
-          {activeTab === 'learn' && (
+      {/* ------------------- LEARN TAB ------------------- */}
+      {activeTab === 'learn' && (
         <>
           {/* TÂCHE 1 : Point d'entrée UI - Mur de la Vengeance */}
           <div 
-            ref={vengeanceSpotlightRef}
             className={`vengeance-entry-card ${failedWords.length > 0 ? 'active' : 'disabled'}`}
             onClick={() => {
               if (failedWords.length > 0 && onStartVengeance) {
@@ -623,7 +575,7 @@ export default function Home({
             )}
           </div>
 
-          <div ref={duelSpotlightRef} className="card card-arena" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', background: 'linear-gradient(to bottom right, var(--bg-surface), rgba(99, 102, 241, 0.1))' }}>
+          <div className="card card-arena" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', background: 'linear-gradient(to bottom right, var(--bg-surface), rgba(99, 102, 241, 0.1))' }}>
             <h2 className="brand-logo-shine" style={{ fontSize: '2.4rem', marginBottom: '0.4rem', letterSpacing: '-0.5px' }}>
               WANA ALLMAND
             </h2>
@@ -652,7 +604,6 @@ export default function Home({
 
             <div style={{ width: '100%', maxWidth: '300px', marginTop: '1rem', borderTop: '2px dashed rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
               <button 
-                ref={soloSpotlightRef}
                 type="button"
                 className="btn btn-success" 
                 onClick={handlePlaySolo} 
@@ -668,15 +619,15 @@ export default function Home({
                   cursor: 'pointer'
                 }}
               >
-                ⚔️ DUEL RAPIDE SOLO
+                ➕ CRÉER LOBBY
               </button>
             </div>
           </div>
 
-          <div ref={specialModesSpotlightRef} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <h3 style={{ fontSize: '1.2rem', margin: '1rem 0 0 0' }}>Créer une nouvelle session</h3>
             
-            {/* 2 big boxes (instead of 3 since AI handles both text and files now) */}
+            {/* 3 big boxes */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
 
               {/* BOX 1 : Écrire tes mots + Importer PDF */}
@@ -696,32 +647,29 @@ export default function Home({
                   onMouseOut={e => e.currentTarget.style.borderColor='var(--border-color)'}
                 >
                   <span style={{ fontSize: '1.3rem' }}>📤</span>
-                  <span style={{ fontWeight: 'bold' }}>{isUploading ? 'Analyse...' : 'Importer un PDF classique'}</span>
+                  <span style={{ fontWeight: 'bold' }}>{isUploading ? 'Analyse...' : 'Importer un PDF'}</span>
                   <input type="file" accept=".pdf" style={{ display: 'none' }} onChange={handleUpload} disabled={isUploading} />
                 </label>
               </div>
 
-              {/* BOX 2 : Générateur IA Complet */}
-              <div 
-                className="card" 
-                style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1))', border: '2px solid transparent', transition: 'all 0.2s' }}
-                onClick={() => setShowAIGenerator(true)}
-                onMouseOver={e => {
-                   e.currentTarget.style.borderColor = '#a855f7';
-                   e.currentTarget.style.boxShadow = '0 0 15px rgba(168, 85, 247, 0.3)';
-                }}
-                onMouseOut={e => {
-                   e.currentTarget.style.borderColor = 'transparent';
-                   e.currentTarget.style.boxShadow = 'none';
-                }}
-              >
-                <span style={{ fontSize: '3rem', marginBottom: '1rem', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' }}>✨</span>
-                <h4 style={{ margin: 0, fontSize: '1.3rem', background: 'linear-gradient(90deg, #6366f1, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                  Générateur IA
-                </h4>
-                <p style={{ textAlign: 'center', margin: '0.5rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  Texte, Images, Thèmes & PDF<br/>Traduction, articles & pluriels
-                </p>
+              {/* BOX 2 : Génération IA (blurred) */}
+              <div className="card" style={{ position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
+                </div>
+                <h4 style={{ marginBottom: '1rem' }}>🎨 Génération IA</h4>
+                <input type="text" className="input-field" placeholder="Thème" value={themeInput} onChange={(e) => setThemeInput(e.target.value)} style={{ marginBottom: '1rem', padding: '0.8rem 1rem' }} />
+                <button className="btn btn-secondary" disabled>Créer</button>
+              </div>
+
+              {/* BOX 3 : Coller du texte (blurred) */}
+              <div className="card" style={{ position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(0,0,0,0.2)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>Bientôt disponible</span>
+                </div>
+                <h4 style={{ marginBottom: '1rem' }}>📝 Coller du Texte</h4>
+                <textarea className="input-field" rows={3} value={rawText} onChange={(e) => setRawText(e.target.value)} style={{ fontFamily: 'monospace', fontSize: '0.9rem', marginBottom: '1rem' }} />
+                <button className="btn btn-secondary" disabled>Extraire avec IA</button>
               </div>
 
             </div>
@@ -1892,8 +1840,6 @@ export default function Home({
           currentUser={user}
           onClose={() => setSelectedProfileUser(null)}
         />
-      )}
-      </>
       )}
 
     </div>

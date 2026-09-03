@@ -14,38 +14,13 @@ const User = require('./models/User');
 const Config = require('./models/Config');
 const Notification = require('./models/Notification');
 const { formatPlayerName } = require('./utils/formatters');
-const { exampleLists } = require('./utils/exampleLists');
 const dns = require('dns');
 try { dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']); } catch (e) { /* ignore */ }
 require('dotenv').config();
-const { GoogleGenAI, Type } = require('@google/genai');
-
-let genAIClient = null;
-function getGenAI() {
-    if (!genAIClient) {
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) throw new Error('GEMINI_API_KEY is missing from environment variables.');
-        genAIClient = new GoogleGenAI({
-            apiKey,
-            httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-        });
-    }
-    return genAIClient;
-}
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI)
-  .then(async () => {
-      console.log('Connected to MongoDB');
-      try {
-          const config = await Config.findOne({ key: 'app_config' });
-          if (config && config.forceMatchingPairs !== undefined) {
-              gameManager.forceMatchingPairs = config.forceMatchingPairs;
-          }
-      } catch (err) {
-          console.error('Error loading config on startup:', err);
-      }
-  })
+  .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err));
 
 const app = express();
@@ -73,16 +48,6 @@ const verifyAdmin = (req, res, next) => {
     next();
 };
 
-// ---- HEALTH CHECK / KEEP-ALIVE ENDPOINTS (Render Ping) ----
-app.get(['/', '/health', '/api/health'], (req, res) => {
-    res.status(200).json({ 
-        status: 'ok', 
-        message: 'Server is awake and healthy',
-        uptime: Math.floor(process.uptime()),
-        timestamp: new Date().toISOString()
-    });
-});
-
 // ---- PUBLIC CONFIG ENDPOINT ----
 app.get('/api/config', async (req, res) => {
     try {
@@ -92,7 +57,6 @@ app.get('/api/config', async (req, res) => {
             guestMode: config.guestMode ?? true,
             maintenanceMode: config.maintenanceMode ?? false,
             requirePwaInstall: config.requirePwaInstall ?? false,
-            forceMatchingPairs: config.forceMatchingPairs ?? false,
             announcement: config.announcement || ''
         });
     } catch (err) {
@@ -108,12 +72,10 @@ app.get('/api/admin/overview', verifyAdmin, async (req, res) => {
         const publicLists = await List.countDocuments({ isPublic: true });
         const privateLists = totalLists - publicLists;
         
-        // Sum total games played & xp via MongoDB Aggregation (no memory leak)
-        const statsAggregation = await User.aggregate([
-            { $group: { _id: null, totalXp: { $sum: '$xp' }, totalGames: { $sum: '$gamesPlayed' } } }
-        ]);
-        const totalGamesPlayed = statsAggregation[0]?.totalGames || 0;
-        const totalXp = statsAggregation[0]?.totalXp || 0;
+        // Sum total games played
+        const users = await User.find().select('gamesPlayed xp');
+        const totalGamesPlayed = users.reduce((acc, u) => acc + (u.gamesPlayed || 0), 0);
+        const totalXp = users.reduce((acc, u) => acc + (u.xp || 0), 0);
         const activeRooms = gameManager.sessions?.size || 0;
 
         res.json({
@@ -134,9 +96,7 @@ app.get('/api/admin/overview', verifyAdmin, async (req, res) => {
 // ---- ADMIN USERS MANAGEMENT ----
 app.get('/api/admin/users', verifyAdmin, async (req, res) => {
     try {
-        const limit = parseInt(req.query.limit) || 50;
-        const skip = parseInt(req.query.skip) || 0;
-        const users = await User.find().sort({ xp: -1 }).skip(skip).limit(limit).lean();
+        const users = await User.find().sort({ xp: -1 }).lean();
         res.json(users);
     } catch (err) {
         res.status(500).json({ error: "Erreur lors de la récupération des utilisateurs." });
@@ -191,16 +151,11 @@ app.post('/api/admin/config', verifyAdmin, async (req, res) => {
             io.emit('admin_announcement', value);
         }
 
-        if (setting === 'forceMatchingPairs') {
-            gameManager.forceMatchingPairs = value;
-        }
-
         // Broadcast real-time config updates (e.g., requirePwaInstall, guestMode, maintenanceMode)
         io.emit('config_updated', {
             guestMode: config.guestMode ?? true,
             maintenanceMode: config.maintenanceMode ?? false,
             requirePwaInstall: config.requirePwaInstall ?? false,
-            forceMatchingPairs: config.forceMatchingPairs ?? false,
             announcement: config.announcement || '',
             [setting]: value
         });
@@ -217,20 +172,11 @@ app.post('/api/admin/config', verifyAdmin, async (req, res) => {
 app.get('/api/notifications/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
-        let notifs = [];
-        
-        if (userId && userId !== 'guest') {
-            const [allNotifs, userNotifs] = await Promise.all([
-                Notification.find({ userId: 'ALL' }).sort({ createdAt: -1 }).limit(25).lean(),
-                Notification.find({ userId: userId }).sort({ createdAt: -1 }).limit(25).lean()
-            ]);
-            notifs = [...allNotifs, ...userNotifs];
-            notifs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            notifs = notifs.slice(0, 50);
-        } else {
-            notifs = await Notification.find({ userId: 'ALL' }).sort({ createdAt: -1 }).limit(50).lean();
-        }
+        const query = userId && userId !== 'guest' 
+            ? { $or: [{ userId: 'ALL' }, { userId: userId }] }
+            : { userId: 'ALL' };
 
+        const notifs = await Notification.find(query).sort({ createdAt: -1 }).limit(50).lean();
         const enriched = notifs.map(n => ({
             ...n,
             isRead: userId && userId !== 'guest' ? (n.readBy || []).includes(userId) : false
@@ -341,162 +287,70 @@ app.post('/api/upload', upload.single('pdf'), async (req, res) => {
     }
 });
 
-// Endpoint for AI text/file extraction (Advanced version)
+// Endpoint for AI text/file extraction
 app.post('/api/extract', upload.single('file'), async (req, res) => {
-    console.log("--- Extract Route Reached ---");
-    console.log("GEMINI_API_KEY present:", !!process.env.GEMINI_API_KEY);
-    console.log("req.body.text:", !!req.body.text, "req.file:", !!req.file);
     try {
-        const text = req.body.text || req.body.rawText || "";
+        const text = req.body.text || "";
         const file = req.file;
-        let options = {};
-        try {
-            if (req.body.options) {
-                options = typeof req.body.options === 'string' ? JSON.parse(req.body.options) : req.body.options;
-            }
-        } catch (e) { console.warn("Failed to parse options"); }
-
+        
         if (!text.trim() && !file) {
             return res.status(400).json({ error: "Aucun contenu fourni." });
         }
 
         if (process.env.GEMINI_API_KEY) {
             try {
-                const ai = getGenAI();
-                const parts = [];
-
+                let prompt = `Tu es un assistant linguistique. Extrais toutes les paires de mots ou phrases (Français -> Anglais -> Allemand avec article der/die/das si nom) du contenu fourni. Renvoie STRICTEMENT un tableau JSON au format exact: [{"question": "mot français", "english": "english translation", "answer": "mot allemand avec article"}] sans texte additionnel. Si un texte t'est fourni, base toi dessus. Si une image/audio/fichier t'est fourni, extrais-en le vocabulaire.\n\nTexte supplémentaire:\n${text}`;
+                
                 if (text.startsWith("THEME:")) {
                     const theme = text.replace("THEME:", "").trim();
-                    const prompt = `Tu es un assistant linguistique. Génère une liste de 15 mots essentiels ou pertinents (niveau A2/B1) sur le thème suivant : "${theme}". Renvoie STRICTEMENT un tableau JSON au format exact: [{"question": "mot français", "english": "english translation", "answer": "mot allemand avec article der/die/das"}] sans texte additionnel.`;
-                    parts.push({ text: prompt });
-                } else {
-                    const sourceLang = options.sourceLang || 'Français / English / العربية';
-                    const targetLang = options.targetLang || 'Allemand';
-                    const excludeProperNouns = options.excludeProperNouns !== false;
-                    const excludeLocations = options.excludeLocations !== false;
-                    const excludeBasicGrammar = options.excludeBasicGrammar !== false;
-                    const includeArticles = options.includeArticles !== false;
-                    const includePlurals = options.includePlurals !== false;
+                    prompt = `Tu es un assistant linguistique. Génère une liste de 15 mots essentiels ou pertinents (niveau A2/B1) sur le thème suivant : "${theme}". Renvoie STRICTEMENT un tableau JSON au format exact: [{"question": "mot français", "english": "english translation", "answer": "mot allemand avec article der/die/das"}] sans texte additionnel.`;
+                }
 
-                    const systemInstruction = `Tu es un expert linguiste et professeur de langues polyglotte spécialisé dans l'apprentissage de l'allemand.
-Ta tâche est d'analyser le contenu fourni et d'en extraire le vocabulaire structuré :
-
-DANS LA PREMIÈRE COLONNE (frenchText):
-Pour CHAQUE mot ou expression extrait, tu DOIS fournir sa traduction ou le mot source (Français/Anglais/Arabe). S'il y a plusieurs mots, sépare par |.
-
-DANS LA DEUXIÈME COLONNE (germanText):
-- Pour chaque NOM : ${includeArticles ? "Ajoute l'article défini (der, die, das)." : "Fournis sans article."} ${includePlurals ? "Indique la terminaison du pluriel." : ""}
-- Pour chaque VERBE : Mets-le à l'INFINITIF.
-- Pour chaque ADJECTIF/ADVERBE/EXPRESSION : Traduction naturelle.
-
-RÈGLES DE FILTRAGE :
-- ${excludeProperNouns ? 'EXCLUS STRICTEMENT les prénoms et noms de personnes.' : ''}
-- ${excludeLocations ? 'EXCLUS STRICTEMENT les noms de villes et pays.' : ''}
-- ${excludeBasicGrammar ? 'EXCLUS les mots de grammaire trop basiques.' : ''}
-
-Classifie dans : NOMS, VERBES, ADJECTIFS_ADVERBES, EXPRESSIONS.`;
-
-                    const promptText = `Analyse ce contenu et extrais le vocabulaire dans la 1ère colonne (Français/Anglais/Arabe) et la 2ème colonne (${targetLang}) en suivant rigoureusement les consignes.`;
-
-                    if (file) {
-                        parts.push({
-                            inlineData: {
-                                mimeType: file.mimetype,
-                                data: file.buffer.toString('base64')
-                            }
-                        });
-                        parts.push({ text: promptText });
-                    } else if (text) {
-                        parts.push({ text: `Voici le texte à analyser :\n\n${text}\n\n${promptText}` });
-                    }
-
-                    const response = await ai.models.generateContent({
-                        model: 'gemini-1.5-flash',
-                        contents: { parts },
-                        config: {
-                            systemInstruction,
-                            responseMimeType: 'application/json',
-                            responseSchema: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    detectedLanguage: { type: Type.STRING },
-                                    notes: { type: Type.STRING },
-                                    vocabulary: {
-                                        type: Type.ARRAY,
-                                        items: {
-                                            type: Type.OBJECT,
-                                            properties: {
-                                                category: { type: Type.STRING },
-                                                frenchText: { type: Type.STRING },
-                                                englishText: { type: Type.STRING },
-                                                arabicText: { type: Type.STRING },
-                                                germanText: { type: Type.STRING }
-                                            },
-                                            required: ['category', 'germanText']
-                                        }
-                                    }
-                                },
-                                required: ['vocabulary']
-                            }
+                const parts = [{ text: prompt }];
+                
+                if (file) {
+                    const mimeType = file.mimetype;
+                    const base64Data = file.buffer.toString('base64');
+                    parts.push({
+                        inline_data: {
+                            mime_type: mimeType,
+                            data: base64Data
                         }
                     });
-
-                    const parsed = JSON.parse(response.text || '{}');
-                    const rawVocab = Array.isArray(parsed.vocabulary) ? parsed.vocabulary : [];
-                    
-                    const vocabList = rawVocab.map((item, idx) => {
-                        const q = [item.frenchText, item.englishText, item.arabicText].filter(Boolean).join(' | ');
-                        return {
-                            id: Date.now() + idx,
-                            question: q || '???',
-                            english: item.englishText || "",
-                            answer: item.germanText || '???',
-                            category: item.category || 'EXPRESSIONS'
-                        };
-                    }).filter(w => w.question !== '???' && w.answer !== '???');
-
-                    console.log("Generated vocabList length:", vocabList.length);
-
+                }
+                
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: parts }]
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+                    let rawText = data.candidates[0].content.parts[0].text.trim();
+                    if (rawText.startsWith('```json')) rawText = rawText.replace(/^```json/, '').replace(/```$/, '').trim();
+                    if (rawText.startsWith('```')) rawText = rawText.replace(/^```/, '').replace(/```$/, '').trim();
+                    const parsed = JSON.parse(rawText);
+                    const vocabList = parsed.map((item, idx) => ({ 
+                        id: idx + 1, 
+                        question: item.question, 
+                        english: item.english || "",
+                        answer: item.answer 
+                    }));
                     if (vocabList.length > 0) {
-                        return res.json({ 
-                            vocabList, 
-                            detectedInfo: {
-                                detectedLanguage: parsed.detectedLanguage,
-                                notes: parsed.notes
-                            }
-                        });
+                        return res.json({ vocabList });
                     }
-                    console.warn("vocabList was empty, falling through to text parser...");
                 }
             } catch (aiErr) {
-                console.error("Gemini API call error:", aiErr);
-                // Fallback to legacy structure if the new one fails (e.g., using gemini-1.5-flash for THEME)
-                if (text.startsWith("THEME:")) {
-                   try {
-                       const theme = text.replace("THEME:", "").trim();
-                       const prompt = `Génère 15 mots sur le thème "${theme}". JSON: [{"question": "français", "english": "anglais", "answer": "allemand avec article"}]`;
-                       const fallbackResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-                           method: 'POST',
-                           headers: { 'Content-Type': 'application/json' },
-                           body: JSON.stringify({ contents: [{ parts: [{text: prompt}] }] })
-                       });
-                       const fallbackData = await fallbackResponse.json();
-                       let rawText = fallbackData.candidates[0].content.parts[0].text.trim();
-                       if (rawText.startsWith('```json')) rawText = rawText.replace(/^```json/, '').replace(/```$/, '').trim();
-                       if (rawText.startsWith('```')) rawText = rawText.replace(/^```/, '').replace(/```$/, '').trim();
-                       const parsed = JSON.parse(rawText);
-                       const vocabList = parsed.map((item, idx) => ({ id: idx+1, question: item.question, answer: item.answer }));
-                       return res.json({ vocabList });
-                   } catch(fallbackErr) {
-                       console.error("Fallback error", fallbackErr);
-                   }
-                }
+                console.error("Gemini API call error, falling back to line parsing:", aiErr);
             }
         }
 
         // Fallback rule-based line parser (only works for text)
-        if (!text || text.startsWith("THEME:")) {
-             return res.status(500).json({ error: "L'IA est requise pour extraire le vocabulaire depuis un fichier média ou un thème." });
+        if (!text) {
+             return res.status(500).json({ error: "L'IA est requise pour extraire le vocabulaire depuis un fichier média." });
         }
         const lines = text.split('\n').filter(l => l.includes('=') || l.includes('-') || l.includes(':'));
         const vocabList = lines.map((line, idx) => {
@@ -1167,40 +1021,10 @@ io.on('connection', (socket) => {
         })));
     });
 
-    socket.on('create_session', async ({ mode, vocabList, settings, playerName, firebaseId, avatar, clientPlayerKey }) => {
-        let finalVocabList = vocabList || [];
-        
-        if (mode === 'random_duel') {
-            try {
-                // Fetch public lists from DB
-                const publicLists = await List.find({ isPublic: true }, 'words').lean();
-                const allWords = [];
-                // Add example lists
-                exampleLists.forEach(list => allWords.push(...(list.words || [])));
-                // Add public lists
-                publicLists.forEach(list => allWords.push(...(list.words || [])));
-                
-                // Shuffle and pick 50
-                const shuffled = allWords.sort(() => 0.5 - Math.random());
-                finalVocabList = shuffled.slice(0, 50).map((w, idx) => ({ 
-                    id: idx + 1, 
-                    question: (w.question || w.frenchPrompt || w.french || '').trim(), 
-                    answer: (w.answer || w.germanWord || w.german || w.word || '').trim() 
-                })).filter(w => w.question && w.answer);
-                
-                // Ensure settings rounds matches the capped length
-                if (!settings) settings = {};
-                settings.rounds = finalVocabList.length;
-            } catch (err) {
-                console.error("Erreur serveur lors de la génération aléatoire :", err);
-                socket.emit('error', "Erreur serveur lors de la création du lobby aléatoire.");
-                return;
-            }
-        }
-
+    socket.on('create_session', ({ vocabList, settings, playerName, firebaseId, avatar, clientPlayerKey }) => {
         const formattedPlayerName = formatPlayerName(playerName);
         const sessionId = gameManager.createSession(socket.id, formattedPlayerName, firebaseId, clientPlayerKey);
-        gameManager.setVocabList(sessionId, finalVocabList, settings);
+        gameManager.setVocabList(sessionId, vocabList, settings);
         socket.join(sessionId);
         const session = gameManager.getSession(sessionId);
         
@@ -1340,7 +1164,6 @@ io.on('connection', (socket) => {
             // Cleanly clear existing timers and reset question/round progress
             clearTimeout(session.roundTimer);
             clearTimeout(session.autoAdvanceTimer);
-            clearTimeout(session.startGameTimer);
             session.currentQuestionIndex = -1;
             session.answersThisRound = 0;
             session.readyPlayers = new Set();
@@ -1366,7 +1189,7 @@ io.on('connection', (socket) => {
             io.to(sessionId).emit('game_started');
             
             // Wait a moment for clients to render the Game component before sending the first question
-            session.startGameTimer = setTimeout(() => {
+            setTimeout(() => {
                 sendNextQuestion(sessionId);
             }, 1000);
         }
@@ -1386,16 +1209,6 @@ io.on('connection', (socket) => {
 
         if (result && result.allAnswered) {
             // Both answered, clear timer and move to next
-            const session = gameManager.getSession(sessionId);
-            clearTimeout(session.roundTimer);
-            handleRoundEnd(sessionId);
-        }
-    });
-
-    socket.on('submit_matching_pairs', ({ sessionId }) => {
-        const result = gameManager.submitMatchingPairs(sessionId, socket.id);
-        
-        if (result && result.allAnswered) {
             const session = gameManager.getSession(sessionId);
             clearTimeout(session.roundTimer);
             handleRoundEnd(sessionId);
@@ -2065,27 +1878,17 @@ function sendNextQuestion(sessionId) {
         session.isPaused = false;
         session.pauseReason = null;
 
-        const payload = {
+        io.to(sessionId).emit('new_question', {
+            question: next.question.question,
             questionIndex: session.currentQuestionIndex,
             totalQuestions: session.vocabList.length,
-            duration: session.settings.timePerWord,
-            question_type: next.question_type
-        };
+            duration: session.settings.timePerWord
+        });
 
-        if (next.question_type === 'matching_pairs') {
-            payload.pairs = next.pairs;
-        } else {
-            payload.question = next.question.question;
-        }
-
-        io.to(sessionId).emit('new_question', payload);
-
-        // Start timer only if not in tutorial/infinite mode
-        if (session.settings.timePerWord < 300 && !session.settings.isTutorial) {
-            session.roundTimer = setTimeout(() => {
-                handleRoundEnd(sessionId);
-            }, session.roundDuration);
-        }
+        // Start timer
+        session.roundTimer = setTimeout(() => {
+            handleRoundEnd(sessionId);
+        }, session.roundDuration);
     }
 }
 
@@ -2103,7 +1906,7 @@ function handleRoundEnd(sessionId) {
     // Send round results
     io.to(sessionId).emit('round_results', {
         players: session.players,
-        correctAnswer: session.vocabList?.[session.currentQuestionIndex]?.answer || ''
+        correctAnswer: session.vocabList[session.currentQuestionIndex].answer
     });
 
     // Fallback: auto-advance after 2s if no one presses ready
