@@ -352,3 +352,8 @@ Le 29 août 2026 a marqué une série d'optimisations majeures de performance, d
 - **Lobby.jsx** : Optimisation des performances via l'utilisation de useMemo pour la fusion des mots par d�faut et la suppression des doubles requ�tes r�seau � l'initialisation du composant.
 
 - **Home.jsx / Connexion Socket** : Suppression du timeout de 3s dans \handlePlaySolo\ et ajout de la gestion asynchrone \socket.once('connect')\ dans \handleJoin\ pour permettre au frontend d'attendre sereinement le r�veil (cold start) du backend sans lever d'erreur 'Serveur hors ligne'.
+
+- **Optimisation Démarrage & Cold Start (Solutions 2 & 3 - 2026-09-03)** :
+  - **Serveur (server/index.js)** : Lazy-loading des dépendances lourdes (@google/genai et pdfParser via pdf-parse) chargées uniquement lors de l'appel effectif des endpoints correspondants (/api/extract, getGenAI, /api/upload). Accélération du temps de boot Node.js et réduction de la mémoire initiale.
+  - **Client (client/src/App.jsx)** : Configuration Socket.IO renforcée avec timeout porté à 35s et 30 tentatives de reconnexion pour encaisser le temps d'allumage d'un conteneur en veille. Déclenchement d'un pré-chauffage automatique (pre-warming via fetch('/health')) dès l'ouverture de l'application web/PWA.
+  - **Client (client/src/components/Home.jsx)** : Mise en place d'indicateurs de chargement interactifs (isStartingLobby, isJoining) avec spinners animés et désactivation préventive des boutons ('OUVERTURE DU LOBBY...', 'CONNEXION...') sur les actions Duel Rapide Solo, Rejoindre salon et Lancement de liste personnalisée.

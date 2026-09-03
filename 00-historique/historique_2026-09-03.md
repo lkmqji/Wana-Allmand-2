@@ -17,3 +17,8 @@
 ### 03/09/2026 10:56 - Correction du problème de serveur hors ligne sur cold-start
 - Suppression du timeout (délai) strict de 3 secondes dans \handlePlaySolo\ et ajout de la gestion de reconnexion dans \handleJoin\ (\Home.jsx\).
 - Ces méthodes attendent désormais indéfiniment l'événement \connect\ si le socket n'est pas connecté, ce qui résout le problème de l'erreur 'Serveur hors ligne' lorsque le backend (Render/etc) est en veille et met 30 à 60s pour se rallumer.
+
+### 03/09/2026 11:32 - Optimisation du demarrage du serveur et pre-chauffage client (Solutions 2 et 3)
+- **Serveur (server/index.js)** : Deplacement en chargement differe (lazy-loading) des modules volumineux (@google/genai et pdfParser). Cela allege l'empreinte memoire et reduit le temps d'initialisation de Node.js lors des cold starts.
+- **Client (client/src/App.jsx)** : Ajout d'un pre-chauffage silencieux du backend des le demarrage de l'app (fetch /health) et augmentation du timeout Socket.io a 35s (30 tentatives de reconnexion) pour tolerer sans deconnexion prematuree le reveil de Render.
+- **Client (client/src/components/Home.jsx)** : Ajout d'indicateurs visuels de chargement et desactivation des boutons (OUVERTURE DU LOBBY..., CONNEXION...) pour offrir un retour immediat lors du clic sur Duel Rapide Solo, Rejoindre ou une liste.

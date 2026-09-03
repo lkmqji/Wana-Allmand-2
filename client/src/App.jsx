@@ -98,9 +98,9 @@ const ADMIN_UID = import.meta.env.VITE_ADMIN_UID;
 const socket = io(API_URL, {
   transports: ['polling', 'websocket'],
   reconnection: true,
-  reconnectionAttempts: 15,
+  reconnectionAttempts: 30,
   reconnectionDelay: 1000,
-  timeout: 10000
+  timeout: 35000
 });
 
 function App() {
@@ -112,6 +112,11 @@ function App() {
   const [isSplashLoading, setIsSplashLoading] = useState(true);
 
   const [view, setView] = useState('home'); // home, lobby, game, results
+
+  // PrǸ-chauffage immǸdiat du backend pour rǸduire le temps de dǸmarrage du lobby (Cold-Start mitigation)
+  useEffect(() => {
+    fetch(`${API_URL}/health`, { method: 'GET', keepalive: true }).catch(() => {});
+  }, []);
 
 
 

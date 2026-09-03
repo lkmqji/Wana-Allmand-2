@@ -6,7 +6,6 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const multer = require('multer');
-const { parsePdf } = require('./utils/pdfParser');
 const gameManager = require('./game/GameManager');
 const mongoose = require('mongoose');
 const List = require('./models/List');
@@ -18,13 +17,14 @@ const { exampleLists } = require('./utils/exampleLists');
 const dns = require('dns');
 try { dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']); } catch (e) { /* ignore */ }
 require('dotenv').config();
-const { GoogleGenAI, Type } = require('@google/genai');
 
+// Lazy-loaded GenAI Client to optimize Node.js cold start
 let genAIClient = null;
 function getGenAI() {
     if (!genAIClient) {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) throw new Error('GEMINI_API_KEY is missing from environment variables.');
+        const { GoogleGenAI } = require('@google/genai');
         genAIClient = new GoogleGenAI({
             apiKey,
             httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
@@ -333,6 +333,7 @@ app.post('/api/upload', upload.single('pdf'), async (req, res) => {
             return res.status(400).json({ error: 'No file uploaded.' });
         }
         
+        const { parsePdf } = require('./utils/pdfParser');
         const vocabList = await parsePdf(req.file.buffer);
         res.json({ vocabList });
     } catch (error) {

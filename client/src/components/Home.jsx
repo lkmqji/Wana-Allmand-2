@@ -83,6 +83,8 @@ export default function Home({
     return saved !== null ? JSON.parse(saved) : true;
   });
 
+  const [isStartingLobby, setIsStartingLobby] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
   const [editingListId, setEditingListId] = useState(null);
   const [listTitle, setListTitle] = useState('');
   const [importNotice, setImportNotice] = useState('');
@@ -110,6 +112,14 @@ export default function Home({
     if (validWords.length === 0) return alert("Aucun mot valide dans cette liste !");
 
     const isTutorial = isActive && currentStep === 'INTRO';
+
+    setIsStartingLobby(true);
+    const stopLoading = () => setIsStartingLobby(false);
+    if (socket) {
+      socket.once('session_created', stopLoading);
+      socket.once('error', stopLoading);
+    }
+    setTimeout(stopLoading, 15000);
 
     const emitCreate = () => {
       const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Hôte`;
@@ -496,6 +506,14 @@ export default function Home({
   const handleJoin = (e) => {
     e.preventDefault();
     if (joinCode.length === 4) {
+      setIsJoining(true);
+      const stopJoining = () => setIsJoining(false);
+      if (socket) {
+        socket.once('session_joined', stopJoining);
+        socket.once('error', stopJoining);
+      }
+      setTimeout(stopJoining, 15000);
+
       const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Invité`;
       const emitJoin = () => {
         socket.emit('join_session', {
@@ -525,6 +543,14 @@ export default function Home({
       // We don't advance the step here, we let the Game component advance it so the spotlight transitions correctly
       return;
     }
+
+    setIsStartingLobby(true);
+    const stopLoading = () => setIsStartingLobby(false);
+    if (socket) {
+      socket.once('session_created', stopLoading);
+      socket.once('error', stopLoading);
+    }
+    setTimeout(stopLoading, 15000);
 
     const emitCreate = () => {
       const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Hôte`;
@@ -653,9 +679,10 @@ export default function Home({
               <button 
                 type="submit" 
                 className="btn btn-primary" 
-                disabled={joinCode.length !== 4}
+                disabled={joinCode.length !== 4 || isJoining}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}
               >
-                REJOINDRE
+                {isJoining ? 'CONNEXION...' : 'REJOINDRE'}
               </button>
             </form>
 
@@ -665,6 +692,7 @@ export default function Home({
                 type="button"
                 className="btn btn-success" 
                 onClick={handlePlaySolo} 
+                disabled={isStartingLobby}
                 style={{ 
                   width: '100%', 
                   padding: '0.85rem', 
@@ -674,10 +702,18 @@ export default function Home({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '0.5rem',
-                  cursor: 'pointer'
+                  cursor: isStartingLobby ? 'not-allowed' : 'pointer',
+                  opacity: isStartingLobby ? 0.8 : 1
                 }}
               >
-                ⚔️ DUEL RAPIDE SOLO
+                {isStartingLobby ? (
+                  <>
+                    <span style={{ display: 'inline-block', width: '1rem', height: '1rem', border: '2px solid currentColor', borderRightColor: 'transparent', borderRadius: '50%', animation: 'spin 0.75s linear infinite' }}></span>
+                    <span>OUVERTURE DU LOBBY...</span>
+                  </>
+                ) : (
+                  '⚡ DUEL RAPIDE SOLO'
+                )}
               </button>
             </div>
           </div>
