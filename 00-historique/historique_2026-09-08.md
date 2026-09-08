@@ -47,3 +47,4 @@
    - Configuration de `.matching-grid` en grille CSS stricte à 2 colonnes (`grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; align-items: stretch;`).
    - Optimisation de `.matching-btn` (`min-height: 48px`, `box-sizing: border-box`, `word-break: break-word`).
    - Ajout des règles responsives `@media (max-width: 768px)` et `@media (max-width: 400px)` pour adapter les paddings de `BattleCard`, la taille de police (`clamp`) et la hauteur des boutons sur les écrans portraits étroits.
+   - **(Nouveau)** Ajout de la classe `.matching-container` avec `width: 100%` et `display: flex; flex-direction: column` pour forcer le conteneur du jeu à prendre toute la largeur disponible de la `BattleCard`. Cela corrige le décalage à droite observé sur certains téléphones en mode portrait (qui survenait car le conteneur flex se rétrécissait à la largeur de son contenu textuel).
