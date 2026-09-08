@@ -160,6 +160,39 @@ const BattleConsole = React.memo(function BattleConsole({
   }, [isDisabled, localValue, onSubmit, setExternalValue, handleLocalChange]);
 
 
+  // Admin Auto-cheat Handler: fills exact answer with correct capitalization and auto-submits
+  const handleAdminCheat = useCallback((e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (isDisabled || !adminAnswer) return;
+
+    let targetAns = String(adminAnswer).trim();
+    const lowerVal = targetAns.toLowerCase();
+    
+    // Auto-capitalize noun if starts with article and noun is lowercase
+    if (lowerVal.startsWith('der ') || lowerVal.startsWith('die ') || lowerVal.startsWith('das ')) {
+      const parts = targetAns.split(' ');
+      if (parts.length > 1 && parts[1].length > 0) {
+        parts[1] = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
+        targetAns = parts.join(' ');
+      }
+    }
+
+    setLocalValue(targetAns);
+    if (setExternalValue) {
+      setExternalValue(targetAns);
+    }
+
+    // Auto-submit after short timeout so the user sees the answer filled in, then advances
+    setTimeout(() => {
+      if (onSubmit) {
+        onSubmit(e, targetAns);
+      }
+    }, 80);
+  }, [isDisabled, adminAnswer, setExternalValue, onSubmit]);
+
   const handleFormSubmit = (e) => {
     e.preventDefault();
     if (isDisabled) return;
@@ -266,30 +299,32 @@ const BattleConsole = React.memo(function BattleConsole({
           {adminAnswer && (
             <button
               type="button"
-              onClick={() => {
-                if (isDisabled) return;
-                const ans = adminAnswer.toLowerCase();
-                handleLocalChange(ans);
-              }}
+              onClick={handleAdminCheat}
               style={{
                 position: 'absolute',
-                left: '-35px',
+                left: '10px',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                background: '#475569',
-                color: 'white',
-                border: '1px solid #64748b',
-                borderRadius: '8px',
-                padding: '4px 8px',
-                fontSize: '0.8rem',
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: '#ffffff',
+                border: '1px solid rgba(255, 255, 255, 0.4)',
+                borderRadius: '10px',
+                padding: '6px 10px',
+                fontSize: '0.85rem',
+                fontWeight: 900,
                 cursor: isDisabled ? 'not-allowed' : 'pointer',
                 opacity: isDisabled ? 0.5 : 1,
-                zIndex: 10,
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                zIndex: 20,
+                boxShadow: '0 2px 8px rgba(245, 158, 11, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+                userSelect: 'none'
               }}
-              title="Admin: Remplir la réponse auto (minuscule)"
+              title={`Triche Admin: Valider automatiquement (${adminAnswer})`}
             >
-              A
+              <span>⚡</span>
+              <span>A</span>
             </button>
           )}
           <div
@@ -298,6 +333,7 @@ const BattleConsole = React.memo(function BattleConsole({
             tabIndex={isDisabled ? -1 : 0}
             inputMode="none"
             style={{
+              paddingLeft: adminAnswer ? '4rem' : '1.5rem',
               borderColor: isCorrectionMode ? '#ef4444' : (theme === 'valkyrie' ? 'rgba(0, 242, 254, 0.5)' : 'var(--border-color, rgba(255,255,255,0.2))'),
               boxShadow: isCorrectionMode ? '0 0 20px rgba(239, 68, 68, 0.4)' : (theme === 'valkyrie' ? 'inset 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 242, 254, 0.2)' : 'none'),
               borderWidth: isCorrectionMode ? '2px' : (theme === 'valkyrie' ? '1.5px' : '1px'),

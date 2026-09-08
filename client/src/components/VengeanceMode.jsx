@@ -1188,10 +1188,9 @@ export default function VengeanceMode({
             isDisabled={isAnswering}
             isError={false} // Handled by BattleCard isShaking
             isCorrectionMode={mustTypeCorrection}
-            adminAnswer={isAdmin ? (currentWord?.word || currentWord?.answer) : null}
+            adminAnswer={isAdmin ? (mustTypeCorrection ? (correctionText || currentWord?.word) : (currentWord?.word || currentWord?.answer)) : null}
             inputPlaceholder={mustTypeCorrection ? "Tape le mot correct :" : "Écris la traduction en allemand..."}
             inputRef={inputRef}
-            adminAnswer={currentWord.word}
             onSpeakQuestion={() => speakPromptWord(currentWord.question || currentWord.word, isSoundEnabled)}
             bottomSlot={
               currentWord.count > 1 && (

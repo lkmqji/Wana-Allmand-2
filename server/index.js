@@ -2080,6 +2080,7 @@ function sendNextQuestion(sessionId) {
             payload.pairs = next.pairs;
         } else {
             payload.question = next.question.question;
+            payload.answer = next.question.answer;
         }
 
         io.to(sessionId).emit('new_question', payload);

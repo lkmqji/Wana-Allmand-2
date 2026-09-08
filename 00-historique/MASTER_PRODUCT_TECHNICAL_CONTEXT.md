@@ -338,22 +338,36 @@ Le 29 août 2026 a marqué une série d'optimisations majeures de performance, d
 - **Protection Anti-Écrasement (Input)** : `flex-shrink: 0`, `white-space: nowrap`, `overflow: hidden` et `text-overflow: ellipsis` appliqués à l'input et ses wrappers (`BattleConsole.jsx` et `index.css`) pour protéger le champ de saisie contre l'écrasement sur les petits écrans.
 
 ### 10.8 Fonctionnalités d'Administration Avancées
-- **Auto-remplissage (Admin Answer)** : Dans `BattleConsole.jsx`, une prop `adminAnswer` est transmise depuis `Game.jsx`, `VengeanceMode.jsx`, et `TugOfWarArena.jsx` pour les administrateurs. Un bouton discret 'A' permet de remplir automatiquement l'input avec la bonne réponse pour faciliter le debug et les démonstrations.
+- **Bouton de Triche & Auto-validation Admin (⚡A)** : Dans `BattleConsole.jsx`, une prop `adminAnswer` est transmise depuis `Game.jsx`, `VengeanceMode.jsx`, et `TugOfWarArena.jsx` exclusivement pour les administrateurs (`isAdmin`). Le bouton stylisé `⚡A` (ambre/or) est positionné à l'intérieur du champ de saisie (`left: 10px`) pour garantir sa visibilité sur mobile et dans les conteneurs avec `overflow: hidden`. Un clic applique la casse allemande appropriée (capitalisation automatique des noms précédés de der/die/das), met à jour l'état local et externe (`inputValue`), et auto-soumet la réponse après 80ms pour une validation instantanée des manches lors des tests.
 - **Forçage du Mini-Jeu** : Le panel Super Admin permet de forcer dynamiquement l'apparition du mini-jeu Matching Pairs pour chaque manche via le paramètre `forceMatchingPairs` enregistré en MongoDB.
 
 
-## Mise � jour (2026-09-03)
-- **Optimisation de la cr�ation de Lobby (Duel Rapide Solo)** : Modification de l'architecture pour d�placer la logique de s�lection al�atoire des mots vers le backend (server/index.js). Le client n'envoie plus la totalit� des mots concat�n�s via Websocket, mais utilise un flag `mode: 'random_duel'`. Le serveur r�cup�re les listes publiques de MongoDB, les combine avec exampleLists.js (copi� c�t� serveur), les m�lange, et s�lectionne au maximum 50 mots pour la session. Cela �limine les gels de l'interface (UI freeze) et les d�lais de Websocket.
+## Mise � jour (2026-09-03)
+- **Optimisation de la cr�ation de Lobby (Duel Rapide Solo)** : Modification de l'architecture pour d�placer la logique de s�lection al�atoire des mots vers le backend (server/index.js). Le client n'envoie plus la totalit� des mots concat�n�s via Websocket, mais utilise un flag `mode: 'random_duel'`. Le serveur r�cup�re les listes publiques de MongoDB, les combine avec exampleLists.js (copi� c�t� serveur), les m�lange, et s�lectionne au maximum 50 mots pour la session. Cela �limine les gels de l'interface (UI freeze) et les d�lais de Websocket.
 
 - **Optimisation des Performances Serveur & BDD** : Remplacement des requêtes massives User.find().reduce() par des agrégations MongoDB native ($group) pour éviter la saturation RAM (OOM) et les blocages de l'Event Loop (Lag > 100ms). Ajout de la pagination (skip/limit) sur l'overview admin. Refonte de la récupération des notifications : suppression du $or combiné au tri (blocking sort MongoDB) au profit de deux requêtes Promise.all parallèles fusionnées et triées en mémoire vive côté serveur.
 
 - **Correctif Déploiement (2026-09-03)** : Correction d'une erreur de syntaxe (ES Modules vs CommonJS) dans server/utils/exampleLists.js qui faisait crasher le déploiement sur Render (remplacement de export const par module.exports).
 
-- **Lobby.jsx** : Optimisation des performances via l'utilisation de useMemo pour la fusion des mots par d�faut et la suppression des doubles requ�tes r�seau � l'initialisation du composant.
+- **Lobby.jsx** : Optimisation des performances via l'utilisation de useMemo pour la fusion des mots par d�faut et la suppression des doubles requ�tes r�seau � l'initialisation du composant.
 
-- **Home.jsx / Connexion Socket** : Suppression du timeout de 3s dans \handlePlaySolo\ et ajout de la gestion asynchrone \socket.once('connect')\ dans \handleJoin\ pour permettre au frontend d'attendre sereinement le r�veil (cold start) du backend sans lever d'erreur 'Serveur hors ligne'.
+- **Home.jsx / Connexion Socket** : Suppression du timeout de 3s dans \handlePlaySolo\ et ajout de la gestion asynchrone \socket.once('connect')\ dans \handleJoin\ pour permettre au frontend d'attendre sereinement le r�veil (cold start) du backend sans lever d'erreur 'Serveur hors ligne'.
 
 - **Optimisation Démarrage & Cold Start (Solutions 2 & 3 - 2026-09-03)** :
   - **Serveur (server/index.js)** : Lazy-loading des dépendances lourdes (@google/genai et pdfParser via pdf-parse) chargées uniquement lors de l'appel effectif des endpoints correspondants (/api/extract, getGenAI, /api/upload). Accélération du temps de boot Node.js et réduction de la mémoire initiale.
   - **Client (client/src/App.jsx)** : Configuration Socket.IO renforcée avec timeout porté à 35s et 30 tentatives de reconnexion pour encaisser le temps d'allumage d'un conteneur en veille. Déclenchement d'un pré-chauffage automatique (pre-warming via fetch('/health')) dès l'ouverture de l'application web/PWA.
   - **Client (client/src/components/Home.jsx)** : Mise en place d'indicateurs de chargement interactifs (isStartingLobby, isJoining) avec spinners animés et désactivation préventive des boutons ('OUVERTURE DU LOBBY...', 'CONNEXION...') sur les actions Duel Rapide Solo, Rejoindre salon et Lancement de liste personnalisée.
+
+## Mise à jour (2026-09-08)
+- **Correction et Fiabilisation du Bouton de Triche Admin (⚡A)** :
+  - **BattleConsole.jsx** :
+    - Repositionnement du bouton `⚡A` à l'intérieur du champ (`left: 10px`, centré verticalement) avec badge ambre/or et z-index élevé. Correction du problème de rognage CSS causé par l'ancien `left: -35px` dans les cartes à `overflow: hidden` et sur écran mobile.
+    - Ajout d'un padding dynamique `paddingLeft: adminAnswer ? '4rem' : '1.5rem'` sur le fake input pour éviter tout chevauchement de texte.
+    - Création de `handleAdminCheat` : conservation de la bonne casse allemande (avec capitalisation des substantifs après `der/die/das`), synchronisation simultanée de `setLocalValue` et `setExternalValue`, puis auto-soumission avec un délai de 80ms (`onSubmit(e, targetAns)`).
+  - **Server (server/index.js)** :
+    - Inclusion systématique de `payload.answer = next.question.answer;` dans l'événement Socket.IO `new_question` afin que la bonne réponse de la manche en cours soit immédiatement disponible côté client.
+  - **Game.jsx (Multijoueur)** :
+    - Ajout de l'état `currentAnswer` synchronisé sur `new_question` (`data.answer`), résolvant le bug où `adminAnswer` recevait `undefined` suite au mélange aléatoire des questions côté serveur.
+  - **VengeanceMode.jsx** :
+    - Suppression de la prop `adminAnswer` dupliquée qui écrasait la vérification `isAdmin`.
+    - Support du mode correction active (`mustTypeCorrection`) transmettant `correctionText` pour permettre la validation immédiate de l'erreur par l'admin.

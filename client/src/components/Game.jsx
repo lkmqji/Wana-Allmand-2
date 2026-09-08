@@ -120,6 +120,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     toggleSound
   } = useSoundEffects();
   const [question, setQuestion] = useState('');
+  const [currentAnswer, setCurrentAnswer] = useState('');
   const [questionType, setQuestionType] = useState('classic');
   const [matchingPairs, setMatchingPairs] = useState(null);
   const [inputVal, setInputVal] = useState('');
@@ -325,6 +326,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   useEffect(() => {
     const onNewQuestion = (data) => {
       setQuestion(data.question || '');
+      setCurrentAnswer(data.answer || data.adminAnswer || '');
       setQuestionType(data.question_type || 'classic');
       questionTypeRef.current = data.question_type || 'classic';
       setMatchingPairs(data.pairs || null);
@@ -1676,7 +1678,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
                   onSubmit={handleSubmit}
                   isDisabled={hasAnswered || isFrozen || isGameFrozenOrPaused}
                   isError={false} // Handled by BattleCard isShaking
-                  adminAnswer={isAdmin ? session?.vocabList?.[questionIndex]?.answer : null}
+                  adminAnswer={isAdmin ? (currentAnswer || session?.vocabList?.[questionIndex]?.answer || '') : null}
                   inputPlaceholder={
                     isActive
                       ? (currentStep === 'TYPE_HUND' ? "Tape 'Hund' sans l'article..." : (currentStep === 'ARTICLE_WARNING' ? "Tape 'der Hund' avec l'article..." : (isFrozen ? "GELÉ..." : "Ex: der Tisch")))
