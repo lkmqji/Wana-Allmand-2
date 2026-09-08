@@ -14,8 +14,9 @@ export default function MatchingPairs({ pairs, onSubmit, timeLimit = 15 }) {
   const [comboLevel, setComboLevel] = useState(0);
   const [timeLeft, setTimeLeft] = useState(timeLimit);
 
-  const leftWords = pairs.left;
-  const rightWords = pairs.right;
+  const leftWords = pairs?.left || [];
+  const rightWords = pairs?.right || [];
+  const rowCount = Math.max(leftWords.length, rightWords.length);
 
   // Timer logic
   useEffect(() => {
@@ -123,41 +124,46 @@ export default function MatchingPairs({ pairs, onSubmit, timeLimit = 15 }) {
       </div>
 
       <div className="matching-grid">
-        {/* Left Column (Source Language) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {leftWords.map((word) => {
-            const isMatched = matchedIds.includes(word.id);
-            const isSelected = selectedLeft === word.id;
-            const isError = errorIds.left === word.id;
-            return (
-              <div 
-                key={`left-${word.id}`}
-                onClick={() => onLeftClick(word.id)}
-                className={`matching-btn ${isMatched ? 'matched' : ''} ${isSelected ? 'selected' : ''} ${isError ? 'error shake-hard' : ''}`}
-              >
-                {word.text}
-              </div>
-            );
-          })}
-        </div>
+        {Array.from({ length: rowCount }).map((_, index) => {
+          const leftWord = leftWords[index];
+          const rightWord = rightWords[index];
 
-        {/* Right Column (Target Language) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {rightWords.map((word) => {
-            const isMatched = matchedIds.includes(word.id);
-            const isSelected = selectedRight === word.id;
-            const isError = errorIds.right === word.id;
-            return (
-              <div 
-                key={`right-${word.id}`}
-                onClick={() => onRightClick(word.id)}
-                className={`matching-btn ${isMatched ? 'matched' : ''} ${isSelected ? 'selected' : ''} ${isError ? 'error shake-hard' : ''}`}
-              >
-                {word.text}
-              </div>
-            );
-          })}
-        </div>
+          const isLeftMatched = leftWord && matchedIds.includes(leftWord.id);
+          const isLeftSelected = leftWord && selectedLeft === leftWord.id;
+          const isLeftError = leftWord && errorIds.left === leftWord.id;
+
+          const isRightMatched = rightWord && matchedIds.includes(rightWord.id);
+          const isRightSelected = rightWord && selectedRight === rightWord.id;
+          const isRightError = rightWord && errorIds.right === rightWord.id;
+
+          return (
+            <React.Fragment key={`pair-row-${index}`}>
+              {/* Left Button (Source Language) */}
+              {leftWord ? (
+                <button 
+                  type="button"
+                  key={`left-${leftWord.id}`}
+                  onClick={() => onLeftClick(leftWord.id)}
+                  className={`matching-btn matching-btn-left ${isLeftMatched ? 'matched' : ''} ${isLeftSelected ? 'selected' : ''} ${isLeftError ? 'error shake-hard' : ''}`}
+                >
+                  <span className="matching-btn-text">{leftWord.text}</span>
+                </button>
+              ) : <div />}
+
+              {/* Right Button (Target Language) */}
+              {rightWord ? (
+                <button 
+                  type="button"
+                  key={`right-${rightWord.id}`}
+                  onClick={() => onRightClick(rightWord.id)}
+                  className={`matching-btn matching-btn-right ${isRightMatched ? 'matched' : ''} ${isRightSelected ? 'selected' : ''} ${isRightError ? 'error shake-hard' : ''}`}
+                >
+                  <span className="matching-btn-text">{rightWord.text}</span>
+                </button>
+              ) : <div />}
+            </React.Fragment>
+          );
+        })}
       </div>
 
       {isBlocked && errorIds.left && (

@@ -26,3 +26,24 @@
 4. **`client/src/components/VengeanceMode.jsx` :**
    - Suppression du doublon de prop `adminAnswer`.
    - Prise en compte du mode de correction active : `adminAnswer={isAdmin ? (mustTypeCorrection ? (correctionText || currentWord?.word) : (currentWord?.word || currentWord?.answer)) : null}`.
+
+### 22:46 - Correction de l'alignement des colonnes du jeu de paires (MatchingPairs) sur mobile portrait
+
+**Problème résolu :**
+- En mode multijoueur sur écran mobile en orientation portrait, les 2 colonnes du jeu de paires (« Course aux Paires ! ») apparaissaient décalées verticalement et horizontalement.
+- Les causes identifiées :
+  1. Les deux colonnes étaient deux conteneurs flexbox indépendants (`flexDirection: 'column'`). Quand un mot allemand s'étalait sur 2 lignes et que le mot français correspondant ne tenait que sur 1 ligne, tous les boutons suivants se retrouvaient décalés en hauteur les uns par rapport aux autres.
+  2. La grille utilisait `1fr 1fr` sans taille minimale explicite (`minmax(0, 1fr)`), causant une asymétrie de largeur si un mot était plus long d'un côté.
+  3. Le conteneur `matching-container` n'avait pas de largeur à 100% ni d'ajustement de padding pour mobile dans la carte de jeu (`BattleCard`).
+
+**Modifications effectuées :**
+1. **`client/src/components/MatchingPairs.jsx` :**
+   - Remplacement de la structure à 2 colonnes séparées par un rendu ligne par ligne dans une grille CSS unifiée (`Array.from({ length: rowCount })`).
+   - Chaque ligne affiche simultanément le bouton gauche et le bouton droite au sein de la même ligne de grille, garantissant un alignement vertical et une hauteur strictement identiques.
+   - Utilisation d'éléments sémantiques `<button type="button">` avec sous-élément `<span className="matching-btn-text">` pour une coupure de mot et un centrage propres.
+2. **`client/src/components/BattleCard.jsx` :**
+   - Ajout des classes CSS `battle-card-header` et `battle-card-content` pour permettre l'ajustement du responsive sur mobile.
+3. **`client/src/index.css` :**
+   - Configuration de `.matching-grid` en grille CSS stricte à 2 colonnes (`grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; align-items: stretch;`).
+   - Optimisation de `.matching-btn` (`min-height: 48px`, `box-sizing: border-box`, `word-break: break-word`).
+   - Ajout des règles responsives `@media (max-width: 768px)` et `@media (max-width: 400px)` pour adapter les paddings de `BattleCard`, la taille de police (`clamp`) et la hauteur des boutons sur les écrans portraits étroits.

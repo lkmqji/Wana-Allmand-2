@@ -320,6 +320,10 @@ Le 29 août 2026 a marqué une série d'optimisations majeures de performance, d
   - L'arène affiche le composant autonome `MatchingPairs.jsx` en lieu et place du `BattleConsole`.
   - Le `VirtualKeyboard` est temporairement masqué pour maximiser l'espace.
   - Le chronomètre principal est suspendu au profit d'une barre de progression locale (15s).
+- **Architecture de Grille & Alignement Portrait (Correctif 2026-09-08)** :
+  - **Grille CSS Unifiée Ligne par Ligne** : Les deux colonnes sont gérées au sein d'une seule et même grille CSS (`grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; align-items: stretch;`).
+  - **Résolution du Décalage Vertical** : En effectuant le mapping paire par paire (`Array.from({ length: rowCount })`), le bouton gauche (français) et le bouton droite (allemand) partagent la même ligne de grille (`grid row`). Même si un mot allemand est plus long et s'étale sur 2 lignes, les deux boutons s'étirent à la même hauteur et les lignes suivantes restent rigoureusement alignées horizontalement.
+  - **Adaptations Mobile & Portrait** : Classes `battle-card-header` et `battle-card-content` dans `BattleCard.jsx` avec règles `@media (max-width: 768px)` compactant les marges et paddings, tailles de police dynamiques (`clamp(0.75rem, 3.2vw, 0.95rem)`), et coupure de mot sécurisée (`word-break: break-word`, `hyphens: auto`).
 - **Game Feel & Feedback** :
   - **Pitch Crescendo** : Le singleton audio `sfxManager` génère un son dont le pitch (fréquence de base) augmente à chaque nouvelle paire validée, renforçant le stress positif (`playPitchUp`).
   - **Vibrations** : Haptique `success` sur chaque paire, `error` (avec pénalité de blocage de 2s et réinitialisation du combo), et `success_heavy` pour la validation totale.

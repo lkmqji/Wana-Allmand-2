@@ -2441,20 +2441,24 @@ h1, h2, h3, h4 {
 .matching-container {
   display: flex;
   flex-direction: column;
+  width: 100%;
   height: 100%;
-  padding: 1rem;
-  background: var(--bg-main);
-  border-radius: 12px;
+  padding: 0.25rem 0;
+  background: transparent;
+  border-radius: 16px;
   overflow: hidden;
   position: relative;
+  box-sizing: border-box;
+  justify-content: space-between;
 }
 
 .matching-header {
   text-align: center;
-  margin-bottom: 1rem;
-  font-weight: 700;
+  margin-bottom: 0.6rem;
+  font-weight: 800;
   color: var(--text-main);
-  font-size: 1.2rem;
+  font-size: clamp(1rem, 4vw, 1.25rem);
+  letter-spacing: 0.5px;
 }
 
 .matching-timer {
@@ -2462,8 +2466,9 @@ h1, h2, h3, h4 {
   height: 8px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .matching-timer-fill {
@@ -2478,35 +2483,55 @@ h1, h2, h3, h4 {
 
 .matching-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 0.65rem;
   flex: 1;
-  max-width: 500px;
+  max-width: 520px;
   margin: 0 auto;
   width: 100%;
+  box-sizing: border-box;
+  align-items: stretch;
 }
 
 .matching-btn {
   background: var(--bg-surface);
-  border: 2px solid rgba(255,255,255,0.1);
+  border: 2px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   color: var(--text-main);
+  font-family: inherit;
   font-weight: 600;
-  font-size: clamp(0.85rem, 4vw, 1.1rem);
-  padding: 0.5rem;
+  font-size: clamp(0.8rem, 3.4vw, 1.05rem);
+  line-height: 1.25;
+  padding: 0.6rem 0.5rem;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
+  text-align: center;
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.matching-btn-text {
+  display: block;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  max-width: 100%;
 }
 
 .matching-btn.selected {
   border-color: var(--primary);
   background: rgba(99, 102, 241, 0.15);
   transform: translateY(-2px);
-  box-shadow: 0 6px 0 var(--primary-shadow);
+  box-shadow: 0 5px 0 var(--primary-shadow);
 }
 
 .matching-btn.matched {
@@ -2515,8 +2540,8 @@ h1, h2, h3, h4 {
   color: #fff;
   opacity: 0.6;
   pointer-events: none;
-  transform: scale(0.95);
-  box-shadow: 0 2px 0 var(--success-shadow);
+  transform: scale(0.96);
+  box-shadow: 0 1px 0 var(--success-shadow);
 }
 
 .matching-btn.error {
@@ -2526,17 +2551,61 @@ h1, h2, h3, h4 {
 }
 
 .shake-hard {
-  animation: shake-hard 0.4s cubic-bezier(.36,.07,.19,.97) both;
+  animation: shake-hard 0.4s cubic-bezier(.36, .07, .19, .97) both;
 }
 
 .blocked-overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(239, 68, 68, 0.1);
+  background: rgba(239, 68, 68, 0.15);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2rem;
+  font-size: clamp(1.4rem, 5vw, 2rem);
+  font-weight: 800;
+  color: var(--danger);
   pointer-events: none;
+  border-radius: 16px;
+}
+
+/* Responsive Overrides pour Mode Portrait & Petits Écrans */
+@media (max-width: 768px) {
+  .battle-card {
+    padding: 1rem 0.75rem !important;
+    min-height: auto !important;
+    border-radius: 20px !important;
+  }
+  .battle-card-header {
+    margin-bottom: 0.75rem !important;
+  }
+  .matching-grid {
+    gap: 0.5rem;
+  }
+  .matching-btn {
+    padding: 0.45rem 0.35rem;
+    font-size: clamp(0.75rem, 3.2vw, 0.95rem);
+    min-height: 44px;
+    border-radius: 10px;
+  }
+  .matching-header {
+    margin-bottom: 0.4rem;
+    font-size: 1.05rem;
+  }
+  .matching-timer {
+    margin-bottom: 0.5rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .matching-grid {
+    gap: 0.4rem;
+  }
+  .matching-btn {
+    padding: 0.35rem 0.25rem;
+    font-size: 0.75rem;
+    min-height: 40px;
+  }
 }
