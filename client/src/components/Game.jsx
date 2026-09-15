@@ -1656,6 +1656,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           {!roundResult ? (
             questionType === 'matching_pairs' && matchingPairs ? (
               <MatchingPairs 
+                key={`matching_pairs_${questionIndex}`}
                 pairs={matchingPairs} 
                 timeLimit={initialRoundDuration}
                 onSubmit={(success) => {
