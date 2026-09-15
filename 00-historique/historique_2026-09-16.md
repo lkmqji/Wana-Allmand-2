@@ -15,3 +15,7 @@
 - **Fichier impacté** : `client/src/components/Game.jsx`
 - **Diagnostic** : Le composant `<MatchingPairs>` ne possédait pas de propriété `key`. Par conséquent, si un joueur tombait sur plusieurs manches de *Matching Pairs* dans la même partie, React recyclait l'instance du composant. Les états internes (comme `matchedIds`, `errorIds`, `timeLeft`, et `isBlocked`) de la manche précédente étaient conservés, ce qui figeait le jeu ou affichait des mots comme déjà "sélectionnés" ou "bloqués" dès le début de la nouvelle manche, donnant l'impression que le bug d'affichage revenait.
 - **Correction** : Injection d'une `key` dynamique liée à l'index de la question (`key={\`matching_pairs_${questionIndex}\`}`) pour forcer le démontage complet et la réinitialisation de tous les `useState` à chaque nouvelle manche.
+
+### 00:25 - Désactivation temporaire du mode MatchingPairs
+- **Fichier impacté** : `server/game/GameManager.js`
+- **Correction** : La probabilité de déclenchement du mini-jeu "Matching Pairs" (Course aux Paires) a été passée de 50% (`0.5`) à 0% (`0.0`). Le mode n'apparaîtra plus aléatoirement lors des sessions de jeu, mais reste activable manuellement depuis le panneau Super Admin (`forceMatchingPairs: true`) pour des tests futurs.

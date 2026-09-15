@@ -214,7 +214,7 @@ class GameManager {
         }
 
         // Probability to trigger matching pairs mini-game if we have at least 5 words in the vocab list
-        const chance = this.forceMatchingPairs ? 1.0 : 0.5;
+        const chance = this.forceMatchingPairs ? 1.0 : 0.0; // Désactivé temporairement (était à 0.5)
         if (session.vocabList.length >= 5 && Math.random() < chance) {
             // Pick 5 random words
             const shuffledVocab = [...session.vocabList].sort(() => 0.5 - Math.random());
