@@ -376,3 +376,9 @@ Le 29 août 2026 a marqué une série d'optimisations majeures de performance, d
   - **VengeanceMode.jsx** :
     - Suppression de la prop `adminAnswer` dupliquée qui écrasait la vérification `isAdmin`.
     - Support du mode correction active (`mustTypeCorrection`) transmettant `correctionText` pour permettre la validation immédiate de l'erreur par l'admin.
+
+## Mise à jour (2026-09-16)
+- **Correction de l'Alignement des Colonnes (MatchingPairs) sur Mobile** :
+  - **Fusion de `.matching-container`** : Résolution du conflit de classes CSS du conteneur en fusionnant ses propriétés et en appliquant `align-items: stretch` au lieu de `center`, évitant ainsi le comportement "shrink-to-fit" qui décalait la grille sur certains appareils mobiles.
+  - **Suppression de `grid-auto-rows: 1fr`** : Retrait de la contrainte forçant toutes les lignes à adopter la hauteur de la ligne la plus grande (ce qui provoquait un débordement vertical massif sur mobile lorsqu'un seul mot s'étendait sur plusieurs lignes). La grille utilise désormais la taille naturelle du contenu tout en garantissant un alignement horizontal parfait entre les deux boutons de la même rangée via `align-items: stretch`.
+  - **Protection contre le Débordement** : Ajout de `min-width: 0` sur les boutons de la grille (`.matching-btn`) pour garantir la robustesse du `word-break` et éviter que la grille ne dépasse les largeurs de piste (`minmax(0, 1fr)`) sur les écrans étroits.
