@@ -166,6 +166,17 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const [iAmReady, setIAmReady] = useState(false);
   const [selectedProfileUser, setSelectedProfileUser] = useState(null);
   const [isControlsExpanded, setIsControlsExpanded] = useState(false);
+  const [useNativeKeyboard, setUseNativeKeyboard] = useState(() =>
+    localStorage.getItem('wana_use_native_keyboard') === 'true'
+  );
+
+  const toggleNativeKeyboard = () => {
+    setUseNativeKeyboard(prev => {
+      const next = !prev;
+      localStorage.setItem('wana_use_native_keyboard', String(next));
+      return next;
+    });
+  };
 
   const [leaderId, setLeaderId] = useState(null);
   const [overtakerId, setOvertakerId] = useState(null);
@@ -1431,6 +1442,38 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
               </span>
             </button>
 
+            {/* Clavier Android / Natif */}
+            <button
+              type="button"
+              onClick={toggleNativeKeyboard}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.5rem',
+                background: useNativeKeyboard ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                border: `1px solid ${useNativeKeyboard ? 'rgba(99, 102, 241, 0.5)' : 'rgba(255, 255, 255, 0.08)'}`,
+                borderRadius: '10px',
+                padding: '0.4rem 0.65rem',
+                color: useNativeKeyboard ? 'var(--primary)' : 'var(--text-main)',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.78rem',
+                transition: 'all 0.15s ease',
+                width: '100%',
+                textAlign: 'left'
+              }}
+              title={useNativeKeyboard ? "Revenir au clavier intégré" : "Utiliser le clavier Android natif"}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span>⌨️</span>
+                <span>Clavier Android</span>
+              </div>
+              <span style={{ fontSize: '0.7rem', color: useNativeKeyboard ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 700 }}>
+                {useNativeKeyboard ? 'On' : 'Off'}
+              </span>
+            </button>
+
             {/* Séparateur discret */}
             <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', margin: '2px 0' }} />
 
@@ -1844,7 +1887,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       )}
 
       {/* Virtual Keyboard (Hidden on Desktop, Visible on Mobile via CSS) */}
-      {questionType === 'classic' && (
+      {questionType === 'classic' && !useNativeKeyboard && (
         <VirtualKeyboard isHidden={isPaused} />
       )}
     </div>
