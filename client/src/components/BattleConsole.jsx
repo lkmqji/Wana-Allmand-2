@@ -38,6 +38,18 @@ const BattleConsole = React.memo(function BattleConsole({
     setLocalValue(externalValue || '');
   }, [externalValue]);
 
+  // Auto-focus l'input natif Android dès qu'une question apparaît ou que le champ se débloque
+  useEffect(() => {
+    if (!useNativeKeyboard || isDisabled) return;
+    // Petit délai pour laisser le DOM se mettre à jour (nécessaire sur Android/WebView)
+    const timer = setTimeout(() => {
+      if (nativeInputRef.current) {
+        nativeInputRef.current.focus();
+      }
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [useNativeKeyboard, isDisabled, question]);
+
   // Handle local change and apply Smart Auto-Capitalization
   const handleLocalChange = useCallback((newVal) => {
     if (isDisabled) return;

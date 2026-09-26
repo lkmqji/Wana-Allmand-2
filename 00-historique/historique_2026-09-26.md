@@ -23,3 +23,10 @@
 - Ajout d'un override CSS input.fake-input pour corriger display et user-select incompatibles avec un element <input>.
 - Passage de la prop useNativeKeyboard={useNativeKeyboard} depuis Game.jsx vers BattleConsole.
 
+
+## 20:36 - Auto-focus clavier Android au changement de question
+
+- Ajout d'un useEffect dans BattleConsole.jsx qui focus automatiquement l'input natif Android (80ms de delai pour le DOM).
+- Le focus se declenche a chaque nouvelle question, au deblocage du champ (isDisabled passe a false), et au montage en mode natif.
+- Plus besoin d'appuyer sur la zone de texte pour que le clavier s'affiche.
+
