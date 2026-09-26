@@ -26,6 +26,16 @@ export default function Profil({
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const isInitialMount = React.useRef(true);
+  const [useNativeKeyboard, setUseNativeKeyboard] = useState(() =>
+    localStorage.getItem('wana_use_native_keyboard') !== 'false'
+  );
+  const toggleNativeKeyboard = () => {
+    setUseNativeKeyboard(prev => {
+      const next = !prev;
+      localStorage.setItem('wana_use_native_keyboard', String(next));
+      return next;
+    });
+  };
 
 
 
@@ -368,6 +378,61 @@ export default function Profil({
             >
               🎓 Revoir le tutoriel
             </button>
+          </div>
+
+          {/* Préférences de Jeu */}
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span style={{ fontSize: '1.4rem' }}>🎮</span>
+              <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Préférences de Jeu</h3>
+            </div>
+
+            {/* Toggle Clavier Android */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.8rem' }}>
+              <div>
+                <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span>⌨️</span> Clavier Android natif
+                </div>
+                <div className="text-muted" style={{ fontSize: '0.85rem', marginTop: '0.2rem' }}>
+                  {useNativeKeyboard
+                    ? 'Le clavier virtuel intégré est masqué. Le clavier natif Android est utilisé.'
+                    : 'Le clavier virtuel WanaBoard s\'affiche pendant la partie.'}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { toggleNativeKeyboard(); playClick(); }}
+                style={{
+                  position: 'relative',
+                  width: '52px',
+                  height: '28px',
+                  borderRadius: '14px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: useNativeKeyboard
+                    ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
+                    : 'rgba(255,255,255,0.1)',
+                  transition: 'background 0.25s ease',
+                  flexShrink: 0,
+                  padding: 0,
+                  boxShadow: useNativeKeyboard ? '0 0 12px rgba(99,102,241,0.45)' : 'none'
+                }}
+                title={useNativeKeyboard ? 'Désactiver le clavier Android (utiliser WanaBoard)' : 'Activer le clavier Android natif'}
+              >
+                <span style={{
+                  position: 'absolute',
+                  top: '3px',
+                  left: useNativeKeyboard ? '27px' : '3px',
+                  width: '22px',
+                  height: '22px',
+                  borderRadius: '50%',
+                  background: '#ffffff',
+                  transition: 'left 0.25s ease',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
+                  display: 'block'
+                }} />
+              </button>
+            </div>
           </div>
 
           {/* Admin panel & Agentation Controls (réservé aux administrateurs) */}

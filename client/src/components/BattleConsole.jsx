@@ -22,12 +22,16 @@ const BattleConsole = React.memo(function BattleConsole({
   isCorrectionMode = false,
   adminAnswer = '',
   
+  // Keyboard mode: true = clavier natif Android, false = WanaBoard fake-input
+  useNativeKeyboard = false,
+  
   // Theme
   theme = 'default' 
 }) {
   // Local state for the input to prevent parent re-renders on every keystroke
   const [localValue, setLocalValue] = useState(externalValue);
   const fakeInputRef = useRef(null);
+  const nativeInputRef = useRef(null);
 
   // Sync with external value when it changes (e.g., cleared after submit or changed by Joker)
   useEffect(() => {
@@ -56,10 +60,11 @@ const BattleConsole = React.memo(function BattleConsole({
 
   // Expose the ref value for parents that might use it (rare)
   if (externalInputRef) {
+    const activeRef = useNativeKeyboard ? nativeInputRef : fakeInputRef;
     if (typeof externalInputRef === 'function') {
-      externalInputRef(fakeInputRef.current);
+      externalInputRef(activeRef.current);
     } else {
-      externalInputRef.current = fakeInputRef.current;
+      externalInputRef.current = activeRef.current;
     }
   }
 
@@ -327,39 +332,77 @@ const BattleConsole = React.memo(function BattleConsole({
               <span>A</span>
             </button>
           )}
-          <div
-            ref={fakeInputRef}
-            className="fake-input"
-            tabIndex={isDisabled ? -1 : 0}
-            inputMode="none"
-            style={{
-              paddingLeft: adminAnswer ? '4rem' : '1.5rem',
-              borderColor: isCorrectionMode ? '#ef4444' : (theme === 'valkyrie' ? 'rgba(0, 242, 254, 0.5)' : 'var(--border-color, rgba(255,255,255,0.2))'),
-              boxShadow: isCorrectionMode ? '0 0 20px rgba(239, 68, 68, 0.4)' : (theme === 'valkyrie' ? 'inset 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 242, 254, 0.2)' : 'none'),
-              borderWidth: isCorrectionMode ? '2px' : (theme === 'valkyrie' ? '1.5px' : '1px'),
-              opacity: isDisabled ? 0.6 : 1,
-            }}
-            onClick={() => {
-              if (!isDisabled && typeof window !== 'undefined') {
-                // Sur mobile, on active le wrapper WanaBoard
-                if (window.innerWidth <= 768) {
-                  document.body.classList.add('mobile-keyboard-active');
+          {/* INPUT: natif Android OU fake-input WanaBoard */}
+          {useNativeKeyboard ? (
+            <input
+              ref={nativeInputRef}
+              type="text"
+              value={localValue}
+              onChange={(e) => {
+                if (isDisabled) return;
+                handleLocalChange(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                if (isDisabled) return;
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  setExternalValue(localValue);
+                  setTimeout(() => { if (onSubmit) onSubmit(e, localValue); }, 0);
                 }
-              }
-            }}
-          >
-            {localValue ? (
-              <>
-                {localValue}
-                {!isDisabled && <span className="cursor"></span>}
-              </>
-            ) : (
-              <span style={{ color: 'rgba(255, 255, 255, 0.3)', fontWeight: 400 }}>
-                {isCorrectionMode ? "Tapez la correction ici..." : inputPlaceholder}
-                {!isDisabled && <span className="cursor"></span>}
-              </span>
-            )}
-          </div>
+              }}
+              placeholder={isCorrectionMode ? 'Tapez la correction ici...' : inputPlaceholder}
+              disabled={isDisabled}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              className="fake-input"
+              style={{
+                paddingLeft: adminAnswer ? '4rem' : '1.5rem',
+                borderColor: isCorrectionMode ? '#ef4444' : (theme === 'valkyrie' ? 'rgba(0, 242, 254, 0.5)' : 'var(--border-color, rgba(255,255,255,0.2))'),
+                boxShadow: isCorrectionMode ? '0 0 20px rgba(239, 68, 68, 0.4)' : (theme === 'valkyrie' ? 'inset 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 242, 254, 0.2)' : 'none'),
+                borderWidth: isCorrectionMode ? '2px' : (theme === 'valkyrie' ? '1.5px' : '1px'),
+                opacity: isDisabled ? 0.6 : 1,
+                textAlign: 'center',
+                color: '#ffffff',
+                background: 'rgba(6, 8, 14, 0.75)',
+              }}
+            />
+          ) : (
+            <div
+              ref={fakeInputRef}
+              className="fake-input"
+              tabIndex={isDisabled ? -1 : 0}
+              inputMode="none"
+              style={{
+                paddingLeft: adminAnswer ? '4rem' : '1.5rem',
+                borderColor: isCorrectionMode ? '#ef4444' : (theme === 'valkyrie' ? 'rgba(0, 242, 254, 0.5)' : 'var(--border-color, rgba(255,255,255,0.2))'),
+                boxShadow: isCorrectionMode ? '0 0 20px rgba(239, 68, 68, 0.4)' : (theme === 'valkyrie' ? 'inset 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 242, 254, 0.2)' : 'none'),
+                borderWidth: isCorrectionMode ? '2px' : (theme === 'valkyrie' ? '1.5px' : '1px'),
+                opacity: isDisabled ? 0.6 : 1,
+              }}
+              onClick={() => {
+                if (!isDisabled && typeof window !== 'undefined') {
+                  // Sur mobile, on active le wrapper WanaBoard
+                  if (window.innerWidth <= 768) {
+                    document.body.classList.add('mobile-keyboard-active');
+                  }
+                }
+              }}
+            >
+              {localValue ? (
+                <>
+                  {localValue}
+                  {!isDisabled && <span className="cursor"></span>}
+                </>
+              ) : (
+                <span style={{ color: 'rgba(255, 255, 255, 0.3)', fontWeight: 400 }}>
+                  {isCorrectionMode ? "Tapez la correction ici..." : inputPlaceholder}
+                  {!isDisabled && <span className="cursor"></span>}
+                </span>
+              )}
+            </div>
+          )}
 
           <button
             type="submit"

@@ -2257,6 +2257,14 @@ h1, h2, h3, h4 {
   word-break: break-all;
   user-select: none; /* prevent native selection to avoid keyboard popup on some devices */
 }
+/* Override for native <input> — must NOT have display:flex or user-select:none */
+input.fake-input {
+  display: block;
+  user-select: text;
+  -webkit-user-select: text;
+  box-sizing: border-box;
+  white-space: normal;
+}
 .fake-input:focus {
   border-color: var(--primary);
   box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);

@@ -167,7 +167,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const [selectedProfileUser, setSelectedProfileUser] = useState(null);
   const [isControlsExpanded, setIsControlsExpanded] = useState(false);
   const [useNativeKeyboard, setUseNativeKeyboard] = useState(() =>
-    localStorage.getItem('wana_use_native_keyboard') === 'true'
+    localStorage.getItem('wana_use_native_keyboard') !== 'false'
   );
 
   const toggleNativeKeyboard = () => {
@@ -1730,6 +1730,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
                   }
                   inputRef={inputRef}
                   theme="default"
+                  useNativeKeyboard={useNativeKeyboard}
                   topSlot={
                     <h2 style={{ fontSize: '1rem', color: 'var(--text-muted)', marginBottom: '0.5rem', textAlign: 'center' }}>
                       Traduisez en allemand :
