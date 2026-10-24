@@ -4,7 +4,7 @@ import { triggerHaptic } from '../utils/haptics';
 import { speakText } from '../utils/speech';
 import confetti from 'canvas-confetti';
 
-export default function MatchingPairs({ pairs, onSubmit, timeLimit = 15 }) {
+export default function MatchingPairs({ pairs, onSubmit, timeLimit = 20 }) {
   const { playSuccess, playError, playVictory } = useAudio();
   const [selectedLeft, setSelectedLeft] = useState(null);
   const [selectedRight, setSelectedRight] = useState(null);
@@ -18,18 +18,33 @@ export default function MatchingPairs({ pairs, onSubmit, timeLimit = 15 }) {
   const rightWords = pairs?.right || [];
   const rowCount = Math.max(leftWords.length, rightWords.length);
 
-  // Timer logic
+  const matchedRef = useRef(matchedIds);
+  matchedRef.current = matchedIds;
+  const onSubmitRef = useRef(onSubmit);
+  onSubmitRef.current = onSubmit;
+
+  // Driftless Timer logic
   useEffect(() => {
-    if (matchedIds.length === leftWords.length) return;
-    if (timeLeft <= 0) {
-      onSubmit(false); // Fail
-      return;
-    }
+    const startTime = Date.now();
+    const durationMs = timeLimit * 1000;
+
     const timerId = setInterval(() => {
-      setTimeLeft((prev) => prev - 0.1);
+      if (matchedRef.current.length === leftWords.length && leftWords.length > 0) {
+        clearInterval(timerId);
+        return;
+      }
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, (durationMs - elapsed) / 1000);
+      setTimeLeft(remaining);
+
+      if (remaining <= 0) {
+        clearInterval(timerId);
+        onSubmitRef.current(false);
+      }
     }, 100);
+
     return () => clearInterval(timerId);
-  }, [timeLeft, matchedIds.length, leftWords.length, onSubmit]);
+  }, [timeLimit, leftWords.length]);
 
   const handleMatch = (lId, rId) => {
     setIsBlocked(true);
@@ -59,45 +74,36 @@ export default function MatchingPairs({ pairs, onSubmit, timeLimit = 15 }) {
             origin: { y: 0.6 }
           });
           onSubmit(true); // Success
-        }, 500);
+        }, 400);
       } else {
         setIsBlocked(false);
       }
     } else {
-      // Error
+      // Error: Quick snappy shake without frustrating 2-second block
       playError();
       triggerHaptic('error');
       setErrorIds({ left: lId, right: rId });
       setComboLevel(0);
       
-      // Block for 2 seconds
       setTimeout(() => {
         setSelectedLeft(null);
         setSelectedRight(null);
         setErrorIds({ left: null, right: null });
         setIsBlocked(false);
-      }, 2000);
+      }, 650);
     }
   };
 
   const onLeftClick = (id) => {
     if (isBlocked || matchedIds.includes(id)) return;
     triggerHaptic('light');
-    if (selectedLeft === id) {
-      setSelectedLeft(null);
-    } else {
-      setSelectedLeft(id);
-    }
+    setSelectedLeft(prev => prev === id ? null : id);
   };
 
   const onRightClick = (id) => {
     if (isBlocked || matchedIds.includes(id)) return;
     triggerHaptic('light');
-    if (selectedRight === id) {
-      setSelectedRight(null);
-    } else {
-      setSelectedRight(id);
-    }
+    setSelectedRight(prev => prev === id ? null : id);
   };
 
   useEffect(() => {
@@ -111,18 +117,38 @@ export default function MatchingPairs({ pairs, onSubmit, timeLimit = 15 }) {
 
   return (
     <div className="matching-container">
-      
+      {/* Top Status & Combo Banner */}
       <div className="matching-header">
-        ⚡ Course aux Paires ! ⚡
+        <div className="matching-title-row">
+          <span className="matching-badge-pulse">⚡ Course aux Paires</span>
+          <span className="matching-pairs-counter">
+            {matchedIds.length} / {leftWords.length} trouvées
+          </span>
+          {comboLevel > 1 && (
+            <span className="matching-combo-pill">🔥 Combo x{comboLevel} !</span>
+          )}
+        </div>
       </div>
       
-      <div className="matching-timer">
+      {/* Slim Dynamic Progress Bar */}
+      <div className="matching-timer" title={`${Math.ceil(timeLeft)}s restantes`}>
         <div 
           className={`matching-timer-fill ${timeLeft < 5 ? 'danger' : ''}`}
           style={{ width: `${progressPercent}%` }}
         />
       </div>
 
+      {/* Column Headers */}
+      <div className="matching-columns-header">
+        <div className="matching-col-label left">
+          <span className="col-flag">🇫🇷</span> Traduction
+        </div>
+        <div className="matching-col-label right">
+          <span className="col-flag">🇩🇪</span> Allemand
+        </div>
+      </div>
+
+      {/* Two-Column Responsive Grid */}
       <div className="matching-grid">
         {Array.from({ length: rowCount }).map((_, index) => {
           const leftWord = leftWords[index];
@@ -138,39 +164,37 @@ export default function MatchingPairs({ pairs, onSubmit, timeLimit = 15 }) {
 
           return (
             <React.Fragment key={`pair-row-${index}`}>
-              {/* Left Button (Source Language) */}
+              {/* Left Button (Source / French) */}
               {leftWord ? (
                 <button 
                   type="button"
                   key={`left-${leftWord.id}`}
                   onClick={() => onLeftClick(leftWord.id)}
+                  disabled={isLeftMatched}
                   className={`matching-btn matching-btn-left ${isLeftMatched ? 'matched' : ''} ${isLeftSelected ? 'selected' : ''} ${isLeftError ? 'error shake-hard' : ''}`}
                 >
                   <span className="matching-btn-text">{leftWord.text}</span>
+                  {isLeftMatched && <span className="matching-check">✓</span>}
                 </button>
-              ) : <div />}
+              ) : <div className="matching-placeholder" />}
 
-              {/* Right Button (Target Language) */}
+              {/* Right Button (Target / German) */}
               {rightWord ? (
                 <button 
                   type="button"
                   key={`right-${rightWord.id}`}
                   onClick={() => onRightClick(rightWord.id)}
+                  disabled={isRightMatched}
                   className={`matching-btn matching-btn-right ${isRightMatched ? 'matched' : ''} ${isRightSelected ? 'selected' : ''} ${isRightError ? 'error shake-hard' : ''}`}
                 >
                   <span className="matching-btn-text">{rightWord.text}</span>
+                  {isRightMatched && <span className="matching-check">✓</span>}
                 </button>
-              ) : <div />}
+              ) : <div className="matching-placeholder" />}
             </React.Fragment>
           );
         })}
       </div>
-
-      {isBlocked && errorIds.left && (
-        <div className="blocked-overlay">
-          ❌ Bloqué (2s)
-        </div>
-      )}
     </div>
   );
 }

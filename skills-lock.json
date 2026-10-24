@@ -7,17 +7,59 @@
       "skillPath": ".agents/skills/analyze-bundle/SKILL.md",
       "computedHash": "5f3a614d629eb887a846fd0d32ad9fa9da6042400d51928187ba6b5bbd06a6d9"
     },
+    "build-models": {
+      "source": "replicate/skills",
+      "sourceType": "github",
+      "skillPath": "skills/build-models/SKILL.md",
+      "computedHash": "35dbb6e36c1a8a471b3f5c424d5cc43908e745d73ca5ef8d3021d6d565026746"
+    },
+    "compare-models": {
+      "source": "replicate/skills",
+      "sourceType": "github",
+      "skillPath": "skills/compare-models/SKILL.md",
+      "computedHash": "3e50d5a7caf707285a4d297a96982fe8a045741e31937da850bf74e3ef18f1bf"
+    },
+    "find-models": {
+      "source": "replicate/skills",
+      "sourceType": "github",
+      "skillPath": "skills/find-models/SKILL.md",
+      "computedHash": "e5834aeab20d891725ac911dbb47a4f938d07682acf3561462280336ce627f01"
+    },
     "mongodb-query-optimizer": {
       "source": "mongodb/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/mongodb-query-optimizer/SKILL.md",
       "computedHash": "dad6bb8b3b21d75b59b18e326d780b55ad849a9c3110ad44ee23d1856130a79a"
     },
+    "prompt-images": {
+      "source": "replicate/skills",
+      "sourceType": "github",
+      "skillPath": "skills/prompt-images/SKILL.md",
+      "computedHash": "82253e3dea73850d33185aa2182c980fa86e34eb0dda50c9b071181123534c70"
+    },
+    "prompt-videos": {
+      "source": "replicate/skills",
+      "sourceType": "github",
+      "skillPath": "skills/prompt-videos/SKILL.md",
+      "computedHash": "77f87ec498ef64115f7459c5501ceca7202ebcfd3b950b8f2d48c2c3fe1555b8"
+    },
+    "publish-models": {
+      "source": "replicate/skills",
+      "sourceType": "github",
+      "skillPath": "skills/publish-models/SKILL.md",
+      "computedHash": "3aff39b6de3c10afe01320ce12c128c95d1e8ba8166223301f68a3d9af370030"
+    },
     "react-vite-best-practices": {
       "source": "asyrafhussin/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/react-vite-best-practices/SKILL.md",
       "computedHash": "bfd0d0cef40fd678863adcc5bc96a27ffb9c5cece99f56894dc22e5f36f37c6b"
+    },
+    "run-models": {
+      "source": "replicate/skills",
+      "sourceType": "github",
+      "skillPath": "skills/run-models/SKILL.md",
+      "computedHash": "33bbebe173451d431541428f50c4b116036c0e84ff88ec58c4eb07a1e66930cc"
     },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",

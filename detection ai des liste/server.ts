@@ -35,6 +35,35 @@ function getGenAI(): GoogleGenAI {
   return genAIClient;
 }
 
+const GEMINI_WATERFALL_MODELS = [
+  'gemini-3.8-flash',
+  'gemini-3.7-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-1.5-flash'
+];
+
+async function callGeminiWaterfall(ai: GoogleGenAI, requestConfig: any) {
+  let lastError: any = null;
+  for (const modelName of GEMINI_WATERFALL_MODELS) {
+    try {
+      console.log(`[Gemini Waterfall] Tentative avec : ${modelName}...`);
+      const response = await ai.models.generateContent({
+        ...requestConfig,
+        model: modelName
+      });
+      console.log(`[Gemini Waterfall] Succès avec : ${modelName}`);
+      return { response, activeModel: modelName };
+    } catch (err: any) {
+      console.warn(`[Gemini Waterfall] Échec avec ${modelName} (${err?.status || err?.message}). Bascule secours...`);
+      lastError = err;
+    }
+  }
+  throw lastError || new Error("Tous les modèles Gemini ont échoué.");
+}
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -122,8 +151,7 @@ Renvoie une structure JSON STRICTE respectant le schéma spécifié.`;
       parts.push({ text: `Voici le texte à analyser :\n\n${rawText}\n\n${promptText}` });
     }
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
+    const { response, activeModel } = await callGeminiWaterfall(ai, {
       contents: { parts },
       config: {
         systemInstruction,

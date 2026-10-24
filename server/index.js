@@ -14,23 +14,65 @@ const Config = require('./models/Config');
 const Notification = require('./models/Notification');
 const { formatPlayerName } = require('./utils/formatters');
 const { exampleLists } = require('./utils/exampleLists');
+const pediaProvider = require('./data/pediaProvider');
 const dns = require('dns');
 try { dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']); } catch (e) { /* ignore */ }
 require('dotenv').config();
 
 // Lazy-loaded GenAI Client to optimize Node.js cold start
+const { GoogleGenAI, Type } = require('@google/genai');
+
+// Modèles Gemini avec cascade de secours (Waterfall) ordonnée selon la priorité utilisateur :
+// 1. Gemini 3.8 Flash (Prioritaire)
+// 2. Gemini 3.7 Flash (Secours 1)
+// 3. Gemini 3.6 Flash (Secours 2)
+// 4. Gemini 3.5 Flash Lite (Secours 3)
+// 5. Gemini 3.1 Flash Lite (Secours 4)
+// + Garde-fous de résilience : gemini-2.5-flash, gemini-1.5-flash
+const GEMINI_WATERFALL_MODELS = [
+    'gemini-3.8-flash',
+    'gemini-3.7-flash',
+    'gemini-3.6-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-3.1-flash-lite',
+    'gemini-2.5-flash',
+    'gemini-1.5-flash'
+];
+
 let genAIClient = null;
 function getGenAI() {
     if (!genAIClient) {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) throw new Error('GEMINI_API_KEY is missing from environment variables.');
-        const { GoogleGenAI } = require('@google/genai');
         genAIClient = new GoogleGenAI({
             apiKey,
             httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
         });
     }
     return genAIClient;
+}
+
+/**
+ * Exécute un appel à l'API Gemini en testant successivement les modèles
+ * dans l'ordre de priorité défini, avec bascule transparente en cas d'indisponibilité (503/404/etc.).
+ */
+async function callGeminiWaterfall(ai, requestConfig) {
+    let lastError = null;
+    for (const modelName of GEMINI_WATERFALL_MODELS) {
+        try {
+            console.log(`[Gemini Waterfall] Tentative avec le modèle : ${modelName}...`);
+            const response = await ai.models.generateContent({
+                ...requestConfig,
+                model: modelName
+            });
+            console.log(`[Gemini Waterfall] ✅ Succès avec le modèle : ${modelName}`);
+            return { response, activeModel: modelName };
+        } catch (err) {
+            console.warn(`[Gemini Waterfall] ⚠️ Échec avec ${modelName} (${err?.status || err?.message || 'Erreur'}). Bascule sur le modèle de secours suivant...`);
+            lastError = err;
+        }
+    }
+    throw lastError || new Error("Tous les modèles Gemini de la cascade ont échoué.");
 }
 
 // MongoDB Connection
@@ -370,6 +412,30 @@ app.post('/api/extract', upload.single('file'), async (req, res) => {
                     const theme = text.replace("THEME:", "").trim();
                     const prompt = `Tu es un assistant linguistique. Génère une liste de 15 mots essentiels ou pertinents (niveau A2/B1) sur le thème suivant : "${theme}". Renvoie STRICTEMENT un tableau JSON au format exact: [{"question": "mot français", "english": "english translation", "answer": "mot allemand avec article der/die/das"}] sans texte additionnel.`;
                     parts.push({ text: prompt });
+
+                    const { response, activeModel } = await callGeminiWaterfall(ai, {
+                        contents: { parts },
+                        config: {
+                            responseMimeType: 'application/json'
+                        }
+                    });
+
+                    let rawText = (response.text || '{}').trim();
+                    if (rawText.startsWith('```json')) rawText = rawText.replace(/^```json/, '').replace(/```$/, '').trim();
+                    if (rawText.startsWith('```')) rawText = rawText.replace(/^```/, '').replace(/```$/, '').trim();
+                    const parsed = JSON.parse(rawText);
+                    const list = Array.isArray(parsed) ? parsed : (parsed.vocabulary || []);
+                    const vocabList = list.map((item, idx) => ({
+                        id: Date.now() + idx,
+                        question: item.question || item.frenchText || '???',
+                        english: item.english || item.englishText || '',
+                        answer: item.answer || item.germanText || '???',
+                        category: item.category || 'EXPRESSIONS'
+                    })).filter(w => w.question !== '???' && w.answer !== '???');
+
+                    if (vocabList.length > 0) {
+                        return res.json({ vocabList, usedModel: activeModel });
+                    }
                 } else {
                     const sourceLang = options.sourceLang || 'Français / English / العربية';
                     const targetLang = options.targetLang || 'Allemand';
@@ -411,8 +477,7 @@ Classifie dans : NOMS, VERBES, ADJECTIFS_ADVERBES, EXPRESSIONS.`;
                         parts.push({ text: `Voici le texte à analyser :\n\n${text}\n\n${promptText}` });
                     }
 
-                    const response = await ai.models.generateContent({
-                        model: 'gemini-1.5-flash',
+                    const { response, activeModel } = await callGeminiWaterfall(ai, {
                         contents: { parts },
                         config: {
                             systemInstruction,
@@ -456,11 +521,12 @@ Classifie dans : NOMS, VERBES, ADJECTIFS_ADVERBES, EXPRESSIONS.`;
                         };
                     }).filter(w => w.question !== '???' && w.answer !== '???');
 
-                    console.log("Generated vocabList length:", vocabList.length);
+                    console.log(`Generated vocabList length via ${activeModel}:`, vocabList.length);
 
                     if (vocabList.length > 0) {
                         return res.json({ 
                             vocabList, 
+                            usedModel: activeModel,
                             detectedInfo: {
                                 detectedLanguage: parsed.detectedLanguage,
                                 notes: parsed.notes
@@ -470,26 +536,33 @@ Classifie dans : NOMS, VERBES, ADJECTIFS_ADVERBES, EXPRESSIONS.`;
                     console.warn("vocabList was empty, falling through to text parser...");
                 }
             } catch (aiErr) {
-                console.error("Gemini API call error:", aiErr);
-                // Fallback to legacy structure if the new one fails (e.g., using gemini-1.5-flash for THEME)
+                console.error("Gemini API call error across waterfall:", aiErr);
+                // Fallback to REST fetch across models
                 if (text.startsWith("THEME:")) {
                    try {
                        const theme = text.replace("THEME:", "").trim();
                        const prompt = `Génère 15 mots sur le thème "${theme}". JSON: [{"question": "français", "english": "anglais", "answer": "allemand avec article"}]`;
-                       const fallbackResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-                           method: 'POST',
-                           headers: { 'Content-Type': 'application/json' },
-                           body: JSON.stringify({ contents: [{ parts: [{text: prompt}] }] })
-                       });
-                       const fallbackData = await fallbackResponse.json();
-                       let rawText = fallbackData.candidates[0].content.parts[0].text.trim();
-                       if (rawText.startsWith('```json')) rawText = rawText.replace(/^```json/, '').replace(/```$/, '').trim();
-                       if (rawText.startsWith('```')) rawText = rawText.replace(/^```/, '').replace(/```$/, '').trim();
-                       const parsed = JSON.parse(rawText);
-                       const vocabList = parsed.map((item, idx) => ({ id: idx+1, question: item.question, answer: item.answer }));
-                       return res.json({ vocabList });
+                       for (const m of GEMINI_WATERFALL_MODELS) {
+                           try {
+                               const fallbackResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+                                   method: 'POST',
+                                   headers: { 'Content-Type': 'application/json', 'User-Agent': 'aistudio-build' },
+                                   body: JSON.stringify({ contents: [{ parts: [{text: prompt}] }] })
+                               });
+                               if (!fallbackResponse.ok) continue;
+                               const fallbackData = await fallbackResponse.json();
+                               let rawText = fallbackData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+                               if (rawText.startsWith('```json')) rawText = rawText.replace(/^```json/, '').replace(/```$/, '').trim();
+                               if (rawText.startsWith('```')) rawText = rawText.replace(/^```/, '').replace(/```$/, '').trim();
+                               const parsed = JSON.parse(rawText);
+                               const vocabList = parsed.map((item, idx) => ({ id: idx+1, question: item.question, answer: item.answer }));
+                               if (vocabList.length > 0) return res.json({ vocabList, usedModel: m });
+                           } catch(fErr) {
+                               continue;
+                           }
+                       }
                    } catch(fallbackErr) {
-                       console.error("Fallback error", fallbackErr);
+                       console.error("REST Fallback error", fallbackErr);
                    }
                 }
             }
@@ -1168,43 +1241,63 @@ io.on('connection', (socket) => {
         })));
     });
 
-    socket.on('create_session', async ({ mode, vocabList, settings, playerName, firebaseId, avatar, clientPlayerKey }) => {
-        let finalVocabList = vocabList || [];
-        
-        if (mode === 'random_duel') {
-            try {
-                // Fetch public lists from DB only if connected to avoid hanging
-                let publicLists = [];
-                if (mongoose.connection.readyState === 1) {
-                    publicLists = await List.find({ isPublic: true }, 'words').lean();
+    socket.on('get_pedia_chapters', () => {
+        socket.emit('pedia_chapters_data', pediaProvider.getChapters());
+    });
+
+    socket.on('create_session', async ({ mode, vocabList, settings, playerName, firebaseId, avatar, clientPlayerKey, gameType = 'german', pediaSettings }) => {
+        const formattedPlayerName = formatPlayerName(playerName);
+        const sessionId = gameManager.createSession(socket.id, formattedPlayerName, firebaseId, clientPlayerKey, gameType);
+
+        if (gameType === 'pedia') {
+            const safePediaSettings = {
+                chapterId: pediaSettings?.chapterId || 'all',
+                count: pediaSettings?.count || settings?.rounds || 10,
+                questionType: pediaSettings?.questionType || 'all',
+                chapterTitle: pediaSettings?.chapterTitle || 'Tous les cours (Mélange aléatoire)'
+            };
+            const pediaQuestions = pediaProvider.getQuestions(safePediaSettings);
+            gameManager.setPediaQuestions(sessionId, pediaQuestions, {
+                rounds: pediaQuestions.length,
+                timePerWord: settings?.timePerWord || 20,
+                allowPause: settings?.allowPause ?? true
+            }, safePediaSettings);
+        } else {
+            let finalVocabList = vocabList || [];
+            
+            if (mode === 'random_duel') {
+                try {
+                    // Fetch public lists from DB only if connected to avoid hanging
+                    let publicLists = [];
+                    if (mongoose.connection.readyState === 1) {
+                        publicLists = await List.find({ isPublic: true }, 'words').lean();
+                    }
+                    const allWords = [];
+                    // Add example lists
+                    exampleLists.forEach(list => allWords.push(...(list.words || [])));
+                    // Add public lists
+                    publicLists.forEach(list => allWords.push(...(list.words || [])));
+                    
+                    // Shuffle and pick 50
+                    const shuffled = allWords.sort(() => 0.5 - Math.random());
+                    finalVocabList = shuffled.slice(0, 50).map((w, idx) => ({ 
+                        id: idx + 1, 
+                        question: (w.question || w.frenchPrompt || w.french || '').trim(), 
+                        answer: (w.answer || w.germanWord || w.german || w.word || '').trim() 
+                    })).filter(w => w.question && w.answer);
+                    
+                    // Ensure settings rounds matches the capped length
+                    if (!settings) settings = {};
+                    settings.rounds = finalVocabList.length;
+                } catch (err) {
+                    console.error("Erreur serveur lors de la génération aléatoire :", err);
+                    socket.emit('error', "Erreur serveur lors de la création du lobby aléatoire.");
+                    return;
                 }
-                const allWords = [];
-                // Add example lists
-                exampleLists.forEach(list => allWords.push(...(list.words || [])));
-                // Add public lists
-                publicLists.forEach(list => allWords.push(...(list.words || [])));
-                
-                // Shuffle and pick 50
-                const shuffled = allWords.sort(() => 0.5 - Math.random());
-                finalVocabList = shuffled.slice(0, 50).map((w, idx) => ({ 
-                    id: idx + 1, 
-                    question: (w.question || w.frenchPrompt || w.french || '').trim(), 
-                    answer: (w.answer || w.germanWord || w.german || w.word || '').trim() 
-                })).filter(w => w.question && w.answer);
-                
-                // Ensure settings rounds matches the capped length
-                if (!settings) settings = {};
-                settings.rounds = finalVocabList.length;
-            } catch (err) {
-                console.error("Erreur serveur lors de la génération aléatoire :", err);
-                socket.emit('error', "Erreur serveur lors de la création du lobby aléatoire.");
-                return;
             }
+            gameManager.setVocabList(sessionId, finalVocabList, settings);
         }
 
-        const formattedPlayerName = formatPlayerName(playerName);
-        const sessionId = gameManager.createSession(socket.id, formattedPlayerName, firebaseId, clientPlayerKey);
-        gameManager.setVocabList(sessionId, finalVocabList, settings);
         socket.join(sessionId);
         const session = gameManager.getSession(sessionId);
         
@@ -1218,6 +1311,30 @@ io.on('connection', (socket) => {
         }
 
         socket.emit('session_created', session);
+    });
+
+    socket.on('update_session_pedia_settings', ({ sessionId, pediaSettings, settings }) => {
+        const session = gameManager.getSession(sessionId);
+        if (session && session.hostId === socket.id && session.gameType === 'pedia') {
+            const mergedPediaSettings = {
+                ...(session.pediaSettings || {}),
+                ...(pediaSettings || {})
+            };
+            const pediaQuestions = pediaProvider.getQuestions(mergedPediaSettings);
+            gameManager.setPediaQuestions(sessionId, pediaQuestions, {
+                ...(session.settings || {}),
+                ...(settings || {}),
+                rounds: pediaQuestions.length
+            }, mergedPediaSettings);
+
+            io.to(sessionId).emit('session_updated', session);
+            io.to(sessionId).emit('lobby_chat_message', {
+                id: Math.random().toString(36).substring(2, 9),
+                isSystem: true,
+                text: `🩺 Configuration mise à jour : ${pediaQuestions.length} QCM (${mergedPediaSettings.chapterTitle || 'Tous les cours'}).`,
+                timestamp: Date.now()
+            });
+        }
     });
 
     socket.on('join_session', ({ sessionId, playerName, firebaseId, avatar, clientPlayerKey }) => {
@@ -1376,8 +1493,16 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('submit_answer', ({ sessionId, answer, timeRemaining }) => {
-        const result = gameManager.submitAnswer(sessionId, socket.id, answer, timeRemaining);
+    socket.on('submit_answer', async ({ sessionId, answer, timeRemaining }) => {
+        const session = gameManager.getSession(sessionId);
+        if (!session || session.status !== 'playing') return;
+
+        let result = null;
+        if (session.gameType === 'pedia') {
+            result = await gameManager.submitPediaAnswer(sessionId, socket.id, answer, timeRemaining);
+        } else {
+            result = gameManager.submitAnswer(sessionId, socket.id, answer, timeRemaining);
+        }
         
         // Real-time opponent answered notification
         if (sessionId) {
@@ -1390,7 +1515,6 @@ io.on('connection', (socket) => {
 
         if (result && result.allAnswered) {
             // Both answered, clear timer and move to next
-            const session = gameManager.getSession(sessionId);
             clearTimeout(session.roundTimer);
             handleRoundEnd(sessionId);
         }
@@ -1738,6 +1862,69 @@ io.on('connection', (socket) => {
         }
     });
 
+    // PédiaDrill: Mutual vote to extend debriefing time (+1 minute)
+    socket.on('vote_extend_debrief_time', (sessionId) => {
+        const session = gameManager.getSession(sessionId);
+        if (!session || session.status !== 'showing_results') return;
+        if (session.gameType !== 'pedia') return;
+
+        if (!session.extendTimeVotes) session.extendTimeVotes = new Set();
+
+        // Toggle vote: clicking again cancels vote
+        if (session.extendTimeVotes.has(socket.id)) {
+            session.extendTimeVotes.delete(socket.id);
+        } else {
+            session.extendTimeVotes.add(socket.id);
+        }
+
+        const totalPlayers = Math.max(1, Object.keys(session.players || {}).length);
+        const votesCount = session.extendTimeVotes.size;
+
+        // Both players agreed to add 1 minute (or 1 in solo)
+        if (votesCount >= totalPlayers) {
+            session.extendTimeVotes = new Set(); // Reset for next potential extension
+            session.readyPlayers = new Set();    // Reset ready status so game doesn't instantly advance
+
+            const ADDED_MS = 60000; // +1 minute (60s)
+            const now = Date.now();
+            const currentEndTime = session.resultEndTime || (now + (session.resultTimeRemaining || 60000));
+            const remaining = Math.max(0, currentEndTime - now);
+            const newRemaining = remaining + ADDED_MS;
+
+            session.resultEndTime = now + newRemaining;
+            session.resultDuration = (session.resultDuration || 60000) + ADDED_MS;
+            session.resultTimeRemaining = newRemaining;
+
+            if (session.autoAdvanceTimer) clearTimeout(session.autoAdvanceTimer);
+            session.autoAdvanceTimer = setTimeout(() => {
+                if (session.status === 'showing_results' && !session.isPaused) {
+                    session.status = 'playing';
+                    session.readyPlayers = new Set();
+                    session.extendTimeVotes = new Set();
+                    sendNextQuestion(sessionId);
+                }
+            }, newRemaining);
+
+            // Broadcast time extension to both players
+            io.to(sessionId).emit('debrief_time_extended', {
+                addedSeconds: 60,
+                remainingSeconds: Math.ceil(newRemaining / 1000),
+                totalDuration: Math.ceil(session.resultDuration / 1000),
+                totalPlayers
+            });
+
+            // Reset ready indicator
+            io.to(sessionId).emit('ready_count', { ready: 0, total: totalPlayers });
+        } else {
+            // Broadcast vote progress to both players
+            io.to(sessionId).emit('debrief_extend_votes', {
+                votesCount,
+                totalPlayers,
+                voters: Array.from(session.extendTimeVotes)
+            });
+        }
+    });
+
     // Direct Rejoin active session (game or lobby)
     const handleRejoin = ({ sessionId, clientPlayerKey, firebaseId, playerName, avatar }) => {
         if (!sessionId) {
@@ -2037,21 +2224,23 @@ function sendNextQuestion(sessionId) {
                         // Update daily XP history, streak, and lastSeen
                         recordUserDailyXpAndStreak(dbUser, p.score);
                         
-                        // Update failed words
-                        Object.entries(p.answers || {}).forEach(([idxStr, ans]) => {
-                            if (ans && ans.score < 100) {
-                                const qIdx = parseInt(idxStr, 10);
-                                const currentVocab = session.vocabList?.[qIdx];
-                                const questionText = currentVocab?.question || '';
-                                const wordEntry = dbUser.failedWords.find(w => w.word === ans.expected);
-                                if (wordEntry) {
-                                    wordEntry.count += 1;
-                                    if (!wordEntry.question && questionText) wordEntry.question = questionText;
-                                } else {
-                                    dbUser.failedWords.push({ word: ans.expected, question: questionText, count: 1 });
+                        // Update failed words (for German mode)
+                        if (session.gameType !== 'pedia') {
+                            Object.entries(p.answers || {}).forEach(([idxStr, ans]) => {
+                                if (ans && ans.score < 100) {
+                                    const qIdx = parseInt(idxStr, 10);
+                                    const currentVocab = session.vocabList?.[qIdx];
+                                    const questionText = currentVocab?.question || '';
+                                    const wordEntry = dbUser.failedWords.find(w => w.word === ans.expected);
+                                    if (wordEntry) {
+                                        wordEntry.count += 1;
+                                        if (!wordEntry.question && questionText) wordEntry.question = questionText;
+                                    } else {
+                                        dbUser.failedWords.push({ word: ans.expected, question: questionText, count: 1 });
+                                    }
                                 }
-                            }
-                        });
+                            });
+                        }
 
                         await dbUser.save();
                     }
@@ -2061,10 +2250,55 @@ function sendNextQuestion(sessionId) {
             }
         });
 
-        io.to(sessionId).emit('game_over', { players: session.players, vocabList: session.vocabList });
+        if (session.gameType === 'pedia') {
+            io.to(sessionId).emit('game_over', {
+                players: session.players,
+                pediaQuestions: session.pediaQuestions,
+                gameType: 'pedia'
+            });
+        } else {
+            io.to(sessionId).emit('game_over', { players: session.players, vocabList: session.vocabList, gameType: 'german' });
+        }
     } else {
+        if (session.gameType === 'pedia') {
+            const isCroq = !!(next.is_croq || next.question_type === 'croq');
+            const baseTime = session.settings.timePerWord || 20;
+            // +30s rule for CROQ
+            const durationSec = baseTime + (isCroq ? 30 : 0);
+
+            session.roundStartTime = Date.now();
+            session.roundDuration = durationSec * 1000;
+            session.roundTimeRemaining = session.roundDuration;
+            session.isPaused = false;
+            session.pauseReason = null;
+
+            const liveQuestion = pediaProvider.prepareLiveQuestion(next.pediaQuestion);
+            const payload = {
+                questionIndex: session.currentQuestionIndex,
+                totalQuestions: (session.pediaQuestions || []).length,
+                duration: durationSec,
+                question_type: isCroq ? 'croq' : 'pedia_qcm',
+                pediaQuestion: liveQuestion,
+                is_croq: isCroq,
+                gameType: 'pedia'
+            };
+
+            io.to(sessionId).emit('new_question', payload);
+
+            if (session.settings.timePerWord < 300 && !session.settings.isTutorial) {
+                session.roundTimer = setTimeout(() => {
+                    handleRoundEnd(sessionId);
+                }, session.roundDuration);
+            }
+            return;
+        }
+
+        const durationSec = next.question_type === 'matching_pairs'
+            ? Math.max(20, Math.round((session.settings.timePerWord || 15) * 1.5))
+            : (session.settings.timePerWord || 15);
+
         session.roundStartTime = Date.now();
-        session.roundDuration = session.settings.timePerWord * 1000;
+        session.roundDuration = durationSec * 1000;
         session.roundTimeRemaining = session.roundDuration;
         session.isPaused = false;
         session.pauseReason = null;
@@ -2072,8 +2306,9 @@ function sendNextQuestion(sessionId) {
         const payload = {
             questionIndex: session.currentQuestionIndex,
             totalQuestions: session.vocabList.length,
-            duration: session.settings.timePerWord,
-            question_type: next.question_type
+            duration: durationSec,
+            question_type: next.question_type,
+            gameType: 'german'
         };
 
         if (next.question_type === 'matching_pairs') {
@@ -2102,13 +2337,45 @@ function handleRoundEnd(sessionId) {
     session.readyPlayers = new Set();
     session.status = 'showing_results';
     session.resultStartTime = Date.now();
+
+    if (session.gameType === 'pedia') {
+        // 60 seconds debrief phase with review and chat
+        session.resultDuration = 60000;
+        session.resultTimeRemaining = 60000;
+        session.resultEndTime = Date.now() + 60000;
+        session.readyPlayers = new Set();
+        session.extendTimeVotes = new Set();
+
+        const rawQ = session.pediaQuestions?.[session.currentQuestionIndex];
+        const debriefQ = pediaProvider.prepareDebriefQuestion(rawQ);
+
+        io.to(sessionId).emit('round_results', {
+            players: session.players,
+            gameType: 'pedia',
+            debriefQuestion: debriefQ,
+            reviewDuration: 60,
+            currentQuestionIndex: session.currentQuestionIndex
+        });
+
+        session.autoAdvanceTimer = setTimeout(() => {
+            if (session.status === 'showing_results' && !session.isPaused) {
+                session.status = 'playing';
+                session.readyPlayers = new Set();
+                session.extendTimeVotes = new Set();
+                sendNextQuestion(sessionId);
+            }
+        }, session.resultDuration);
+        return;
+    }
+
     session.resultDuration = 2000;
     session.resultTimeRemaining = 2000;
 
-    // Send round results
+    // Send round results for German mode
     io.to(sessionId).emit('round_results', {
         players: session.players,
-        correctAnswer: session.vocabList?.[session.currentQuestionIndex]?.answer || ''
+        correctAnswer: session.vocabList?.[session.currentQuestionIndex]?.answer || '',
+        gameType: 'german'
     });
 
     // Fallback: auto-advance after 2s if no one presses ready

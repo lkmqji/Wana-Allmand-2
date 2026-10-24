@@ -92,6 +92,48 @@ export default function Lobby({
   }, [activeTab]);
 
   // Editable session state
+  const isPedia = session?.gameType === 'pedia';
+  const [pediaChapters, setPediaChapters] = useState([]);
+  const [pediaSettings, setPediaSettings] = useState(session?.pediaSettings || {
+    chapterId: 'all',
+    questionCount: 10,
+    questionType: 'all',
+    timePerQuestion: 30
+  });
+
+  // Fetch pediatric chapters if pedia mode
+  useEffect(() => {
+    if (isPedia) {
+      socket.emit('get_pedia_chapters');
+      const onChaptersData = (data) => {
+        if (Array.isArray(data)) setPediaChapters(data);
+      };
+      socket.on('pedia_chapters_data', onChaptersData);
+      return () => socket.off('pedia_chapters_data', onChaptersData);
+    }
+  }, [isPedia, socket]);
+
+  // Sync pediaSettings when session updates
+  useEffect(() => {
+    if (session?.pediaSettings) {
+      setPediaSettings(session.pediaSettings);
+    }
+  }, [session?.pediaSettings]);
+
+  const handleUpdatePediaSettings = (patch) => {
+    if (!isHost) return;
+    const updated = { ...pediaSettings, ...patch };
+    setPediaSettings(updated);
+    socket.emit('update_session_pedia_settings', {
+      sessionId: session?.id,
+      pediaSettings: updated,
+      settings: {
+        ...(session?.settings || {}),
+        timePerWord: updated.timePerQuestion || 30
+      }
+    });
+  };
+
   const [words, setWords] = useState(session?.vocabList || []);
   const [settings, setSettings] = useState(session?.settings || { rounds: (session?.vocabList || []).length || 10, timePerWord: 15, powerupsEnabled: false });
   const [savingList, setSavingList] = useState(false);
@@ -300,22 +342,24 @@ export default function Lobby({
   };
 
   const handleStart = (explicitMode = null) => {
-    const validWords = words.filter(w => (w.question?.trim() || w.frenchPrompt || w.word) && (w.answer?.trim() || w.germanWord || w.word));
-    if (validWords.length === 0) {
-      alert("Ajoutez au moins 1 mot valide avant de lancer la partie !");
-      return;
-    }
-
-    const targetMode = explicitMode || soloMode;
-
-    if (playerCount === 1) {
-      if (targetMode === 'tug_of_war' && onStartTugOfWar) {
-        onStartTugOfWar(validWords, session?.name || 'Tir à la Corde');
+    if (!isPedia) {
+      const validWords = words.filter(w => (w.question?.trim() || w.frenchPrompt || w.word) && (w.answer?.trim() || w.germanWord || w.word));
+      if (validWords.length === 0) {
+        alert("Ajoutez au moins 1 mot valide avant de lancer la partie !");
         return;
       }
-      if (targetMode === 'survival' && onStartSurvival) {
-        onStartSurvival(validWords, session?.name || 'Session Solo');
-        return;
+
+      const targetMode = explicitMode || soloMode;
+
+      if (playerCount === 1) {
+        if (targetMode === 'tug_of_war' && onStartTugOfWar) {
+          onStartTugOfWar(validWords, session?.name || 'Tir à la Corde');
+          return;
+        }
+        if (targetMode === 'survival' && onStartSurvival) {
+          onStartSurvival(validWords, session?.name || 'Session Solo');
+          return;
+        }
       }
     }
 
@@ -752,7 +796,7 @@ export default function Lobby({
               textTransform: 'uppercase',
               marginTop: '-2px'
             }}>
-              {settings.rounds || words.length} Mots
+              {isPedia ? `${pediaSettings.questionCount || 10} Questions` : `${settings.rounds || words.length} Mots`}
             </span>
           </div>
 
@@ -934,38 +978,64 @@ export default function Lobby({
           </button>
 
           {isHost ? (
-            playerCount === 1 ? (
-              <div style={{ flex: 1 }}>
-                <PlayDropdown
-                  selectedMode={soloMode}
-                  onSelectMode={(mode) => setSoloMode(mode)}
-                  onPlay={() => handleStart('classic')}
-                  onPlaySurvival={onStartSurvival ? () => handleStart('survival') : null}
-                  onPlayTugOfWar={onStartTugOfWar ? () => handleStart('tug_of_war') : null}
-                  modeOnly={true}
-                  label={
-                    soloMode === 'tug_of_war' 
-                      ? '⚡ TIR À LA CORDE' 
-                      : soloMode === 'survival' 
-                        ? '🔥 LANCER EN SURVIE' 
-                        : '🚀 JOUER EN SOLO'
-                  }
-                />
-              </div>
-            ) : (
+            isPedia ? (
               <button
-                className="btn btn-success"
+                className="btn"
                 onClick={() => handleStart(false)}
                 style={{
                   flex: 1,
-                  padding: '0.7rem 1.2rem',
+                  padding: '0.75rem 1.2rem',
                   fontSize: '0.95rem',
                   fontWeight: 900,
-                  letterSpacing: '0.5px'
+                  letterSpacing: '0.5px',
+                  background: 'linear-gradient(135deg, #06b6d4 0%, #10b981 100%)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 18px rgba(6, 182, 212, 0.45)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem'
                 }}
               >
-                ⚔️ DÉMARRER LE DUEL !
+                <span>{playerCount === 1 ? '🩺 DÉMARRER ENTRAÎNEMENT SOLO' : '⚔️ DÉMARRER LE DUEL MÉDICAL !'}</span>
               </button>
+            ) : (
+              playerCount === 1 ? (
+                <div style={{ flex: 1 }}>
+                  <PlayDropdown
+                    selectedMode={soloMode}
+                    onSelectMode={(mode) => setSoloMode(mode)}
+                    onPlay={() => handleStart('classic')}
+                    onPlaySurvival={onStartSurvival ? () => handleStart('survival') : null}
+                    onPlayTugOfWar={onStartTugOfWar ? () => handleStart('tug_of_war') : null}
+                    modeOnly={true}
+                    label={
+                      soloMode === 'tug_of_war' 
+                        ? '⚡ TIR À LA CORDE' 
+                        : soloMode === 'survival' 
+                          ? '🔥 LANCER EN SURVIE' 
+                          : '🚀 JOUER EN SOLO'
+                    }
+                  />
+                </div>
+              ) : (
+                <button
+                  className="btn btn-success"
+                  onClick={() => handleStart(false)}
+                  style={{
+                    flex: 1,
+                    padding: '0.7rem 1.2rem',
+                    fontSize: '0.95rem',
+                    fontWeight: 900,
+                    letterSpacing: '0.5px'
+                  }}
+                >
+                  ⚔️ DÉMARRER LE DUEL !
+                </button>
+              )
             )
           ) : (
             <div style={{
@@ -1107,33 +1177,35 @@ export default function Lobby({
             )}
           </button>
 
-          {/* Tab: Liste des mots */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('words')}
-            style={{
-              flex: 'none',
-              padding: activeTab === 'words' ? '0.28rem 0.65rem' : '0.28rem 0.45rem',
-              fontSize: '0.75rem',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeTab === 'words' ? 'var(--primary)' : 'transparent',
-              color: activeTab === 'words' ? '#ffffff' : 'var(--text-muted)',
-              cursor: 'pointer',
-              fontWeight: 800,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.3rem',
-              whiteSpace: 'nowrap',
-              position: 'relative',
-              transition: 'all 0.18s ease'
-            }}
-            title={`Mots (${words.length})`}
-          >
-            <span style={{ fontSize: '0.85rem' }}>📝</span>
-            {activeTab === 'words' && <span>Mots ({words.length})</span>}
-          </button>
+          {/* Tab: Liste des mots (German only) */}
+          {!isPedia && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('words')}
+              style={{
+                flex: 'none',
+                padding: activeTab === 'words' ? '0.28rem 0.65rem' : '0.28rem 0.45rem',
+                fontSize: '0.75rem',
+                borderRadius: '8px',
+                border: 'none',
+                background: activeTab === 'words' ? 'var(--primary)' : 'transparent',
+                color: activeTab === 'words' ? '#ffffff' : 'var(--text-muted)',
+                cursor: 'pointer',
+                fontWeight: 800,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.3rem',
+                whiteSpace: 'nowrap',
+                position: 'relative',
+                transition: 'all 0.18s ease'
+              }}
+              title={`Mots (${words.length})`}
+            >
+              <span style={{ fontSize: '0.85rem' }}>📝</span>
+              {activeTab === 'words' && <span>Mots ({words.length})</span>}
+            </button>
+          )}
 
           {/* Tab: Paramètres */}
           <button
@@ -1145,7 +1217,7 @@ export default function Lobby({
               fontSize: '0.75rem',
               borderRadius: '8px',
               border: 'none',
-              background: activeTab === 'settings' ? 'var(--primary)' : 'transparent',
+              background: activeTab === 'settings' ? (isPedia ? '#06b6d4' : 'var(--primary)') : 'transparent',
               color: activeTab === 'settings' ? '#ffffff' : 'var(--text-muted)',
               cursor: 'pointer',
               fontWeight: 800,
@@ -1157,10 +1229,10 @@ export default function Lobby({
               position: 'relative',
               transition: 'all 0.18s ease'
             }}
-            title={`Paramètres (${settings.timePerWord}s)`}
+            title={isPedia ? `Paramètres médicaux (${pediaSettings.questionCount || 10} Q)` : `Paramètres (${settings.timePerWord}s)`}
           >
-            <span style={{ fontSize: '0.85rem' }}>⚙️</span>
-            {activeTab === 'settings' && <span>Paramètres ({settings.timePerWord}s)</span>}
+            <span style={{ fontSize: '0.85rem' }}>{isPedia ? '🩺' : '⚙️'}</span>
+            {activeTab === 'settings' && <span>{isPedia ? `Paramètres (${pediaSettings.questionCount || 10} Q)` : `Paramètres (${settings.timePerWord}s)`}</span>}
           </button>
         </div>
 
@@ -1804,42 +1876,319 @@ export default function Lobby({
 
         {/* ----------------- ONGLET 4 : PARAMETRES DU DUEL ----------------- */}
         {activeTab === 'settings' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-            {!isHost && (
-              <div style={{
-                background: 'rgba(99, 102, 241, 0.1)',
-                border: '1px solid var(--primary)',
-                borderRadius: '8px',
-                padding: '0.45rem 0.75rem',
-                fontSize: '0.8rem',
-                color: 'var(--text-muted)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.4rem'
-              }}>
-                <span>🔒</span>
-                <span><strong>Règles de la partie :</strong> Paramétrées par <strong>{hostDisplayName}</strong> (hôte).</span>
-              </div>
-            )}
+          isPedia ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+              {!isHost && (
+                <div style={{
+                  background: 'rgba(6, 182, 212, 0.12)',
+                  border: '1px solid rgba(6, 182, 212, 0.4)',
+                  borderRadius: '10px',
+                  padding: '0.55rem 0.85rem',
+                  fontSize: '0.82rem',
+                  color: '#67e8f9',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}>
+                  <span>🔒</span>
+                  <span><strong>Programme Médical :</strong> Paramétré par <strong>{hostDisplayName}</strong> (Hôte).</span>
+                </div>
+              )}
 
-            <div style={{
-              height: '240px',
-              overflowY: 'auto',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: '0.8rem',
-              background: 'var(--bg-main)',
-              padding: '0.8rem',
-              borderRadius: '12px',
-              border: '1px solid var(--border-color)'
-            }}>
-              {/* Option 1: Nombre de mots dans la liste (sélection aléatoire auto) */}
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
-                  🎲 Nombre de mots dans la liste :
-                </label>
-                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                  {/* Editable Arrow Box */}
+              <div style={{
+                height: '240px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.85rem',
+                background: 'rgba(10, 16, 28, 0.85)',
+                padding: '0.9rem',
+                borderRadius: '14px',
+                border: '1px solid rgba(6, 182, 212, 0.25)',
+                boxShadow: '0 8px 30px rgba(0, 0, 0, 0.45)'
+              }}>
+                {/* 1. Sélection du Chapitre / Cours */}
+                <div>
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 800, color: '#e2e8f0', marginBottom: '0.35rem' }}>
+                    <span>📚 Spécialité / Cours de Pédiatrie :</span>
+                    <span style={{ fontSize: '0.72rem', color: '#06b6d4', fontWeight: 700 }}>
+                      {pediaChapters.length > 0 ? `${pediaChapters.length} cours disponibles` : 'Chargement...'}
+                    </span>
+                  </label>
+                  <select
+                    className="input-field"
+                    value={pediaSettings.chapterId || 'all'}
+                    disabled={!isHost}
+                    onChange={(e) => {
+                      const chId = e.target.value;
+                      const found = pediaChapters.find(c => String(c.id) === String(chId));
+                      handleUpdatePediaSettings({
+                        chapterId: chId,
+                        chapterTitle: found ? found.title : 'Tous les cours'
+                      });
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem 0.75rem',
+                      background: 'rgba(15, 23, 42, 0.95)',
+                      border: '1px solid rgba(6, 182, 212, 0.4)',
+                      borderRadius: '10px',
+                      color: '#ffffff',
+                      fontSize: '0.85rem',
+                      fontWeight: 600
+                    }}
+                  >
+                    <option value="all">🌟 Tous les cours (1905 QCM & CROQ)</option>
+                    {pediaChapters.map((ch) => (
+                      <option key={ch.id} value={ch.id}>
+                        {ch.id.startsWith('CH') ? `[${ch.id}]` : `[CH ${ch.id}]`} {ch.title} ({ch.totalQuestions} Q)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.65rem' }}>
+                  {/* 2. Nombre de questions */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#e2e8f0', marginBottom: '0.3rem' }}>
+                      🎯 Nombre de questions :
+                    </label>
+                    <select
+                      className="input-field"
+                      value={pediaSettings.questionCount || 10}
+                      disabled={!isHost}
+                      onChange={(e) => handleUpdatePediaSettings({ questionCount: parseInt(e.target.value) || 10 })}
+                      style={{
+                        width: '100%',
+                        padding: '0.45rem 0.65rem',
+                        background: 'rgba(15, 23, 42, 0.95)',
+                        border: '1px solid rgba(6, 182, 212, 0.4)',
+                        borderRadius: '10px',
+                        color: '#ffffff',
+                        fontSize: '0.82rem',
+                        fontWeight: 700
+                      }}
+                    >
+                      {[5, 10, 15, 20, 25, 30, 40, 50].map(cnt => (
+                        <option key={cnt} value={cnt}>{cnt} questions</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 3. Type d'épreuve (QCM / CROQ) */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#e2e8f0', marginBottom: '0.3rem' }}>
+                      📝 Type d'épreuves :
+                    </label>
+                    <select
+                      className="input-field"
+                      value={pediaSettings.questionType || 'all'}
+                      disabled={!isHost}
+                      onChange={(e) => handleUpdatePediaSettings({ questionType: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '0.45rem 0.65rem',
+                        background: 'rgba(15, 23, 42, 0.95)',
+                        border: '1px solid rgba(6, 182, 212, 0.4)',
+                        borderRadius: '10px',
+                        color: '#ffffff',
+                        fontSize: '0.82rem',
+                        fontWeight: 700
+                      }}
+                    >
+                      <option value="all">🎯 Mixte (QCM + CROQ)</option>
+                      <option value="qcm">📋 QCM seuls</option>
+                      <option value="croq">✍️ CROQ seuls (Cas cliniques)</option>
+                    </select>
+                  </div>
+
+                  {/* 4. Temps par question */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#e2e8f0', marginBottom: '0.3rem' }}>
+                      ⏱️ Chrono de base :
+                    </label>
+                    <select
+                      className="input-field"
+                      value={pediaSettings.timePerQuestion || 30}
+                      disabled={!isHost}
+                      onChange={(e) => handleUpdatePediaSettings({ timePerQuestion: parseInt(e.target.value) || 30 })}
+                      style={{
+                        width: '100%',
+                        padding: '0.45rem 0.65rem',
+                        background: 'rgba(15, 23, 42, 0.95)',
+                        border: '1px solid rgba(6, 182, 212, 0.4)',
+                        borderRadius: '10px',
+                        color: '#ffffff',
+                        fontSize: '0.82rem',
+                        fontWeight: 700
+                      }}
+                    >
+                      <option value={20}>⚡ 20s (Express)</option>
+                      <option value={30}>⏱️ 30s (Standard)</option>
+                      <option value={45}>🧘 45s (Approfondi)</option>
+                      <option value={60}>📚 60s (Examen)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Badges explicatifs médicaux */}
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.35rem',
+                  padding: '0.65rem 0.8rem',
+                  background: 'rgba(6, 182, 212, 0.08)',
+                  borderRadius: '10px',
+                  border: '1px dashed rgba(6, 182, 212, 0.35)',
+                  fontSize: '0.74rem',
+                  color: '#94a3b8'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span>⏱️</span>
+                    <span style={{ color: '#38bdf8' }}><strong>Règle CROQ :</strong> +30 secondes automatiquement accordées sur chaque question ouverte.</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span>✨</span>
+                    <span style={{ color: '#a78bfa' }}><strong>IA Flash :</strong> Évaluation sémantique Gemini & barème proportionnel immédiat.</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span>🔬</span>
+                    <span style={{ color: '#34d399' }}><strong>Débriefing 60s :</strong> Cas clinique, explications et bouton "Passer" mutuel.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              {!isHost && (
+                <div style={{
+                  background: 'rgba(99, 102, 241, 0.1)',
+                  border: '1px solid var(--primary)',
+                  borderRadius: '8px',
+                  padding: '0.45rem 0.75rem',
+                  fontSize: '0.8rem',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem'
+                }}>
+                  <span>🔒</span>
+                  <span><strong>Règles de la partie :</strong> Paramétrées par <strong>{hostDisplayName}</strong> (hôte).</span>
+                </div>
+              )}
+
+              <div style={{
+                height: '240px',
+                overflowY: 'auto',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: '0.8rem',
+                background: 'var(--bg-main)',
+                padding: '0.8rem',
+                borderRadius: '12px',
+                border: '1px solid var(--border-color)'
+              }}>
+                {/* Option 1: Nombre de mots dans la liste (sélection aléatoire auto) */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
+                    🎲 Nombre de mots dans la liste :
+                  </label>
+                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                    {/* Editable Arrow Box */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      background: 'rgba(255,255,255,0.08)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '10px',
+                      padding: '4px 8px',
+                      flex: 1
+                    }}>
+                      {isHost && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const current = parseInt(wordCountInput) || words.length || 1;
+                            const next = Math.max(1, current - 1);
+                            setWordCountInput(String(next));
+                            handleWordCountChange(next);
+                          }}
+                          style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 4px' }}
+                        >
+                          &#9664;
+                        </button>
+                      )}
+
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={wordCountInput}
+                        disabled={!isHost}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9]/g, '');
+                          setWordCountInput(val);
+                        }}
+                        onBlur={() => {
+                          const parsed = parseInt(wordCountInput);
+                          const clamped = !parsed || parsed < 1 ? words.length || 1 : Math.min(parsed, maxAvailableWordsCount);
+                          setWordCountInput(String(clamped));
+                          if (clamped !== words.length) {
+                            handleWordCountChange(clamped);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') e.target.blur();
+                        }}
+                        style={{
+                          width: '100%',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-main)',
+                          textAlign: 'center',
+                          fontWeight: 'bold',
+                          fontSize: '0.95rem',
+                          outline: 'none'
+                        }}
+                      />
+
+                      {isHost && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const current = parseInt(wordCountInput) || words.length || 1;
+                            const next = Math.min(maxAvailableWordsCount, current + 1);
+                            setWordCountInput(String(next));
+                            handleWordCountChange(next);
+                          }}
+                          style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 4px' }}
+                        >
+                          &#9654;
+                        </button>
+                      )}
+                    </div>
+
+                    {isHost && (
+                      <button
+                        onClick={handleShuffleWords}
+                        className="btn btn-secondary"
+                        style={{ width: 'auto', padding: '0.45rem 0.65rem', fontSize: '0.85rem' }}
+                        title="Mélanger les mots"
+                      >
+                        🎲
+                      </button>
+                    )}
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
+                    Total disponible actuellement : <strong>{maxAvailableWordsCount} mots</strong>
+                  </span>
+                </div>
+
+                {/* Option 2: Questions à jouer (Rounds) */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
+                    🎯 Questions à jouer :
+                  </label>
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1847,17 +2196,16 @@ export default function Lobby({
                     background: 'rgba(255,255,255,0.08)',
                     border: '1px solid var(--border-color)',
                     borderRadius: '10px',
-                    padding: '4px 8px',
-                    flex: 1
+                    padding: '4px 8px'
                   }}>
                     {isHost && (
                       <button
                         type="button"
                         onClick={() => {
-                          const current = parseInt(wordCountInput) || words.length || 1;
+                          const current = parseInt(roundsInput) || settings.rounds || words.length || 1;
                           const next = Math.max(1, current - 1);
-                          setWordCountInput(String(next));
-                          handleWordCountChange(next);
+                          setRoundsInput(String(next));
+                          handleUpdateSettings({ ...settings, rounds: next }, `Nombre de questions réglé à ${next}`);
                         }}
                         style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 4px' }}
                       >
@@ -1868,18 +2216,19 @@ export default function Lobby({
                     <input
                       type="text"
                       inputMode="numeric"
-                      value={wordCountInput}
+                      value={roundsInput}
                       disabled={!isHost}
                       onChange={(e) => {
                         const val = e.target.value.replace(/[^0-9]/g, '');
-                        setWordCountInput(val);
+                        setRoundsInput(val);
                       }}
                       onBlur={() => {
-                        const parsed = parseInt(wordCountInput);
-                        const clamped = !parsed || parsed < 1 ? words.length || 1 : Math.min(parsed, maxAvailableWordsCount);
-                        setWordCountInput(String(clamped));
-                        if (clamped !== words.length) {
-                          handleWordCountChange(clamped);
+                        const parsed = parseInt(roundsInput);
+                        const maxRounds = Math.max(1, words.length);
+                        const clamped = !parsed || parsed < 1 ? maxRounds : Math.min(parsed, maxRounds);
+                        setRoundsInput(String(clamped));
+                        if (clamped !== settings.rounds) {
+                          handleUpdateSettings({ ...settings, rounds: clamped }, `Nombre de questions réglé à ${clamped}`);
                         }
                       }}
                       onKeyDown={(e) => {
@@ -1901,10 +2250,11 @@ export default function Lobby({
                       <button
                         type="button"
                         onClick={() => {
-                          const current = parseInt(wordCountInput) || words.length || 1;
-                          const next = Math.min(maxAvailableWordsCount, current + 1);
-                          setWordCountInput(String(next));
-                          handleWordCountChange(next);
+                          const current = parseInt(roundsInput) || settings.rounds || words.length || 1;
+                          const maxRounds = Math.max(1, words.length);
+                          const next = Math.min(maxRounds, current + 1);
+                          setRoundsInput(String(next));
+                          handleUpdateSettings({ ...settings, rounds: next }, `Nombre de questions réglé à ${next}`);
                         }}
                         style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 4px' }}
                       >
@@ -1912,173 +2262,79 @@ export default function Lobby({
                       </button>
                     )}
                   </div>
-
-                  {isHost && (
-                    <button
-                      onClick={handleShuffleWords}
-                      className="btn btn-secondary"
-                      style={{ width: 'auto', padding: '0.45rem 0.65rem', fontSize: '0.85rem' }}
-                      title="Mélanger les mots"
-                    >
-                      🎲
-                    </button>
-                  )}
-                </div>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
-                  Total disponible actuellement : <strong>{maxAvailableWordsCount} mots</strong>
-                </span>
-              </div>
-
-              {/* Option 2: Questions à jouer (Rounds) */}
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
-                  🎯 Questions à jouer :
-                </label>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  background: 'rgba(255,255,255,0.08)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '10px',
-                  padding: '4px 8px'
-                }}>
-                  {isHost && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const current = parseInt(roundsInput) || settings.rounds || words.length || 1;
-                        const next = Math.max(1, current - 1);
-                        setRoundsInput(String(next));
-                        handleUpdateSettings({ ...settings, rounds: next }, `Nombre de questions réglé à ${next}`);
-                      }}
-                      style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 4px' }}
-                    >
-                      &#9664;
-                    </button>
-                  )}
-
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={roundsInput}
-                    disabled={!isHost}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^0-9]/g, '');
-                      setRoundsInput(val);
-                    }}
-                    onBlur={() => {
-                      const parsed = parseInt(roundsInput);
-                      const maxRounds = Math.max(1, words.length);
-                      const clamped = !parsed || parsed < 1 ? maxRounds : Math.min(parsed, maxRounds);
-                      setRoundsInput(String(clamped));
-                      if (clamped !== settings.rounds) {
-                        handleUpdateSettings({ ...settings, rounds: clamped }, `Nombre de questions réglé à ${clamped}`);
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') e.target.blur();
-                    }}
-                    style={{
-                      width: '100%',
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-main)',
-                      textAlign: 'center',
-                      fontWeight: 'bold',
-                      fontSize: '0.95rem',
-                      outline: 'none'
-                    }}
-                  />
-
-                  {isHost && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const current = parseInt(roundsInput) || settings.rounds || words.length || 1;
-                        const maxRounds = Math.max(1, words.length);
-                        const next = Math.min(maxRounds, current + 1);
-                        setRoundsInput(String(next));
-                        handleUpdateSettings({ ...settings, rounds: next }, `Nombre de questions réglé à ${next}`);
-                      }}
-                      style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 4px' }}
-                    >
-                      &#9654;
-                    </button>
-                  )}
-                </div>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
-                  Mots dispos dans la salle : {words.length}
-                </span>
-              </div>
-
-              {/* Time per word */}
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
-                  ⏱️ Temps par mot :
-                </label>
-                <select
-                  className="input-field"
-                  value={settings.timePerWord || 15}
-                  disabled={!isHost}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    handleUpdateSettings({ ...settings, timePerWord: val }, `Temps par mot réglé à ${val}s`);
-                  }}
-                  style={{ padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}
-                >
-                  <option value={10}>⚡ 10s (Rapide)</option>
-                  <option value={15}>⏱️ 15s (Normal)</option>
-                  <option value={20}>🧘 20s (Tranquille)</option>
-                  <option value={30}>🐢 30s (Lent)</option>
-                </select>
-              </div>
-
-              {/* Powerups toggle */}
-              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
-                  🥶 Pouvoirs de gel :
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: isHost ? 'pointer' : 'default' }}>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(settings.powerupsEnabled)}
-                    disabled={!isHost}
-                    onChange={(e) => {
-                      const val = e.target.checked;
-                      handleUpdateSettings({ ...settings, powerupsEnabled: val }, `Pouvoirs ${val ? 'activés 🥶' : 'désactivés'}`);
-                    }}
-                    style={{ width: '18px', height: '18px' }}
-                  />
-                  <span style={{ fontSize: '0.8rem', color: settings.powerupsEnabled ? 'var(--success)' : 'var(--text-muted)' }}>
-                    {settings.powerupsEnabled ? 'Activé' : 'Désactivé'}
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
+                    Mots dispos dans la salle : {words.length}
                   </span>
-                </label>
-              </div>
+                </div>
 
-              {/* Allow Pause toggle */}
-              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
-                  ⏸️ Bouton Pause & Chat :
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: isHost ? 'pointer' : 'default' }}>
-                  <input
-                    type="checkbox"
-                    checked={settings.allowPause !== false}
+                {/* Time per word */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
+                    ⏱️ Temps par mot :
+                  </label>
+                  <select
+                    className="input-field"
+                    value={settings.timePerWord || 15}
                     disabled={!isHost}
                     onChange={(e) => {
-                      const val = e.target.checked;
-                      handleUpdateSettings({ ...settings, allowPause: val }, `Pause en jeu ${val ? 'autorisée ⏸️' : 'désactivée 🚫'}`);
+                      const val = parseInt(e.target.value);
+                      handleUpdateSettings({ ...settings, timePerWord: val }, `Temps par mot réglé à ${val}s`);
                     }}
-                    style={{ width: '18px', height: '18px' }}
-                  />
-                  <span style={{ fontSize: '0.8rem', color: settings.allowPause !== false ? 'var(--success)' : 'var(--text-muted)' }}>
-                    {settings.allowPause !== false ? 'Autorisé' : 'Désactivé'}
-                  </span>
-                </label>
+                    style={{ padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}
+                  >
+                    <option value={10}>⚡ 10s (Rapide)</option>
+                    <option value={15}>⏱️ 15s (Normal)</option>
+                    <option value={20}>🧘 20s (Tranquille)</option>
+                    <option value={30}>🐢 30s (Lent)</option>
+                  </select>
+                </div>
+
+                {/* Powerups toggle */}
+                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
+                    🥶 Pouvoirs de gel :
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: isHost ? 'pointer' : 'default' }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(settings.powerupsEnabled)}
+                      disabled={!isHost}
+                      onChange={(e) => {
+                        const val = e.target.checked;
+                        handleUpdateSettings({ ...settings, powerupsEnabled: val }, `Pouvoirs ${val ? 'activés 🥶' : 'désactivés'}`);
+                      }}
+                      style={{ width: '18px', height: '18px' }}
+                    />
+                    <span style={{ fontSize: '0.8rem', color: settings.powerupsEnabled ? 'var(--success)' : 'var(--text-muted)' }}>
+                      {settings.powerupsEnabled ? 'Activé' : 'Désactivé'}
+                    </span>
+                  </label>
+                </div>
+
+                {/* Allow Pause toggle */}
+                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
+                    ⏸️ Bouton Pause & Chat :
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: isHost ? 'pointer' : 'default' }}>
+                    <input
+                      type="checkbox"
+                      checked={settings.allowPause !== false}
+                      disabled={!isHost}
+                      onChange={(e) => {
+                        const val = e.target.checked;
+                        handleUpdateSettings({ ...settings, allowPause: val }, `Pause en jeu ${val ? 'autorisée ⏸️' : 'désactivée 🚫'}`);
+                      }}
+                      style={{ width: '18px', height: '18px' }}
+                    />
+                    <span style={{ fontSize: '0.8rem', color: settings.allowPause !== false ? 'var(--success)' : 'var(--text-muted)' }}>
+                      {settings.allowPause !== false ? 'Autorisé' : 'Désactivé'}
+                    </span>
+                  </label>
+                </div>
               </div>
             </div>
-          </div>
+          )
         )}
 
       </div>

@@ -742,7 +742,7 @@ export default function Results({ players = {}, setView, socket, session, isHost
                 textTransform: 'uppercase',
                 marginTop: '3px'
               }}>
-                {session?.vocabList?.length || 10} Mots
+                {session?.gameType === 'pedia' ? `${session?.pediaQuestions?.length || 10} Questions` : `${session?.vocabList?.length || 10} Mots`}
               </span>
             </div>
 
@@ -1042,7 +1042,39 @@ export default function Results({ players = {}, setView, socket, session, isHost
       </div>
 
       {/* Detailed Game Summary List */}
-      {session && session.vocabList && (
+      {session && session.gameType === 'pedia' && session.pediaQuestions && (
+        <div className="card" style={{ textAlign: 'left', padding: '1.1rem' }}>
+          <h3 style={{ marginBottom: '1rem', textAlign: 'center', fontSize: '1.2rem', color: '#06b6d4' }}>🩺 Résumé de l'Épreuve Médicale</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+            {session.pediaQuestions.map((q, index) => (
+              <div key={index} style={{ padding: '0.8rem 0.9rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid rgba(6, 182, 212, 0.3)' }}>
+                <div style={{ marginBottom: '0.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#38bdf8' }}>Question {index + 1} ({q.type || 'QCM'})</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{q.chapter_title || ''}</span>
+                </div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', marginBottom: '0.5rem', lineHeight: 1.4 }}>
+                  {q.question}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed var(--border-color)' }}>
+                  {Object.values(currentPlayers).map(p => {
+                    const ans = p.answers && p.answers[index];
+                    return (
+                      <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                        <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{formatPlayerName(p.name)} :</span>
+                        <span style={{ fontWeight: 'bold', color: ans?.score >= 50 ? 'var(--success)' : 'var(--danger)' }}>
+                          {ans ? `${ans.score || 0}% (${ans.score > 0 ? '+' + ans.score + ' pts' : '0 pt'})` : '(Non répondu)'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {session && session.vocabList && session.gameType !== 'pedia' && (
         <div className="card" style={{ textAlign: 'left', padding: '1.1rem' }}>
           <h3 style={{ marginBottom: '1rem', textAlign: 'center', fontSize: '1.2rem' }}>📝 Résumé des questions & réponses</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>

@@ -83,12 +83,57 @@ export default function Home({
     return saved !== null ? JSON.parse(saved) : true;
   });
 
+  const [selectedUniverse, setSelectedUniverse] = useState(() => {
+    return localStorage.getItem('wana_active_universe') || 'german';
+  });
+
+  const handleSelectUniverse = (uni) => {
+    setSelectedUniverse(uni);
+    localStorage.setItem('wana_active_universe', uni);
+  };
+
   const [isStartingLobby, setIsStartingLobby] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [editingListId, setEditingListId] = useState(null);
   const [listTitle, setListTitle] = useState('');
   const [importNotice, setImportNotice] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleStartPediaSession = (customPediaSettings = {}) => {
+    setIsStartingLobby(true);
+    const stopLoading = () => setIsStartingLobby(false);
+    if (socket) {
+      socket.once('session_created', stopLoading);
+      socket.once('error', stopLoading);
+    }
+    setTimeout(stopLoading, 15000);
+
+    const emitCreate = () => {
+      const finalName = playerName ? `${avatar} ${formatPlayerName(playerName)}` : `${avatar} Dr. Hôte`;
+      socket.emit('create_session', {
+        gameType: 'pedia',
+        settings: { timePerWord: 20, powerupsEnabled: false },
+        pediaSettings: {
+          chapterId: 'all',
+          count: 10,
+          questionType: 'all',
+          chapterTitle: 'Tous les cours (Mélange aléatoire)',
+          ...customPediaSettings
+        },
+        playerName: finalName,
+        firebaseId: user?.uid,
+        avatar: avatar || '🩺',
+        clientPlayerKey: getClientPlayerKey()
+      });
+    };
+
+    if (socket && !socket.connected) {
+      socket.connect();
+      socket.once('connect', emitCreate);
+    } else if (socket) {
+      emitCreate();
+    }
+  };
 
   const filteredArchivedLists = archivedLists.filter((list) => {
     if (!searchQuery.trim()) return true;
@@ -591,132 +636,322 @@ export default function Home({
           {/* ------------------- LEARN TAB ------------------- */}
           {activeTab === 'learn' && (
         <>
-          {/* TÂCHE 1 : Point d'entrée UI - Mur de la Vengeance */}
-          <div 
-            ref={vengeanceSpotlightRef}
-            className={`vengeance-entry-card ${failedWords.length > 0 ? 'active' : 'disabled'}`}
-            onClick={() => {
-              if (failedWords.length > 0 && onStartVengeance) {
-                onStartVengeance();
-              }
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '1.2rem',
-              flexWrap: 'wrap',
-              marginBottom: '1rem'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: '220px' }}>
-              <div style={{
-                fontSize: '2.4rem',
-                width: '58px',
-                height: '58px',
+          {/* SÉLECTEUR D'UNIVERS : WANA ALLMAND (ALLEMAND) VS PÉDIADRILL ARENA (MÉDECINE) */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: '0.8rem',
+            marginBottom: '1rem'
+          }}>
+            <div
+              onClick={() => handleSelectUniverse('german')}
+              style={{
+                cursor: 'pointer',
+                padding: '0.9rem 1.1rem',
                 borderRadius: '16px',
-                background: failedWords.length > 0 ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255,255,255,0.05)',
-                border: `1.5px solid ${failedWords.length > 0 ? 'rgba(239, 68, 68, 0.6)' : 'rgba(255,255,255,0.1)'}`,
+                background: selectedUniverse === 'german'
+                  ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(13, 21, 39, 0.95))'
+                  : 'rgba(18, 29, 51, 0.5)',
+                border: selectedUniverse === 'german'
+                  ? '2px solid #6366f1'
+                  : '1.5px solid rgba(255, 255, 255, 0.08)',
+                boxShadow: selectedUniverse === 'german'
+                  ? '0 0 20px rgba(99, 102, 241, 0.35)'
+                  : 'none',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: failedWords.length > 0 ? '0 0 20px rgba(239, 68, 68, 0.4)' : 'none'
-              }}>
-                🔥
-              </div>
+                gap: '0.9rem',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <div style={{ fontSize: '2.2rem' }}>🇩🇪</div>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.2rem' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: '#ffffff', letterSpacing: '0.3px' }}>
-                    🔥 Mur de la Vengeance
-                  </h3>
-                  {failedWords.length > 0 && (
-                    <span className="vengeance-flame-badge" style={{ fontSize: '0.75rem', padding: '0.15rem 0.55rem' }}>
-                      {failedWords.length} à purifier
-                    </span>
-                  )}
+                <div style={{ fontWeight: 900, fontSize: '1.05rem', color: selectedUniverse === 'german' ? '#ffffff' : '#94a3b8' }}>
+                  Wana Allmand
                 </div>
-                <p style={{ margin: 0, fontSize: '0.88rem', color: failedWords.length > 0 ? '#fca5a5' : 'var(--text-muted)', fontWeight: 600 }}>
-                  {failedWords.length > 0 
-                    ? `${failedWords.length} mot${failedWords.length > 1 ? 's' : ''} attend${failedWords.length > 1 ? 'ent' : ''} d'être purifié${failedWords.length > 1 ? 's' : ''}`
-                    : "Aucune vengeance en attente."}
-                </p>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  Vocabulaire, der/die/das &amp; WanaBoard
+                </div>
               </div>
             </div>
 
-            {failedWords.length > 0 ? (
-              <button
-                type="button"
-                className="vengeance-action-btn"
-                style={{ fontSize: '0.92rem', padding: '0.75rem 1.3rem', pointerEvents: 'none' }}
-              >
-                ⚡ PURIFIER
-              </button>
-            ) : (
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '0.5rem' }}>
-                ✨ Rien à purifier
-              </span>
-            )}
+            <div
+              onClick={() => handleSelectUniverse('pedia')}
+              style={{
+                cursor: 'pointer',
+                padding: '0.9rem 1.1rem',
+                borderRadius: '16px',
+                background: selectedUniverse === 'pedia'
+                  ? 'linear-gradient(135deg, rgba(0, 212, 255, 0.25), rgba(13, 21, 39, 0.95))'
+                  : 'rgba(18, 29, 51, 0.5)',
+                border: selectedUniverse === 'pedia'
+                  ? '2px solid #00d4ff'
+                  : '1.5px solid rgba(255, 255, 255, 0.08)',
+                boxShadow: selectedUniverse === 'pedia'
+                  ? '0 0 20px rgba(0, 212, 255, 0.35)'
+                  : 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.9rem',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <div style={{ fontSize: '2.2rem' }}>🩺</div>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: '1.05rem', color: selectedUniverse === 'pedia' ? '#ffffff' : '#94a3b8' }}>
+                  PédiaDrill Arena
+                </div>
+                <div style={{ fontSize: '0.78rem', color: selectedUniverse === 'pedia' ? '#38bdf8' : 'var(--text-muted)' }}>
+                  QCM, CROQ &amp; Évaluation IA Médicale
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div ref={duelSpotlightRef} className="card card-arena" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', background: 'linear-gradient(to bottom right, var(--bg-surface), rgba(99, 102, 241, 0.1))' }}>
-            <h2 className="brand-logo-shine" style={{ fontSize: '2.4rem', marginBottom: '0.4rem', letterSpacing: '-0.5px' }}>
-              WANA ALLMAND
-            </h2>
-            <p className="text-muted" style={{ marginBottom: '1.8rem', fontSize: '1.05rem', fontWeight: 600 }}>
-              Compétition &amp; Apprentissage de vocabulaire en direct 🎮
-            </p>
-            
-            <form onSubmit={handleJoin} style={{ width: '100%', maxWidth: '300px' }}>
-              <input 
-                type="text" 
-                className="input-field" 
-                placeholder="Code (ex: AB47)" 
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                maxLength={4}
-                style={{ textAlign: 'center', letterSpacing: '2px', fontSize: '1.5rem', marginBottom: '1rem', textTransform: 'uppercase' }}
-              />
-              <button 
-                type="submit" 
-                className="btn btn-primary" 
-                disabled={joinCode.length !== 4 || isJoining}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}
-              >
-                {isJoining ? 'CONNEXION...' : 'REJOINDRE'}
-              </button>
-            </form>
+          {selectedUniverse === 'pedia' ? (
+            /* ------------------- UNIVERS PÉDIATRIE ------------------- */
+            <div className="card card-arena" style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              textAlign: 'center',
+              background: 'linear-gradient(to bottom right, var(--bg-surface), rgba(0, 212, 255, 0.12))',
+              border: '1.5px solid rgba(0, 212, 255, 0.3)'
+            }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.3rem' }}>🩺</div>
+              <h2 className="brand-logo-shine" style={{
+                fontSize: '2.3rem',
+                marginBottom: '0.4rem',
+                letterSpacing: '-0.5px',
+                background: 'linear-gradient(135deg, #ffffff, #00d4ff)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}>
+                PÉDIADRILL ARENA
+              </h2>
+              <p className="text-muted" style={{ marginBottom: '1.6rem', fontSize: '0.98rem', fontWeight: 600, maxWidth: '520px' }}>
+                Affrontement médical en direct : QCM à choix multiples, cas cliniques et questions rédactionnelles (CROQ) évaluées par l'IA Gemini Flash 🎓
+              </p>
 
-            <div style={{ width: '100%', maxWidth: '300px', marginTop: '1rem', borderTop: '2px dashed rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
-              <button 
-                ref={soloSpotlightRef}
-                type="button"
-                className="btn btn-success" 
-                onClick={handlePlaySolo} 
-                disabled={isStartingLobby}
-                style={{ 
-                  width: '100%', 
-                  padding: '0.85rem', 
-                  fontSize: '1rem', 
-                  fontWeight: 900,
+              <form onSubmit={handleJoin} style={{ width: '100%', maxWidth: '300px' }}>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  placeholder="Code salon (ex: AB47)" 
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  maxLength={4}
+                  style={{
+                    textAlign: 'center',
+                    letterSpacing: '2px',
+                    fontSize: '1.5rem',
+                    marginBottom: '1rem',
+                    textTransform: 'uppercase',
+                    borderColor: 'rgba(0, 212, 255, 0.4)'
+                  }}
+                />
+                <button 
+                  type="submit" 
+                  className="btn btn-primary" 
+                  disabled={joinCode.length !== 4 || isJoining}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    width: '100%',
+                    background: 'linear-gradient(135deg, #00d4ff, #0284c7)',
+                    borderColor: '#00d4ff',
+                    color: '#070b14',
+                    fontWeight: 900
+                  }}
+                >
+                  {isJoining ? 'CONNEXION...' : 'REJOINDRE LE SALON MÉDICAL'}
+                </button>
+              </form>
+
+              <div style={{ width: '100%', maxWidth: '300px', marginTop: '1rem', borderTop: '2px dashed rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
+                <button 
+                  type="button"
+                  className="btn btn-success" 
+                  onClick={() => handleStartPediaSession()} 
+                  disabled={isStartingLobby}
+                  style={{ 
+                    width: '100%', 
+                    padding: '0.85rem', 
+                    fontSize: '1rem', 
+                    fontWeight: 900,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    cursor: isStartingLobby ? 'not-allowed' : 'pointer',
+                    opacity: isStartingLobby ? 0.8 : 1,
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    boxShadow: '0 4px 18px rgba(16, 185, 129, 0.35)'
+                  }}
+                >
+                  {isStartingLobby ? (
+                    <>
+                      <span style={{ display: 'inline-block', width: '1rem', height: '1rem', border: '2px solid currentColor', borderRightColor: 'transparent', borderRadius: '50%', animation: 'spin 0.75s linear infinite' }}></span>
+                      <span>CRÉATION DU SALON...</span>
+                    </>
+                  ) : (
+                    '⚡ CRÉER UN SALON PÉDIATRIE'
+                  )}
+                </button>
+              </div>
+
+              {/* Badges Features */}
+              <div style={{
+                display: 'flex',
+                gap: '0.6rem',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+                marginTop: '1.4rem'
+              }}>
+                <span style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem', borderRadius: '9999px', background: 'rgba(0, 212, 255, 0.12)', border: '1px solid rgba(0, 212, 255, 0.3)', color: '#38bdf8' }}>
+                  📚 35 Cours Spécialités
+                </span>
+                <span style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem', borderRadius: '9999px', background: 'rgba(139, 92, 246, 0.12)', border: '1px solid rgba(139, 92, 246, 0.3)', color: '#c084fc' }}>
+                  🤖 Évaluation CROQ par IA
+                </span>
+                <span style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem', borderRadius: '9999px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#34d399' }}>
+                  🩺 1905 Questions
+                </span>
+              </div>
+            </div>
+          ) : (
+            /* ------------------- UNIVERS ALLEMAND CLASSIQUE ------------------- */
+            <>
+              {/* TÂCHE 1 : Point d'entrée UI - Mur de la Vengeance */}
+              <div 
+                ref={vengeanceSpotlightRef}
+                className={`vengeance-entry-card ${failedWords.length > 0 ? 'active' : 'disabled'}`}
+                onClick={() => {
+                  if (failedWords.length > 0 && onStartVengeance) {
+                    onStartVengeance();
+                  }
+                }}
+                style={{
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                  cursor: isStartingLobby ? 'not-allowed' : 'pointer',
-                  opacity: isStartingLobby ? 0.8 : 1
+                  justifyContent: 'space-between',
+                  gap: '1.2rem',
+                  flexWrap: 'wrap',
+                  marginBottom: '1rem'
                 }}
               >
-                {isStartingLobby ? (
-                  <>
-                    <span style={{ display: 'inline-block', width: '1rem', height: '1rem', border: '2px solid currentColor', borderRightColor: 'transparent', borderRadius: '50%', animation: 'spin 0.75s linear infinite' }}></span>
-                    <span>OUVERTURE DU LOBBY...</span>
-                  </>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: '220px' }}>
+                  <div style={{
+                    fontSize: '2.4rem',
+                    width: '58px',
+                    height: '58px',
+                    borderRadius: '16px',
+                    background: failedWords.length > 0 ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255,255,255,0.05)',
+                    border: `1.5px solid ${failedWords.length > 0 ? 'rgba(239, 68, 68, 0.6)' : 'rgba(255,255,255,0.1)'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: failedWords.length > 0 ? '0 0 20px rgba(239, 68, 68, 0.4)' : 'none'
+                  }}>
+                    🔥
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.2rem' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: '#ffffff', letterSpacing: '0.3px' }}>
+                        🔥 Mur de la Vengeance
+                      </h3>
+                      {failedWords.length > 0 && (
+                        <span className="vengeance-flame-badge" style={{ fontSize: '0.75rem', padding: '0.15rem 0.55rem' }}>
+                          {failedWords.length} à purifier
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ margin: 0, fontSize: '0.88rem', color: failedWords.length > 0 ? '#fca5a5' : 'var(--text-muted)', fontWeight: 600 }}>
+                      {failedWords.length > 0 
+                        ? `${failedWords.length} mot${failedWords.length > 1 ? 's' : ''} attend${failedWords.length > 1 ? 'ent' : ''} d'être purifié${failedWords.length > 1 ? 's' : ''}`
+                        : "Aucune vengeance en attente."}
+                    </p>
+                  </div>
+                </div>
+
+                {failedWords.length > 0 ? (
+                  <button
+                    type="button"
+                    className="vengeance-action-btn"
+                    style={{ fontSize: '0.92rem', padding: '0.75rem 1.3rem', pointerEvents: 'none' }}
+                  >
+                    ⚡ PURIFIER
+                  </button>
                 ) : (
-                  '⚡ DUEL RAPIDE SOLO'
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '0.5rem' }}>
+                    ✨ Rien à purifier
+                  </span>
                 )}
-              </button>
-            </div>
-          </div>
+              </div>
+
+              <div ref={duelSpotlightRef} className="card card-arena" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', background: 'linear-gradient(to bottom right, var(--bg-surface), rgba(99, 102, 241, 0.1))' }}>
+                <h2 className="brand-logo-shine" style={{ fontSize: '2.4rem', marginBottom: '0.4rem', letterSpacing: '-0.5px' }}>
+                  WANA ALLMAND
+                </h2>
+                <p className="text-muted" style={{ marginBottom: '1.8rem', fontSize: '1.05rem', fontWeight: 600 }}>
+                  Compétition &amp; Apprentissage de vocabulaire en direct 🎮
+                </p>
+                
+                <form onSubmit={handleJoin} style={{ width: '100%', maxWidth: '300px' }}>
+                  <input 
+                    type="text" 
+                    className="input-field" 
+                    placeholder="Code (ex: AB47)" 
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                    maxLength={4}
+                    style={{ textAlign: 'center', letterSpacing: '2px', fontSize: '1.5rem', marginBottom: '1rem', textTransform: 'uppercase' }}
+                  />
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary" 
+                    disabled={joinCode.length !== 4 || isJoining}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}
+                  >
+                    {isJoining ? 'CONNEXION...' : 'REJOINDRE'}
+                  </button>
+                </form>
+
+                <div style={{ width: '100%', maxWidth: '300px', marginTop: '1rem', borderTop: '2px dashed rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
+                  <button 
+                    ref={soloSpotlightRef}
+                    type="button"
+                    className="btn btn-success" 
+                    onClick={handlePlaySolo} 
+                    disabled={isStartingLobby}
+                    style={{ 
+                      width: '100%', 
+                      padding: '0.85rem', 
+                      fontSize: '1rem', 
+                      fontWeight: 900,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                      cursor: isStartingLobby ? 'not-allowed' : 'pointer',
+                      opacity: isStartingLobby ? 0.8 : 1
+                    }}
+                  >
+                    {isStartingLobby ? (
+                      <>
+                        <span style={{ display: 'inline-block', width: '1rem', height: '1rem', border: '2px solid currentColor', borderRightColor: 'transparent', borderRadius: '50%', animation: 'spin 0.75s linear infinite' }}></span>
+                        <span>OUVERTURE DU LOBBY...</span>
+                      </>
+                    ) : (
+                      '⚡ DUEL RAPIDE SOLO'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
 
           <div ref={specialModesSpotlightRef} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <h3 style={{ fontSize: '1.2rem', margin: '1rem 0 0 0' }}>Créer une nouvelle session</h3>

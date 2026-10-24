@@ -9,6 +9,8 @@ import BattleConsole from './BattleConsole';
 import BattleCard from './BattleCard';
 import VirtualKeyboard from './VirtualKeyboard';
 import MatchingPairs from './MatchingPairs';
+import PediaArenaCard from './pedia/PediaArenaCard';
+import PediaReviewModal from './pedia/PediaReviewModal';
 
 const PRESET_PHRASES = [
   "💥 Ouch!",
@@ -129,6 +131,16 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const [initialRoundDuration, setInitialRoundDuration] = useState(15);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [roundResult, setRoundResult] = useState(null); // { players: {}, correctAnswer: '' }
+  const [pediaQuestion, setPediaQuestion] = useState(null);
+  const [debriefQuestion, setDebriefQuestion] = useState(null);
+  const [opponentHasAnswered, setOpponentHasAnswered] = useState(false);
+  const isPedia = Boolean(
+    session?.gameType === 'pedia' ||
+    pediaQuestion ||
+    roundResult?.gameType === 'pedia'
+  );
+  const [extendVotes, setExtendVotes] = useState({ count: 0, total: 2, voters: [] });
+  const [extendedRemainingSeconds, setExtendedRemainingSeconds] = useState(null);
   const [players, setPlayers] = useState(session?.players || {});
   const [jokers, setJokers] = useState(3);
   const [jokerHint, setJokerHint] = useState('');
@@ -336,6 +348,13 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   // Socket Events
   useEffect(() => {
     const onNewQuestion = (data) => {
+      if (data.pediaQuestion || data.gameType === 'pedia') {
+        setPediaQuestion(data.pediaQuestion || null);
+      } else {
+        setPediaQuestion(null);
+      }
+      setDebriefQuestion(null);
+      setOpponentHasAnswered(false);
       setQuestion(data.question || '');
       setCurrentAnswer(data.answer || data.adminAnswer || '');
       setQuestionType(data.question_type || 'classic');
@@ -351,6 +370,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       setRoundResult(null);
       setIAmReady(false);
       setReadyCount({ ready: 0, total: 0 });
+      setExtendVotes({ count: 0, total: 2, voters: [] });
+      setExtendedRemainingSeconds(null);
       setIsPaused(false);
       setPauseData(null);
       setLeaveRequestState('none');
@@ -365,6 +386,11 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       hasAnsweredRef.current = true;
       setRoundResult(result);
       setPlayers(result.players);
+      setExtendVotes({ count: 0, total: 2, voters: [] });
+      setExtendedRemainingSeconds(null);
+      if (result.gameType === 'pedia') {
+        setDebriefQuestion(result.debriefQuestion || null);
+      }
       
       const myPlayer = result.players[socket.id];
       if (myPlayer) {
@@ -375,8 +401,10 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             setFlashEffect(isSuccess ? 'success' : 'error');
             if (isSuccess) {
               playSuccess();
+              setStreak(prev => prev + 1);
             } else {
               playError();
+              setStreak(0);
             }
             if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
             flashTimeoutRef.current = setTimeout(() => setFlashEffect(null), 1000);
@@ -385,7 +413,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
         });
       }
 
-      if (result.correctAnswer && questionTypeRef.current !== 'matching_pairs') {
+      if (result.correctAnswer && questionTypeRef.current !== 'matching_pairs' && result.gameType !== 'pedia') {
         if (audioTimeoutRef.current) clearTimeout(audioTimeoutRef.current);
         audioTimeoutRef.current = setTimeout(() => playAudio(result.correctAnswer), 500);
       }
@@ -402,6 +430,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     const onOpponentAnswered = (data) => {
       if (data?.playerId !== socket.id && !hasAnsweredRef.current) {
         playOpponentAnswered();
+        setOpponentHasAnswered(true);
       }
     };
 
@@ -501,6 +530,24 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       }
     };
 
+    const onDebriefExtendVotes = (data) => {
+      if (data) {
+        setExtendVotes({
+          count: data.votesCount || 0,
+          total: data.totalPlayers || 2,
+          voters: data.voters || []
+        });
+      }
+    };
+
+    const onDebriefTimeExtended = (data) => {
+      playSuccess();
+      showToast(`⏱️ +1 minute ajoutée au débriefing ! (${data?.remainingSeconds || 60}s restantes)`, 'success');
+      setExtendedRemainingSeconds(data?.remainingSeconds || null);
+      setExtendVotes({ count: 0, total: data?.totalPlayers || 2, voters: [] });
+      setIAmReady(false);
+    };
+
     socket.on('new_question', onNewQuestion);
     socket.on('round_results', onRoundResults);
     socket.on('joker_result', onJokerResult);
@@ -516,6 +563,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     socket.on('player_disconnected_grace', onPlayerDisconnectedGrace);
     socket.on('player_reconnected', onPlayerReconnected);
     socket.on('ready_count', onReadyCount);
+    socket.on('debrief_extend_votes', onDebriefExtendVotes);
+    socket.on('debrief_time_extended', onDebriefTimeExtended);
     socket.on('game_chat_message', onGameChatMessage);
     socket.on('floating_reaction_burst', handleReactionBurst);
     socket.on('floating_reaction', handleReactionBurst);
@@ -536,6 +585,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       socket.off('player_disconnected_grace', onPlayerDisconnectedGrace);
       socket.off('player_reconnected', onPlayerReconnected);
       socket.off('ready_count', onReadyCount);
+      socket.off('debrief_extend_votes', onDebriefExtendVotes);
+      socket.off('debrief_time_extended', onDebriefTimeExtended);
       socket.off('game_chat_message', onGameChatMessage);
       socket.off('floating_reaction_burst', handleReactionBurst);
       socket.off('floating_reaction', handleReactionBurst);
@@ -569,6 +620,46 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       timeRemaining: timeRemainingRef.current
     });
   }, [socket, isActive, currentStep, nextStep, skipOnboarding]);
+
+  const handleSubmitPediaAnswer = useCallback((ans) => {
+    if (hasAnsweredRef.current || isGameFrozenOrPausedRef.current) return;
+    setHasAnswered(true);
+    hasAnsweredRef.current = true;
+    socket.emit('submit_answer', {
+      sessionId: sessionRef.current?.id,
+      answer: ans,
+      timeRemaining: timeRemainingRef.current
+    });
+  }, [socket]);
+
+  const handleSendPediaDebriefChat = (text) => {
+    if (!text || !sessionRef.current?.id) return;
+    playMessageSent();
+    const localMsg = {
+      id: Math.random().toString(36).substring(2, 9) + Date.now(),
+      senderId: socket.id,
+      senderName: playerName,
+      senderAvatar: avatar,
+      text: text.trim(),
+      timestamp: Date.now()
+    };
+    if (setChatMessages) {
+      setChatMessages(prev => [...prev, localMsg]);
+    }
+    socket.emit('game_chat_message', {
+      sessionId: sessionRef.current.id,
+      text: text.trim(),
+      id: localMsg.id,
+      senderName: playerName,
+      senderAvatar: avatar
+    });
+  };
+
+  const handleVoteExtendDebriefTime = () => {
+    if (!session?.id) return;
+    playCountdownTick();
+    socket.emit('vote_extend_debrief_time', session.id);
+  };
 
   const handleUseJoker = () => {
     if (jokers > 0 && !hasAnswered && !isGameFrozenOrPaused) {
@@ -783,7 +874,18 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const isBlurred = isPaused || leaveRequestState !== 'none' || disconnectGrace.disconnected;
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', flex: 1 }}>
+    <div style={{ 
+      maxWidth: isPedia ? '940px' : '800px', 
+      width: '100%',
+      margin: '0 auto', 
+      textAlign: 'center', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: isPedia ? 'auto' : '100%', 
+      minHeight: '100%',
+      position: 'relative', 
+      flex: 1 
+    }}>
       
       {/* Flash Effect Overlay */}
       {flashEffect && (
@@ -1275,7 +1377,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           TOP-LEFT ACTIONS: PAUSE PAR DÉFAUT + MENU VERTICAL FLOU (QUITTER, MUSIQUE, SON)
          ========================================================= */}
       <div style={{
-        position: 'absolute',
+        position: isPedia ? 'fixed' : 'absolute',
         top: '1rem',
         left: '1rem',
         display: 'flex',
@@ -1510,7 +1612,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           TOP-RIGHT ACTION: CHAT (EN HAUT A DROITE)
          ========================================================= */}
       <div style={{
-        position: 'absolute',
+        position: isPedia ? 'fixed' : 'absolute',
         top: '1rem',
         right: '1rem',
         display: 'flex',
@@ -1542,7 +1644,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       {/* QUICK CHAT POPOVER (Positioned in Top-Right) */}
       {isQuickChatOpen && (
         <div style={{
-          position: 'absolute',
+          position: isPedia ? 'fixed' : 'absolute',
           top: '3.6rem',
           right: '1rem',
           width: '270px',
@@ -1635,20 +1737,45 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       )}
 
       {/* =========================================================
+          PEDIA REVIEW MODAL (FULL SCREEN DEBRIEFING PORTAL)
+         ========================================================= */}
+      {isPedia && roundResult && (
+        <PediaReviewModal
+          debriefQuestion={debriefQuestion || roundResult?.debriefQuestion}
+          players={players}
+          myPlayerId={socket.id}
+          onReadyNext={handleReadyForNext}
+          readyCount={readyCount.ready}
+          totalPlayers={readyCount.total || Object.keys(players || {}).length}
+          isReady={iAmReady}
+          reviewDuration={roundResult?.reviewDuration || 60}
+          chatMessages={chatMessages}
+          onSendChatMessage={handleSendPediaDebriefChat}
+          onVoteExtendDebriefTime={handleVoteExtendDebriefTime}
+          extendVotesCount={extendVotes.count}
+          extendTotalRequired={extendVotes.total}
+          hasVotedExtend={extendVotes.voters.includes(socket.id)}
+          extendedRemainingSeconds={extendedRemainingSeconds}
+        />
+      )}
+
+      {/* =========================================================
           MAIN GAME BODY (BLURRED DURING PAUSE & QUIT REQUEST)
          ========================================================= */}
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        filter: isBlurred ? 'blur(8px)' : 'none',
-        pointerEvents: isBlurred ? 'none' : 'auto',
-        transition: 'filter 0.3s ease, opacity 0.3s ease',
-        opacity: isBlurred ? 0.6 : 1
-      }}>
-        {/* Central Game Card wrapped in BattleCard */}
+      {!(isPedia && roundResult) && (
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: isPedia ? 'auto' : 0,
+          filter: isBlurred ? 'blur(8px)' : 'none',
+          pointerEvents: isBlurred ? 'none' : 'auto',
+          transition: 'filter 0.3s ease, opacity 0.3s ease',
+          opacity: isBlurred ? 0.6 : 1
+        }}>
+          {/* Central Game Card wrapped in BattleCard */}
         <BattleCard
-          mode="classic"
+          mode={isPedia ? 'pedia' : 'classic'}
           isShaking={shakeInput}
           pauseSlot={null}
           timerSlot={
@@ -1667,7 +1794,14 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             />
           }
           progressSlot={
-            <span>{questionIndex + 1} / {totalQuestions}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              {streak >= 2 && (
+                <span className="duo-streak-badge" title={`Série de ${streak} bonnes réponses consécutives !`}>
+                  🔥 {streak}
+                </span>
+              )}
+              <span>{questionIndex + 1} / {totalQuestions}</span>
+            </div>
           }
           specialRuleSlot={
             <div style={{ display: 'flex', gap: '1rem', width: '100%', justifyContent: 'center' }}>
@@ -1696,8 +1830,19 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             </div>
           }
         >
-          {!roundResult ? (
-            questionType === 'matching_pairs' && matchingPairs ? (
+          {isPedia ? (
+            <PediaArenaCard
+              question={pediaQuestion}
+              questionIndex={questionIndex}
+              totalQuestions={totalQuestions}
+              onSubmitAnswer={handleSubmitPediaAnswer}
+              hasAnswered={hasAnswered}
+              opponentAnswered={opponentHasAnswered}
+              timeRemaining={timeRemainingRef.current}
+            />
+          ) : (
+            !roundResult ? (
+              questionType === 'matching_pairs' && matchingPairs ? (
               <MatchingPairs 
                 key={`matching_pairs_${questionIndex}`}
                 pairs={matchingPairs} 
@@ -1794,41 +1939,91 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             )
           ) : (
             <div 
-              style={{ padding: '1rem 0', animation: 'fadeIn 0.5s ease-out', cursor: 'pointer' }}
+              className="duo-result-card"
               onClick={handleReadyForNext}
+              style={{ cursor: 'pointer' }}
             >
-              {questionType !== 'matching_pairs' && (
-                <div style={{ background: 'var(--bg-main)', border: '2px solid var(--border-color)', padding: '1rem', borderRadius: '12px', display: 'inline-block', marginBottom: '1rem', position: 'relative' }}>
-                  <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>La bonne réponse était :</p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center' }}>
-                    <h2 style={{ fontSize: '2rem', margin: 0, color: 'var(--text-main)' }}>{roundResult.correctAnswer}</h2>
-                    <button onClick={(e) => { e.stopPropagation(); playAudio(roundResult.correctAnswer); }} style={{ background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '1.2rem' }}>
-                      🔊
-                    </button>
+              {/* Duolingo Style Feedback Drawer */}
+              {(() => {
+                const myAns = roundResult.players?.[socket?.id]?.answers?.[questionIndex];
+                const isCorrect = myAns ? myAns.score >= 100 : false;
+                const isTypo = myAns?.isTypo;
+                const isMatching = questionType === 'matching_pairs';
+                
+                let bannerClass = 'duo-banner-error';
+                let bannerIcon = '❌';
+                let bannerTitle = 'Pas tout à fait...';
+                if (isMatching) {
+                  const wonMatching = myAns && myAns.score >= 100;
+                  bannerClass = wonMatching ? 'duo-banner-success' : 'duo-banner-neutral';
+                  bannerIcon = wonMatching ? '⚡' : '⌛';
+                  bannerTitle = wonMatching ? 'Course aux paires réussie !' : 'Temps écoulé pour les paires';
+                } else if (isCorrect) {
+                  bannerClass = 'duo-banner-success';
+                  bannerIcon = '✓';
+                  bannerTitle = streak >= 3 ? `En feu ! 🔥 Série de ${streak}` : 'Excellent !';
+                } else if (isTypo) {
+                  bannerClass = 'duo-banner-typo';
+                  bannerIcon = '⚡';
+                  bannerTitle = 'Presque ! Faute de frappe tolérée';
+                }
+
+                return (
+                  <div className={`duo-feedback-banner ${bannerClass}`}>
+                    <div className="duo-banner-header">
+                      <div className="duo-banner-status">
+                        <span className="duo-banner-icon">{bannerIcon}</span>
+                        <span className="duo-banner-title">{bannerTitle}</span>
+                      </div>
+                      {myAns && myAns.score > 0 && (
+                        <div className="duo-banner-xp">
+                          +{myAns.score} pts
+                        </div>
+                      )}
+                    </div>
+
+                    {!isMatching && roundResult.correctAnswer && (
+                      <div className="duo-banner-answer-row">
+                        <div className="duo-banner-answer-label">La bonne réponse :</div>
+                        <div className="duo-banner-answer-text">
+                          <span className="duo-answer-word">{roundResult.correctAnswer}</span>
+                          <button 
+                            type="button"
+                            className="duo-speaker-btn"
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              playAudio(roundResult.correctAnswer); 
+                            }}
+                            title="Réécouter la prononciation"
+                          >
+                            🔊
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                );
+              })()}
               
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {/* Scores multi-joueurs */}
+              <div className="duo-players-list">
                 {Object.values(roundResult.players).map(p => {
                   const playerAns = p.answers[questionIndex];
-                  const isCorrect = playerAns?.score >= 100;
+                  const isPlayerCorrect = playerAns?.score >= 100;
+                  const isMe = p.id === socket?.id;
                   return (
-                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-surface-hover)', borderRadius: '12px', border: '2px solid var(--border-color)', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{formatPlayerName(p.name)}</span>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                          <span style={{ fontWeight: 'bold' }}>
-                            {renderDiff(roundResult.correctAnswer, playerAns?.answer, isCorrect, playerAns?.isTypo)}
+                    <div key={p.id} className={`duo-player-row ${isMe ? 'is-me' : ''}`}>
+                      <div className="duo-player-name">
+                        {formatPlayerName(p.name)} {isMe ? '(Vous)' : ''}
+                      </div>
+                      <div className="duo-player-result">
+                        <span className="duo-player-diff">
+                          {renderDiff(roundResult.correctAnswer, playerAns?.answer, isPlayerCorrect, playerAns?.isTypo)}
+                        </span>
+                        {playerAns && (
+                          <span className="duo-player-score-tag">
+                            +{playerAns.score} pts
                           </span>
-                          {playerAns && (
-                            <span style={{ fontSize: '1rem', color: 'var(--warning)', fontWeight: 'bold' }}>
-                              +{playerAns.score} pts
-                            </span>
-                          )}
-                        </div>
-                        {playerAns?.isTypo && (
-                          <div style={{ fontSize: '0.8rem', color: 'var(--warning)', marginTop: '2px' }}>Faute de frappe tolérée</div>
                         )}
                       </div>
                     </div>
@@ -1836,26 +2031,32 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
                 })}
               </div>
               
-              {/* Tap anywhere to continue */}
-              <div style={{ marginTop: '1.5rem' }}>
-                {iAmReady ? (
-                  readyCount.total > 1 ? (
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                      ⏳ En attente de l'adversaire... ({readyCount.ready}/{readyCount.total})
-                    </p>
+              {/* Bouton 3D Duolingo Continuer */}
+              <div className="duo-action-row">
+                <button
+                  type="button"
+                  className="duo-btn-continue"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleReadyForNext();
+                  }}
+                >
+                  {iAmReady ? (
+                    readyCount.total > 1 ? (
+                      `En attente de l'adversaire (${readyCount.ready}/${readyCount.total})...`
+                    ) : 'Prêt !'
                   ) : (
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>⏳</p>
-                  )
-                ) : (
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', opacity: 0.7 }}>
-                    Appuyez sur Entrée ou touchez l'écran
-                  </p>
-                )}
+                    'CONTINUER ➔'
+                  )}
+                </button>
+                <div className="duo-keyboard-hint">Appuyez sur Entrée ou touchez pour continuer</div>
               </div>
             </div>
-          )}
+          )
+        )}
         </BattleCard>
       </div>
+      )}
 
       {/* Full-Screen Telegram Burst Floating Reactions Layer */}
       <div className="floating-reactions-container">
@@ -1888,7 +2089,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       )}
 
       {/* Virtual Keyboard (Hidden on Desktop, Visible on Mobile via CSS) */}
-      {questionType === 'classic' && !useNativeKeyboard && (
+      {questionType === 'classic' && !useNativeKeyboard && !isPedia && (
         <VirtualKeyboard isHidden={isPaused} />
       )}
     </div>

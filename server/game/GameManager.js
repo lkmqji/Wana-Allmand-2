@@ -1,4 +1,6 @@
 const { calculateScore } = require('../utils/levenshtein');
+const { calculateQcmScore } = require('../utils/qcmScorer');
+const geminiServerService = require('../services/geminiServerService');
 const { formatPlayerName } = require('../utils/formatters');
 
 class GameManager {
@@ -17,7 +19,7 @@ class GameManager {
         }
     }
 
-    createSession(hostId, hostName, firebaseId, clientPlayerKey) {
+    createSession(hostId, hostName, firebaseId, clientPlayerKey, gameType = 'german') {
         // Generate a random 4 letter/number code
         const sessionId = Math.random().toString(36).substring(2, 6).toUpperCase();
         const formattedName = formatPlayerName(hostName) || 'Hôte';
@@ -27,7 +29,10 @@ class GameManager {
             hostId: hostId,
             guestId: null,
             status: 'waiting', // waiting, playing, showing_results, finished
+            gameType: gameType || 'german', // 'german' | 'pedia'
             vocabList: [],
+            pediaQuestions: [],
+            pediaSettings: null,
             settings: { rounds: 0, timePerWord: 15, powerupsEnabled: false, allowPause: true },
             currentQuestionIndex: -1,
             players: {
@@ -106,6 +111,7 @@ class GameManager {
         }
         session.players = {};
         session.vocabList = [];
+        session.pediaQuestions = [];
 
         // Delete from Map
         return this.sessions.delete(sessionId);
@@ -131,6 +137,7 @@ class GameManager {
     setVocabList(sessionId, vocabList, settings) {
         const session = this.sessions.get(sessionId);
         if (session) {
+            session.gameType = 'german';
             session.vocabList = vocabList;
             const rounds = (settings && typeof settings.rounds === 'number' && settings.rounds > 0)
                 ? Math.min(settings.rounds, vocabList.length)
@@ -139,6 +146,26 @@ class GameManager {
                 ...(settings || {}),
                 rounds: rounds,
                 timePerWord: settings?.timePerWord || 15
+            };
+            session.currentQuestionIndex = -1;
+            session.answersThisRound = 0;
+            session.lastActivity = Date.now();
+        }
+    }
+
+    setPediaQuestions(sessionId, questions, settings, pediaSettings) {
+        const session = this.sessions.get(sessionId);
+        if (session) {
+            session.gameType = 'pedia';
+            session.pediaQuestions = questions || [];
+            session.pediaSettings = pediaSettings || {};
+            const rounds = (settings && typeof settings.rounds === 'number' && settings.rounds > 0)
+                ? Math.min(settings.rounds, (questions || []).length)
+                : (questions || []).length;
+            session.settings = {
+                ...(settings || {}),
+                rounds: rounds,
+                timePerWord: settings?.timePerWord || 20
             };
             session.currentQuestionIndex = -1;
             session.answersThisRound = 0;
@@ -196,6 +223,67 @@ class GameManager {
         };
     }
 
+    async submitPediaAnswer(sessionId, playerId, answer, timeRemaining) {
+        const session = this.sessions.get(sessionId);
+        if (!session || session.status !== 'playing') return null;
+
+        session.lastActivity = Date.now();
+        const currentQ = session.pediaQuestions[session.currentQuestionIndex];
+        if (!currentQ) return null;
+
+        const isCroq = !!(currentQ.is_croq || currentQ.type === 'CROQ');
+        let answerRecord = null;
+        let pointsEarned = 0;
+
+        if (isCroq) {
+            const evalResult = await geminiServerService.evaluateCroq(
+                currentQ.question,
+                currentQ.clinical_case,
+                currentQ.croq_answer,
+                answer,
+                timeRemaining
+            );
+            pointsEarned = evalResult.score;
+            answerRecord = {
+                answer,
+                expected: currentQ.croq_answer,
+                score: evalResult.score,
+                baseScore: evalResult.baseScore,
+                bonus: evalResult.bonus,
+                isValid: evalResult.isValid,
+                feedback: evalResult.feedback,
+                reasoningNote: evalResult.reasoningNote,
+                modelUsed: evalResult.modelUsed,
+                isCroq: true
+            };
+        } else {
+            const evalResult = calculateQcmScore(currentQ, answer, timeRemaining);
+            pointsEarned = evalResult.score;
+            answerRecord = {
+                answer, // array of letters like ['B', 'C']
+                expected: evalResult.correctLetters,
+                score: evalResult.score,
+                baseScore: evalResult.baseScore,
+                bonus: evalResult.bonus,
+                isPerfect: evalResult.isPerfect,
+                correctCount: evalResult.correctCount,
+                wrongCount: evalResult.wrongCount,
+                selectedLetters: evalResult.selectedLetters,
+                isCroq: false
+            };
+        }
+
+        session.players[playerId].answers[session.currentQuestionIndex] = answerRecord;
+        session.players[playerId].score += pointsEarned;
+        session.answersThisRound += 1;
+
+        return {
+            allAnswered: session.answersThisRound === Object.keys(session.players).length,
+            playerScore: session.players[playerId].score,
+            answerRecord
+        };
+    }
+
     nextQuestion(sessionId) {
         const session = this.sessions.get(sessionId);
         if (!session) return null;
@@ -203,6 +291,27 @@ class GameManager {
         session.lastActivity = Date.now();
         session.answersThisRound = 0;
         session.currentQuestionIndex += 1;
+
+        if (session.gameType === 'pedia') {
+            const maxQ = (session.settings && session.settings.rounds > 0)
+                ? Math.min(session.settings.rounds, (session.pediaQuestions || []).length)
+                : (session.pediaQuestions || []).length;
+
+            if (session.currentQuestionIndex >= maxQ || session.currentQuestionIndex >= (session.pediaQuestions || []).length) {
+                session.status = 'finished';
+                return { finished: true };
+            }
+
+            const currentQ = session.pediaQuestions[session.currentQuestionIndex];
+            const isCroq = !!(currentQ.is_croq || currentQ.type === 'CROQ');
+            return {
+                finished: false,
+                question_type: isCroq ? 'croq' : 'pedia_qcm',
+                pediaQuestion: currentQ,
+                is_croq: isCroq,
+                gameType: 'pedia'
+            };
+        }
 
         const maxQuestions = (session.settings && session.settings.rounds > 0)
             ? Math.min(session.settings.rounds, session.vocabList.length)
@@ -214,7 +323,8 @@ class GameManager {
         }
 
         // Probability to trigger matching pairs mini-game if we have at least 5 words in the vocab list
-        const chance = this.forceMatchingPairs ? 1.0 : 0.0; // Désactivé temporairement (était à 0.5)
+        // Mode réactivé : 40% de chance d'apparition naturelle, ou 100% si forcé dans l'admin
+        const chance = this.forceMatchingPairs ? 1.0 : 0.40;
         if (session.vocabList.length >= 5 && Math.random() < chance) {
             // Pick 5 random words
             const shuffledVocab = [...session.vocabList].sort(() => 0.5 - Math.random());
@@ -248,6 +358,17 @@ class GameManager {
         const jackpotScore = 300;
         session.players[playerId].score += jackpotScore;
         session.answersThisRound = Object.keys(session.players).length; // Force allAnswered true so round ends
+
+        // Enregistrer la réponse pour l'affichage de fin de manche
+        Object.keys(session.players).forEach(pId => {
+            const isWinner = (pId === playerId);
+            session.players[pId].answers[session.currentQuestionIndex] = {
+                answer: isWinner ? '⚡ Paires associées !' : 'Temps écoulé',
+                expected: '5 paires correctes',
+                score: isWinner ? jackpotScore : 0,
+                isTypo: false
+            };
+        });
 
         return {
             allAnswered: true,

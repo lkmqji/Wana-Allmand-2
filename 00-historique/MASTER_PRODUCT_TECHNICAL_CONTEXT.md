@@ -384,3 +384,130 @@ Le 29 août 2026 a marqué une série d'optimisations majeures de performance, d
   - **Protection contre le Débordement** : Ajout de `min-width: 0` sur les boutons de la grille (`.matching-btn`) pour garantir la robustesse du `word-break` et éviter que la grille ne dépasse les largeurs de piste (`minmax(0, 1fr)`) sur les écrans étroits.
   - **Correction du Cycle de Vie React (Bug Multi-Rounds)** : Ajout d'une prop `key={\`matching_pairs_${questionIndex}\`}` sur le composant `<MatchingPairs>` dans `Game.jsx`. Cela empêche la réutilisation du composant par React entre deux manches de MatchingPairs, garantissant la réinitialisation totale de ses variables d'états locales (`matchedIds`, `timeLeft`, `isBlocked`) qui causaient des comportements erratiques aux rounds suivants.
   - **Désactivation Temporaire** : La probabilité de déclenchement a été passée à 0% dans `GameManager.js` (`const chance = this.forceMatchingPairs ? 1.0 : 0.0;`) afin de retirer le mode de la session de base. Il reste activable manuellement depuis le panel Super Admin via le flag `forceMatchingPairs`.
+
+## Mise à jour (2026-10-13)
+- **Intégration de l'écosystème de compétences Replicate (`replicate/skills`)** :
+  - Installation via le CLI `skills` (`npx skills add replicate/skills`) dans `.agents/skills/`.
+  - 7 modules spécialisés installés et activés pour l'agent : `build-models`, `compare-models`, `find-models`, `prompt-images`, `prompt-videos`, `publish-models`, `run-models`.
+  - Suivi des versions et dépendances consigné dans `skills-lock.json`.
+
+- **Moteur IA Gemini : Clé API & Cascade Résiliente de Modèles (Waterfall)** :
+  - **Mise à jour de la clé API** : Intégration de la nouvelle clé d'accès dans `server/.env` et `detection ai des liste/.env`.
+  - **Correction du crash de génération (`Type is not defined`)** : Import explicite de `{ GoogleGenAI, Type }` depuis le package `@google/genai` dans `server/index.js`, résolvant l'erreur d'exécution lors de la génération de schémas structurés JSON.
+  - **Architecture en cascade (Waterfall)** : Implémentation de la fonction `callGeminiWaterfall` dans `server/index.js` et `detection ai des liste/server.ts`. Les modèles sont interrogés selon la hiérarchie stricte :
+    1. `gemini-3.8-flash` (Prioritaire)
+    2. `gemini-3.7-flash` (Secours 1)
+    3. `gemini-3.6-flash` (Secours 2)
+    4. `gemini-3.5-flash-lite` (Secours 3)
+    5. `gemini-3.1-flash-lite` (Secours 4)
+    - Garde-fous supplémentaires de résilience : `gemini-2.5-flash`, `gemini-1.5-flash`.
+  - **Tolérance aux pannes** : En cas de code 503 (haute demande temporaire) ou 404/429 sur un modèle, le client bascule instantanément vers le modèle suivant sans jamais interrompre le traitement du joueur ou faire échouer l'extraction de listes.
+
+- **Restauration Intégrale & Optimisation Visuelle du Mode des Colonnes (Matching Pairs)** :
+  - **Restauration de la probabilité** : Dans `server/game/GameManager.js`, passage de la probabilité de déclenchement à 40% (`chance = this.forceMatchingPairs ? 1.0 : 0.40;`) lorsque la liste compte au moins 5 mots (ou 100% si activé dans le panel Super Admin).
+  - **Score & Persistance de fin de manche** : Dans `submitMatchingPairs`, attribution du jackpot de +300 points et enregistrement explicite des réponses dans `session.players[pId].answers[session.currentQuestionIndex]` pour chaque joueur afin d'assurer l'affichage complet du tableau de résultats.
+  - **Calcul de temps adapté** : Dans `server/index.js`, la durée de manche pour `matching_pairs` est dimensionnée dynamiquement (`Math.max(20, Math.round(timePerWord * 1.5))`) pour offrir le temps nécessaire à l'association des 5 paires.
+  - **Affichage & Layout mobile** :
+    - Masquage automatique du clavier virtuel (`VirtualKeyboard isHidden={isPaused || questionType === 'matching_pairs'}`) évitant la compression du viewport en 60dvh et libérant 100% de la hauteur d'écran.
+    - Ajout d'en-têtes visuels pour chaque colonne (`🇫🇷 Traduction` à gauche, `🇩🇪 Allemand` à droite).
+    - Refonte du minuteur local dans `MatchingPairs.jsx` : calcul temporel basé sur `Date.now()` sans dérive ni recréation intempestive de timers.
+    - Suppression du blocage d'écran frustrant de 2 secondes : remplacé par un tremblement d'erreur rouge dynamique et snapy de 650ms inspiré des meilleures pratiques de design de jeux.
+    - Prononciation audio allemande native (`speakText`) lors de chaque association réussie et explosion de confettis à la victoire.
+
+- **Gamification Signature Duolingo (Duo Play & Juicy Feedback)** :
+  - **Flamme de Série (Streak Flame)** :
+    - Calcul en temps réel de la série de bonnes réponses consécutives (`streak`).
+    - Badge animé `🔥 {streak}` dans l'en-tête de `BattleCard` dès 2 bonnes réponses d'affilée, avec animation pop et lueur dorée.
+  - **Bandeau de Résultat 3D (Feedback Drawer)** :
+    - Remplacement du tableau statique de fin de manche par un tiroir de feedback Duolingo :
+      - Succès : Vert vibrant `#58cc02` avec `✓ Excellent !` et mention de la série.
+      - Faute mineure : Ambre `#ff9600` avec `⚡ Presque ! Faute de frappe tolérée`.
+      - Erreur : Rouge `#ff4b4b` avec `❌ Solution exacte` et affichage contrasté.
+      - Bouton haut-parleur intégré pour la prononciation audio immédiate.
+      - Bouton d'action 3D pressable "CONTINUER ➔" avec prise en charge du raccourci Entrée/Espace pour un enchaînement ultra-rapide.
+
+---
+
+## 4. MODULE MÉDICAL : PÉDIADRILL ARENA (2026-10-24)
+
+### 4.1 Vision & Double Univers
+L'application intègre désormais une architecture multi-univers sans régression sur le jeu d'allemand original :
+1. 🇩🇪 **Wana Allmand** : Apprentissage du vocabulaire allemand avec validation orthographique Levenshtein, articles de genre, et clavier virtuel *WanaBoard*.
+2. 🩺 **PédiaDrill Arena** : Arène de duels médicaux pédiatriques basée sur le corpus officiel de `qcm-p-diatrie` (1 905 questions et 35 chapitres spécialisés).
+
+### 4.2 Architecture des Données Médicales
+- **Fournisseur de Données (`server/data/pediaProvider.js`)** :
+  - Chargement et indexation de 35 chapitres pédiatriques et 1 905 questions médicales.
+  - Filtrage dynamique par chapitre (`chapterId`), quantité de questions (5 à 50) et typologie (`qcm`, `croq`, `all`).
+  - **Sécurité Anti-Triche** : Les propriétés sensibles (`is_correct`, `explanation`, `croq_answer`) sont supprimées avant l'envoi de la question en direct (`prepareLiveQuestion`), puis révélées exclusivement lors du débriefing de manche (`prepareDebriefQuestion`).
+
+### 4.3 Moteur de Scoring & Correction IA
+- **Moteur de Scoring Partiel QCM (`server/utils/qcmScorer.js`)** :
+  - Évaluation proportionnelle par propositions nettes : chaque option correcte cochée rapporte des points, et chaque mauvaise option cochée inflige une pénalité afin de décourager le cochage systématique au hasard.
+  - Bonus de rapidité dégressif calculé sur le chrono restant.
+- **Évaluation Sémantique IA des CROQ (`server/services/geminiServerService.js`)** :
+  - Cascade de modèles Google Gemini Flash (`gemini-3-flash-preview` ➔ `gemini-flash-lite-latest` ➔ `gemini-2.5-flash`).
+  - Évaluation intelligente des réponses textuelles aux cas cliniques avec score (0–100%), retour constructif et note de raisonnement clinique.
+  - Circuit-breaker avec bascule automatique sur un algorithme d'analyse lexicale locale hors-ligne en cas d'erreur de quota (429) ou de déconnexion API.
+
+### 4.4 Règles Métier du Mode Pédiatrique
+- **Règle Chronomètre CROQ** : Un bonus automatique de **+30 secondes** est alloué sur chaque question ouverte de type CROQ pour permettre aux candidats de rédiger leur réponse clinique.
+- **Phase de Débriefing de 60s (Inter-Round)** :
+  - Débriefing complet de 60 secondes après chaque manche avec barre de progression animée.
+  - Analyse détaillée de chaque proposition (vert = correct, rouge = incorrect, neutre = vrai non sélectionné).
+  - Explication clinique officielle issue du cours (`explanation`).
+  - Chat temps réel intégré permettant aux adversaires d'échanger sur le cas clinique.
+  - Bouton interactif "Passer (X/2)" permettant d'avancer immédiatement vers la question suivante dès que les deux joueurs ont cliqué (ou dès que le joueur solo clique).
+
+### 4.5 Composants Frontend Clés
+- `client/src/components/Home.jsx` : Sélecteur d'univers (Wana Allmand vs PédiaDrill Arena) avec cartes de création/rejoindre salon.
+- `client/src/components/Lobby.jsx` : Configuration d'arène médicale (cours parmi 35 chapitres, nombre de questions, type d'épreuves, chrono).
+- `client/src/components/pedia/PediaArenaCard.jsx` : Carte de question clinique haute fidélité avec badge de cours, bascule d'options A à E et textarea CROQ.
+- `client/src/components/pedia/PediaReviewModal.jsx` : Modal de débriefing de 60 secondes avec score comparé, options corrigées, explication clinique et chat interactif.
+- `client/src/components/Game.jsx` & `Results.jsx` : Routage dynamique selon `session.gameType === 'pedia'`.
+
+### 4.6 Ergonomie & Défilement Vertical des Cas Cliniques (Scroll System)
+- **Problématique initiale** : Les questions médicales contenant des cas cliniques volumineux (10 à 30 lignes de description clinique, antécédents, examens paracliniques et bilans biologiques) dépassent naturellement la hauteur standard d'un écran (100vh). En raison du layout historique verrouillé sans défilement pour le mode allemand (architecture 60/40), les propositions de réponses et boutons de validation étaient rognés et inaccessibles.
+- **Architecture de Défilement Dédiée (`.pedia-scroll-viewport`)** :
+  - Dès qu'une session `gameType: 'pedia'` est active, la classe `.pedia-scroll-viewport` est appliquée sur `.app-container` dans `App.jsx`, activant un défilement vertical fluide (`overflow-y: auto !important`, `-webkit-overflow-scrolling: touch`, `scroll-behavior: smooth`).
+  - Une barre de défilement discrète et élégante (cyan fluo et fond sombre de 8px) est configurée dans `index.css`.
+- **Adaptation de `BattleCard.jsx` (`mode="pedia"`)** :
+  - **Suppression du bug de centrage vertical** : Passage de `justifyContent: 'center'` à `justifyContent: 'flex-start'` avec marge basse de respiration (`padding: 0.5rem 0.5rem 4rem 0.5rem`), évitant que le haut et le bas du contenu ne soient coupés lors des débordements.
+  - **Élargissement de la carte** : `maxWidth: 880px` (au lieu de 600px en mode allemand classique) permettant aux vignettes cliniques de respirer avec une longueur de ligne idéale pour la lecture médicale.
+  - **En-tête Sticky (`battle-card-header`)** : Lorsque l'étudiant fait défiler le cas clinique vers le bas pour lire les propositions A à E, le chronomètre dynamique, les scores des joueurs et l'avancement (ex: 1/10) restent épinglés en haut avec un arrière-plan en verre flouté (`backdrop-filter: blur(16px)`), garantissant que le temps restant ne soit jamais perdu de vue.
+- **Boutons Flottants en `position: fixed`** :
+  - Dans `Game.jsx`, le bouton Pause/Menu (haut-gauche) et le bouton de Réactions/Chat (haut-droite) passent dynamiquement en `position: 'fixed'` en mode pédiatrie pour rester toujours à portée de doigt lors du défilement.
+- **Dégagement Inférieur de Sécurité** :
+  - `PediaArenaCard.jsx` intègre `paddingBottom: '2.5rem'` pour assurer que le bouton "VALIDER" ou "SOUMETTRE À L'IA" soit toujours parfaitement cliquable au-dessus de la barre de navigation ou du bord bas de l'écran.
+
+### 4.7 Architecture de l'Écran de Débriefing & Explications (PediaReviewModal)
+- **Isolation Complète du Débriefing** :
+  - Dans `Game.jsx`, dès que `roundResult` est actif en mode `isPedia`, la carte de jeu (`BattleCard`) n'est plus rendue.
+  - `PediaReviewModal` est monté via `createPortal(..., document.body)` directement à la racine du document, éliminant tout conflit de conteneur d'empilement (*containing block trap*) causé par les propriétés `backdrop-filter` ou `filter` d'ancêtres.
+- **Tableau de Bord Médical Plein Écran (`.pedia-review-dialog`)** :
+  - Dimensions généreuses (`height: 92vh`, `maxWidth: 980px`), cadre sombre `#0d1527` avec bordure cyan électrisante et lueur volumétrique 3D.
+  - **En-tête de manche** : badge du cours, minuteur synchronisé 60s, et bouton mutuel "Passer (X/2)" permettant d'abréger le débriefing dès que les candidats ont assimilé le corrigé.
+  - **Barre de défilement temporelle** : barre animée dégressive 60s de cyan vers violet.
+  - **Grille Responsive (`.pedia-review-grid`)** :
+    - Desktop (`> 820px`) : 2 colonnes (`1.8fr / 1.2fr`) séparant le corrigé médical et le chat en direct.
+    - Mobile (`<= 820px`) : empilement 1 colonne assurant une lecture sans compression.
+  - **Corrigé Détaillé Proposition par Proposition** :
+    - Énoncé et rappel du cas clinique (`cas_clinique`).
+    - Statut visuel de chaque option (A à E) : vert pour sélection juste, rouge pour fausse réponse cochée, pointillé vert pour bonne réponse omise, et badge `👤 Adversaire` pour visualiser les réponses du concurrent.
+    - Évaluation sémantique IA (CROQ) avec score et retour constructif.
+    - Note de cours officielle (`explanation`).
+  - **Chat Débriefing en Direct** :
+    - Historique des messages des joueurs en temps réel.
+    - Barre de 5 réactions rapides en 1 clic (`💡 Bravo !`, `😅 Pas évident`, `🏥 Cas typique`, etc.) et saisie personnalisée.
+  - **Option de Prolongation Temporelle Mutuelle (+1 min)** :
+    - Bouton interactif `⏱️ +1 min` dans l'en-tête permettant d'ajouter 60 secondes au chronomètre de débriefing de manière illimitée.
+    - **Règle de Vote Mutuel** : En duel (2 joueurs), l'extension n'est déclenchée que lorsque les **2 joueurs ont voté** pour prolonger (`vote_extend_debrief_time`).
+    - **Feedback Visuel Intelligent** :
+      - Joueur ayant voté : état "En attente (1/2)" avec halo ambré.
+      - Joueur n'ayant pas encore voté : bouton incitatif "Accepter +1 min ! (1/2)" avec lueur pulsante.
+      - En solo : 1 clic ajoute immédiatement +60 secondes.
+    - **Gestion Temps Réel** : Le serveur réarme `session.autoAdvanceTimer`, recalcule `session.resultEndTime`, réinitialise les votes pour les futures extensions, et réinitialise `session.readyPlayers` pour laisser aux étudiants le plein temps de discussion.
+
+
+
+

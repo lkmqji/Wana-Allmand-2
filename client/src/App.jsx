@@ -764,7 +764,12 @@ function App() {
     socket.on('game_over', (data) => {
       sessionStorage.removeItem('active_game_session');
       setPlayers(data.players);
-      setSession(prev => ({ ...prev, vocabList: data.vocabList }));
+      setSession(prev => ({
+        ...prev,
+        vocabList: data.vocabList,
+        pediaQuestions: data.pediaQuestions,
+        gameType: data.gameType || prev?.gameType
+      }));
       setView('results');
     });
 
@@ -1205,7 +1210,7 @@ function App() {
 
     if (view === 'game') {
       return (
-        <div className={`app-container page-transition`}>
+        <div className={`app-container page-transition ${session?.gameType === 'pedia' ? 'pedia-scroll-viewport' : ''}`}>
           {error && (
             <div style={{ background: 'var(--danger)', padding: '1rem', borderRadius: '8px', position: 'absolute', top: '1rem', left: '1rem', zIndex: 100 }}>
               {error} <button onClick={() => setError('')} style={{background:'none',border:'none',color:'white',cursor:'pointer'}}>X</button>
