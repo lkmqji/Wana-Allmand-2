@@ -13,7 +13,9 @@ class PediaProvider {
     if (this.isLoaded) return true;
 
     try {
-      const basePath = path.resolve(__dirname, '../../qcm-p-diatrie/src/data');
+      const internalPath = path.join(__dirname, 'pedia');
+      const externalPath = path.resolve(__dirname, '../../qcm-p-diatrie/src/data');
+      const basePath = fs.existsSync(path.join(internalPath, 'questions.js')) ? internalPath : externalPath;
       const chaptersPath = path.join(basePath, 'chapters.js');
       const questionsPath = path.join(basePath, 'questions.js');
 

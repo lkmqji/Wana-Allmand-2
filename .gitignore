@@ -28,3 +28,7 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+**/.idea/
+
+# Nested Repositories
+qcm-p-diatrie/
