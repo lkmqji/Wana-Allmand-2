@@ -139,7 +139,11 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     pediaQuestion ||
     roundResult?.gameType === 'pedia'
   );
-  const [extendVotes, setExtendVotes] = useState({ count: 0, total: 2, voters: [] });
+  const [extendVotes, setExtendVotes] = useState({
+    votes1m: { count: 0, voters: [] },
+    votes3m: { count: 0, voters: [] },
+    total: 2
+  });
   const [extendedRemainingSeconds, setExtendedRemainingSeconds] = useState(null);
   const [players, setPlayers] = useState(session?.players || {});
   const [jokers, setJokers] = useState(3);
@@ -370,7 +374,11 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       setRoundResult(null);
       setIAmReady(false);
       setReadyCount({ ready: 0, total: 0 });
-      setExtendVotes({ count: 0, total: 2, voters: [] });
+      setExtendVotes({
+        votes1m: { count: 0, voters: [] },
+        votes3m: { count: 0, voters: [] },
+        total: 2
+      });
       setExtendedRemainingSeconds(null);
       setIsPaused(false);
       setPauseData(null);
@@ -386,7 +394,11 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       hasAnsweredRef.current = true;
       setRoundResult(result);
       setPlayers(result.players);
-      setExtendVotes({ count: 0, total: 2, voters: [] });
+      setExtendVotes({
+        votes1m: { count: 0, voters: [] },
+        votes3m: { count: 0, voters: [] },
+        total: 2
+      });
       setExtendedRemainingSeconds(null);
       if (result.gameType === 'pedia') {
         setDebriefQuestion(result.debriefQuestion || null);
@@ -533,18 +545,23 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     const onDebriefExtendVotes = (data) => {
       if (data) {
         setExtendVotes({
-          count: data.votesCount || 0,
-          total: data.totalPlayers || 2,
-          voters: data.voters || []
+          votes1m: data.votes1m || { count: data.votesCount || 0, voters: data.voters || [] },
+          votes3m: data.votes3m || { count: 0, voters: [] },
+          total: data.totalPlayers || 2
         });
       }
     };
 
     const onDebriefTimeExtended = (data) => {
       playSuccess();
-      showToast(`⏱️ +1 minute ajoutée au débriefing ! (${data?.remainingSeconds || 60}s restantes)`, 'success');
+      const addedMins = data?.addedMinutes || (data?.addedSeconds ? Math.round(data.addedSeconds / 60) : 1);
+      showToast(`⏱️ +${addedMins} minute${addedMins > 1 ? 's' : ''} ajoutée${addedMins > 1 ? 's' : ''} au débriefing ! (${data?.remainingSeconds || 60}s restantes)`, 'success');
       setExtendedRemainingSeconds(data?.remainingSeconds || null);
-      setExtendVotes({ count: 0, total: data?.totalPlayers || 2, voters: [] });
+      setExtendVotes({
+        votes1m: { count: 0, voters: [] },
+        votes3m: { count: 0, voters: [] },
+        total: data?.totalPlayers || 2
+      });
       setIAmReady(false);
     };
 
@@ -632,33 +649,52 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     });
   }, [socket]);
 
-  const handleSendPediaDebriefChat = (text) => {
-    if (!text || !sessionRef.current?.id) return;
-    playMessageSent();
+  const handleSendPediaDebriefChat = (payload) => {
+    if (!payload || !sessionRef.current?.id) return;
+    const isObj = typeof payload === 'object';
+    const text = (isObj ? payload.text : payload)?.trim();
+    if (!text) return;
+
+    const isAi = isObj && Boolean(payload.isAi);
+    if (!isAi) {
+      playMessageSent();
+    } else {
+      playSuccess();
+    }
+
     const localMsg = {
-      id: Math.random().toString(36).substring(2, 9) + Date.now(),
-      senderId: socket.id,
-      senderName: playerName,
-      senderAvatar: avatar,
-      text: text.trim(),
+      id: (isObj && payload.id) || (Math.random().toString(36).substring(2, 9) + Date.now()),
+      senderId: isAi ? 'ai_tutor' : socket.id,
+      senderName: isAi ? (payload.senderName || '🤖 Tuteur IA Pédiatrique') : playerName,
+      senderAvatar: isAi ? (payload.senderAvatar || '⚡') : avatar,
+      text,
+      isAi,
+      modelUsed: (isObj && payload.modelUsed) || null,
       timestamp: Date.now()
     };
+
     if (setChatMessages) {
-      setChatMessages(prev => [...prev, localMsg]);
+      setChatMessages(prev => {
+        if (prev.some(m => m.id === localMsg.id)) return prev;
+        return [...prev, localMsg];
+      });
     }
+
     socket.emit('game_chat_message', {
       sessionId: sessionRef.current.id,
-      text: text.trim(),
+      text,
       id: localMsg.id,
-      senderName: playerName,
-      senderAvatar: avatar
+      isAi,
+      modelUsed: localMsg.modelUsed,
+      senderName: localMsg.senderName,
+      senderAvatar: localMsg.senderAvatar
     });
   };
 
-  const handleVoteExtendDebriefTime = () => {
+  const handleVoteExtendDebriefTime = (minutes = 1) => {
     if (!session?.id) return;
     playCountdownTick();
-    socket.emit('vote_extend_debrief_time', session.id);
+    socket.emit('vote_extend_debrief_time', { sessionId: session.id, minutes: Number(minutes) || 1 });
   };
 
   const handleUseJoker = () => {
@@ -1752,9 +1788,9 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           chatMessages={chatMessages}
           onSendChatMessage={handleSendPediaDebriefChat}
           onVoteExtendDebriefTime={handleVoteExtendDebriefTime}
-          extendVotesCount={extendVotes.count}
+          extendVotes1m={extendVotes.votes1m}
+          extendVotes3m={extendVotes.votes3m}
           extendTotalRequired={extendVotes.total}
-          hasVotedExtend={extendVotes.voters.includes(socket.id)}
           extendedRemainingSeconds={extendedRemainingSeconds}
         />
       )}

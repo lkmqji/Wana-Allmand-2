@@ -130,6 +130,60 @@ Intégration complète d'un deuxième univers de jeu compétitif axé sur la mé
      - Si l'adversaire a voté en premier : `⏱️ Accepter +1 min ! (1/2)` avec effet de lueur dorée incitative pour faciliter le consensus rapide.
      - En solo : `⏱️ +1 min` avec application instantanée.
    - Synchronisation automatique du chronomètre `timeLeft` dès réception de la prolongation serveur.
+---
 
+### 2026-10-24 23:10 — Ajout du Bouton de Prolongation +3 min aux côtés du Bouton +1 min
 
+#### Contexte & Besoin
+- L'utilisateur a demandé d'ajouter un bouton permettant d'ajouter **3 minutes (+180s)** directement à côté du bouton existant de **1 minute** dans le menu d'explication et de débriefing.
+- Cette option permet aux joueurs d'avoir suffisamment de temps pour étudier des explications détaillées ou de longs cas cliniques sans devoir voter 3 fois de suite pour +1 min.
 
+#### Modifications apportées
+1. **Logique Serveur Multi-Durées (`server/index.js`)** :
+   - Mise à niveau du gestionnaire `vote_extend_debrief_time` pour accepter un objet `{ sessionId, minutes: 1 | 3 }` (avec rétrocompatibilité si un string ou aucune durée n'est fourni).
+   - Suivi distinct des votes par durée via `session.extendVotes = { 1: new Set(), 3: new Set() }`.
+   - Règle d'exclusivité par joueur : un joueur vote soit pour +1 min soit pour +3 min (le clic sur l'autre durée bascule son vote ; un nouveau clic sur la même durée annule son vote).
+   - Détection de consensus : dès que l'un des deux choix atteint le nombre total de joueurs requis (`votes1mCount >= totalPlayers` ou `votes3mCount >= totalPlayers`), le temps correspondant (+60s ou +180s) est ajouté immédiatement à `session.resultEndTime` et `session.resultDuration`.
+   - Émission de `debrief_time_extended` avec `{ addedMinutes, addedSeconds, remainingSeconds }` et `debrief_extend_votes` avec les détails de chaque durée (`votes1m`, `votes3m`).
+2. **Gestionnaire Frontend (`client/src/components/Game.jsx`)** :
+   - Adaptation du state `extendVotes` pour suivre `votes1m: { count, voters }` et `votes3m: { count, voters }`.
+   - Notification Toast dynamique précisant le nombre exact de minutes ajoutées (`⏱️ +1 minute ajoutée` ou `⏱️ +3 minutes ajoutées`).
+   - Méthode `handleVoteExtendDebriefTime(minutes)` acceptant la durée sélectionnée (1 ou 3) et transmission des props `extendVotes1m` et `extendVotes3m` au composant `PediaReviewModal`.
+3. **Interface Utilisateur du Débriefing (`client/src/components/pedia/PediaReviewModal.jsx`)** :
+   - Intégration harmonieuse des deux boutons côte à côte dans la barre d'en-tête du modal :
+     - **Bouton `+1 min`** : Identité ambre/dorée avec icône chronomètre (`⏱️`), états réactifs `En attente (1/2)` et `Accepter +1 min ! (1/2)`.
+     - **Bouton `+3 min`** : Identité violette/lilas avec icône sablier (`⏳`), états réactifs `En attente (1/2)` et `Accepter +3 min ! (1/2)`.
+   - En mode solo, les deux boutons affichent sobrement `+1 min` et `+3 min` avec effet immédiat au clic.
+
+---
+
+### 2026-10-24 23:20 — Intégration de l'IA d'Explication Médicale Approfondie & du Tuteur IA dans le Chat (/ia et bouton cochable)
+
+#### Contexte & Besoin
+- L'utilisateur a demandé d'intégrer dans le menu d'explication le moteur d'IA d'explication issu de `qcm-p-diatrie`, ainsi que l'activation du Tuteur IA dans le chat de débriefing en direct lorsque l'utilisateur tape `/ia` ou coche un bouton dédié.
+
+#### Modifications apportées
+1. **Service Client Gemini Flash (`client/src/services/geminiService.js`)** :
+   - Transposition complète du moteur `qcm-p-diatrie/src/services/gemini.js` avec cascade de résilience 100% Flash (`gemini-3-flash-preview`, `gemini-flash-lite-latest`, `gemini-3.1-flash-lite`, etc.).
+   - Nettoyeur LaTeX médical `cleanLatexMath` pour convertir automatiquement les balises mathématiques cryptiques en texte clair (unités, indices, exposants, symboles médicaux).
+   - Méthode `generateReasoningNote(question, selectedLetters, isCroq, studentCroq)` générant l'analyse clinique structurée complète en 4 piliers.
+   - Méthode `askAboutQuestion(question, conversationHistory, userMessage)` agissant comme tuteur conversationnel en contexte de la question en cours.
+2. **Explication Clinique Structurée en 4 Cartes (`client/src/components/pedia/PediaReviewModal.jsx`)** :
+   - Ajout d'une section dédiée sous l'explication officielle de cours : `🤖 Explication & Raisonnement Clinique IA`.
+   - Bouton d'action interactif `✨ Analyser par IA` et `🔄 Réanalyser` avec retour visuel animé (`Gemini Flash analyse le cas clinique...`).
+   - Découpage et affichage automatique en 4 cartes visuelles distinctes aux couleurs médicales :
+     - 🎯 **Piège Clinique & Analyse de l'Erreur** (rose/ambre)
+     - 📋 **Justification Proposition par Proposition** (violet/indigo)
+     - 🩺 **Démarche Clinique & Raisonnement** (cyan/bleu)
+     - 💡 **Règle d'Or & Mémo Concours** (émeraude/or)
+3. **Tuteur IA Intégré au Chat en Direct (`/ia` & Bouton Cochable)** :
+   - Bouton cochable `[🤖 Tuteur IA]` avec état actif lumineux au-dessus du champ de saisie du chat.
+   - Détection intelligente de la commande `/ia` ou `/ai` dans le message ou de l'état coché du bouton.
+   - Bulle d'attente animée avec 3 points rebondissants (`typing-indicator`) pendant la réflexion du tuteur.
+   - Les réponses du Tuteur IA sont formatées en cartes néon cyan/violettes avec badge du modèle utilisé et diffusées en temps réel via Socket.IO à tous les participants de la session.
+   - Ajout d'une réaction rapide en 1 clic : `🤖 Explique le piège !`.
+4. **Prise en charge Serveur (`server/index.js` & `server/services/geminiServerService.js`)** :
+   - Mise à niveau du gestionnaire `game_chat_message` pour supporter les messages avec drapeaux `isAi: true`, `modelUsed`, `senderName` et `senderAvatar`.
+   - Ajout de `generateReasoningNote` et `askAboutQuestion` dans `GeminiServerService` côté serveur pour parité totale.
+5. **Styles CSS Avancés (`client/src/index.css`)** :
+   - Styles pour `.reasoning-cards-container`, `.reasoning-card`, `.card-trap`, `.card-options-analysis`, `.card-method`, `.card-rule`, `.reasoning-badge`, `.chat-bubble.bubble-ai`, `.typing-indicator` et `.btn-chat-ai-toggle`.

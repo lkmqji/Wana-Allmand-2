@@ -499,14 +499,29 @@ L'application intègre désormais une architecture multi-univers sans régressio
   - **Chat Débriefing en Direct** :
     - Historique des messages des joueurs en temps réel.
     - Barre de 5 réactions rapides en 1 clic (`💡 Bravo !`, `😅 Pas évident`, `🏥 Cas typique`, etc.) et saisie personnalisée.
-  - **Option de Prolongation Temporelle Mutuelle (+1 min)** :
-    - Bouton interactif `⏱️ +1 min` dans l'en-tête permettant d'ajouter 60 secondes au chronomètre de débriefing de manière illimitée.
-    - **Règle de Vote Mutuel** : En duel (2 joueurs), l'extension n'est déclenchée que lorsque les **2 joueurs ont voté** pour prolonger (`vote_extend_debrief_time`).
+  - **Option de Prolongation Temporelle Mutuelle (+1 min & +3 min)** :
+    - Deux boutons interactifs `⏱️ +1 min` et `⏳ +3 min` intégrés côte à côte dans l'en-tête permettant d'ajouter respectivement +60 secondes ou +180 secondes au chronomètre de débriefing de manière illimitée.
+    - **Règle de Vote Mutuel Sélectif** : En duel (2 joueurs), l'extension correspondante (+1m ou +3m) n'est déclenchée que lorsque les **2 joueurs ont voté** pour cette même durée (`vote_extend_debrief_time`). Un joueur peut basculer son vote d'une durée à l'autre en un clic ou le révoquer en recliquant dessus.
     - **Feedback Visuel Intelligent** :
-      - Joueur ayant voté : état "En attente (1/2)" avec halo ambré.
-      - Joueur n'ayant pas encore voté : bouton incitatif "Accepter +1 min ! (1/2)" avec lueur pulsante.
-      - En solo : 1 clic ajoute immédiatement +60 secondes.
-    - **Gestion Temps Réel** : Le serveur réarme `session.autoAdvanceTimer`, recalcule `session.resultEndTime`, réinitialise les votes pour les futures extensions, et réinitialise `session.readyPlayers` pour laisser aux étudiants le plein temps de discussion.
+      - Bouton `⏱️ +1 min` (thème ambre doré) & Bouton `⏳ +3 min` (thème violet électrique).
+      - Joueur ayant voté : état "En attente (1/2)" avec halo coloré spécifique.
+      - Joueur n'ayant pas encore voté : bouton incitatif "Accepter +1 min ! (1/2)" ou "Accepter +3 min ! (1/2)" avec lueur pulsante.
+      - En solo : 1 clic ajoute immédiatement +60s ou +180s.
+    - **Gestion Temps Réel** : Le serveur réarme `session.autoAdvanceTimer`, recalcule `session.resultEndTime`, réinitialise les votes pour les futures extensions, et réinitialise `session.readyPlayers` pour laisser aux étudiants le plein temps de discussion et d'apprentissage.
+  - **Moteur d'Explication Clinique Approfondie IA (Structure 4 Cartes PédiaDrill)** :
+    - Intégration du moteur `geminiService` (`client/src/services/geminiService.js`) avec cascade de résilience 100% modèles Flash (`gemini-3-flash-preview`, `gemini-flash-lite-latest`, `gemini-3.1-flash-lite`, etc.) et filtre LaTeX médical `cleanLatexMath`.
+    - Bouton d'action interactif `✨ Analyser par IA` et `🔄 Réanalyser` générant un raisonnement médical approfondi sans latence bloquante (~1.2s).
+    - Découpage automatique en 4 cartes médicales thématiques :
+      - 🎯 **Piège Clinique & Analyse de l'Erreur** (rose/ambre) : analyse de la confusion fréquente et du piège de l'énoncé.
+      - 📋 **Justification Proposition par Proposition** (violet/indigo) : passage en revue exhaustif des propositions A à E.
+      - 🩺 **Démarche Clinique & Raisonnement** (cyan/bleu) : sémiologie pas-à-pas et élimination des diagnostics différentiels.
+      - 💡 **Règle d'Or & Mémo Concours** (émeraude/or) : maxime mnémotechnique percutante pour le concours.
+  - **Tuteur IA Intégré au Chat en Direct (`/ia` & Bouton Cochable)** :
+    - Bouton toggle `[🤖 Tuteur IA]` au-dessus du champ de texte du chat permettant d'adresser directement une question médicale à l'IA.
+    - Prise en charge de la commande préfixe `/ia [question]` ou `/ai [question]` tapée dans le chat.
+    - Indicateur de frappe animé (`typing-indicator`) avec message d'attente pendant la génération de la réponse.
+    - Formatage visuel distinctif des bulles IA (`.chat-bubble.bubble-ai`) avec badge du modèle utilisé et diffusion temps réel via Socket.IO (`game_chat_message` avec `isAi: true`) pour que tous les candidats profitent de l'explication du tuteur.
+    - Bouton de réaction rapide : `🤖 Explique le piège !`.
 
 
 

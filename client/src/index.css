@@ -3045,3 +3045,235 @@ input.fake-input {
     min-height: 40px;
   }
 }
+
+/* =========================================================
+   PEDIA DRILL: STRUCTURED AI REASONING CARDS & AI TUTOR CHAT
+   ========================================================= */
+.reasoning-cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.reasoning-card {
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(18, 29, 51, 0.85);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+
+.reasoning-card:hover {
+  transform: translateY(-2px);
+}
+
+/* 1. Piège Clinique & Analyse de l'Erreur */
+.reasoning-card.card-trap {
+  background: linear-gradient(145deg, rgba(244, 63, 94, 0.1), rgba(251, 191, 36, 0.04));
+  border-color: rgba(244, 63, 94, 0.4);
+  border-left: 4px solid #f43f5e;
+}
+
+/* 2. Justification Proposition par Proposition */
+.reasoning-card.card-options-analysis {
+  background: linear-gradient(145deg, rgba(168, 85, 247, 0.1), rgba(99, 102, 241, 0.04));
+  border-color: rgba(168, 85, 247, 0.4);
+  border-left: 4px solid #a855f7;
+}
+
+/* 3. Démarche Clinique & Raisonnement */
+.reasoning-card.card-method {
+  background: linear-gradient(145deg, rgba(0, 212, 255, 0.1), rgba(59, 130, 246, 0.04));
+  border-color: rgba(0, 212, 255, 0.4);
+  border-left: 4px solid #00d4ff;
+}
+
+/* 4. Règle d'or & Mémo Concours */
+.reasoning-card.card-rule {
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.1), rgba(245, 158, 11, 0.05));
+  border-color: rgba(16, 185, 129, 0.4);
+  border-left: 4px solid #10b981;
+}
+
+.reasoning-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.reasoning-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.badge-trap {
+  background: rgba(244, 63, 94, 0.18);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.35);
+}
+
+.badge-options-analysis {
+  background: rgba(168, 85, 247, 0.18);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+.badge-method {
+  background: rgba(0, 212, 255, 0.18);
+  color: #38bdf8;
+  border: 1px solid rgba(0, 212, 255, 0.35);
+}
+
+.badge-rule {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.reasoning-card-body {
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: #e2e8f0;
+}
+
+.reasoning-paragraph {
+  margin: 0 0 6px 0;
+  color: #e2e8f0;
+}
+
+.reasoning-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+.reasoning-list {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.reasoning-list-item {
+  position: relative;
+  padding-left: 18px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+.reasoning-list-item::before {
+  content: '▪';
+  position: absolute;
+  left: 4px;
+  top: 0;
+  color: #00d4ff;
+  font-size: 0.95rem;
+}
+
+.reasoning-card-body strong {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.reasoning-card-body em {
+  color: #f59e0b;
+  font-style: italic;
+}
+
+.reasoning-callout-quote {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-left: 4px solid #f59e0b;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 6px 0;
+  color: #fef08a;
+  font-size: 0.88rem;
+}
+
+/* AI Tutor Chat Bubbles */
+.chat-bubble.bubble-ai {
+  align-self: flex-start;
+  max-width: 92%;
+  background: linear-gradient(135deg, rgba(18, 29, 51, 0.98), rgba(88, 28, 135, 0.35));
+  border: 1.5px solid rgba(0, 212, 255, 0.35);
+  color: #f1f5f9;
+  border-radius: 14px;
+  border-bottom-left-radius: 4px;
+  padding: 0.75rem 0.95rem;
+  box-shadow: 0 4px 20px rgba(0, 212, 255, 0.15);
+}
+
+.chat-bubble.bubble-ai strong {
+  color: #38bdf8;
+}
+
+.chat-bubble.bubble-ai em {
+  color: #facc15;
+}
+
+.chat-bubble.is-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+}
+
+.typing-indicator span {
+  width: 6px;
+  height: 6px;
+  background: #00d4ff;
+  border-radius: 50%;
+  animation: typingBounce 1.4s infinite ease-in-out both;
+}
+
+.typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+.typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes typingBounce {
+  0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+.btn-chat-ai-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #cbd5e1;
+}
+
+.btn-chat-ai-toggle.active {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.35), rgba(0, 212, 255, 0.25));
+  border: 1.5px solid #a855f7;
+  color: #f3e8ff;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.45);
+}

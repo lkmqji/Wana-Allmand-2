@@ -1761,23 +1761,27 @@ io.on('connection', (socket) => {
     });
 
     // In-game & Pause Chat Messages
-    socket.on('game_chat_message', ({ sessionId, text, preset, id }) => {
+    socket.on('game_chat_message', (payload) => {
+        const { sessionId, text, preset, id, isAi, modelUsed, senderName: customSenderName, senderAvatar: customSenderAvatar } = payload || {};
         const session = gameManager.getSession(sessionId);
         if (!session) return;
         const sender = onlineUsers.get(socket.id) || {
-            name: session.players[socket.id]?.name || 'Joueur',
+            name: session.players?.[socket.id]?.name || 'Joueur',
             avatar: '🦊'
         };
         const cleanText = (text || '').trim();
         if (!cleanText) return;
 
+        const isAiMessage = Boolean(isAi);
         const chatPayload = {
             id: id || (Math.random().toString(36).substring(2, 9) + Date.now()),
-            senderId: socket.id,
-            senderName: formatPlayerName(sender.name) || 'Joueur',
-            senderAvatar: sender.avatar || '🦊',
+            senderId: isAiMessage ? 'ai_tutor' : socket.id,
+            senderName: isAiMessage ? (customSenderName || '🤖 Tuteur IA Pédiatrique') : (formatPlayerName(sender.name) || 'Joueur'),
+            senderAvatar: isAiMessage ? (customSenderAvatar || '⚡') : (sender.avatar || '🦊'),
             text: cleanText,
             preset: Boolean(preset),
+            isAi: isAiMessage,
+            modelUsed: modelUsed || null,
             timestamp: Date.now()
         };
 
@@ -1862,30 +1866,53 @@ io.on('connection', (socket) => {
         }
     });
 
-    // PédiaDrill: Mutual vote to extend debriefing time (+1 minute)
-    socket.on('vote_extend_debrief_time', (sessionId) => {
+    // PédiaDrill: Mutual vote to extend debriefing time (+1 minute or +3 minutes)
+    socket.on('vote_extend_debrief_time', (payload) => {
+        let sessionId = typeof payload === 'string' ? payload : payload?.sessionId;
+        let minutes = (typeof payload === 'object' && payload?.minutes) ? Number(payload.minutes) : 1;
+        if (minutes !== 1 && minutes !== 3) minutes = 1;
+
         const session = gameManager.getSession(sessionId);
         if (!session || session.status !== 'showing_results') return;
         if (session.gameType !== 'pedia') return;
 
-        if (!session.extendTimeVotes) session.extendTimeVotes = new Set();
+        if (!session.extendVotes) {
+            session.extendVotes = { 1: new Set(), 3: new Set() };
+        }
+        if (!session.extendVotes[1]) session.extendVotes[1] = new Set();
+        if (!session.extendVotes[3]) session.extendVotes[3] = new Set();
+
+        const targetSet = session.extendVotes[minutes];
+        const otherMinutes = minutes === 1 ? 3 : 1;
+        const otherSet = session.extendVotes[otherMinutes];
 
         // Toggle vote: clicking again cancels vote
-        if (session.extendTimeVotes.has(socket.id)) {
-            session.extendTimeVotes.delete(socket.id);
+        if (targetSet.has(socket.id)) {
+            targetSet.delete(socket.id);
         } else {
-            session.extendTimeVotes.add(socket.id);
+            targetSet.add(socket.id);
+            // Player can only vote for one extension duration at a time
+            otherSet.delete(socket.id);
         }
 
         const totalPlayers = Math.max(1, Object.keys(session.players || {}).length);
-        const votesCount = session.extendTimeVotes.size;
+        const votes1mCount = session.extendVotes[1].size;
+        const votes3mCount = session.extendVotes[3].size;
 
-        // Both players agreed to add 1 minute (or 1 in solo)
-        if (votesCount >= totalPlayers) {
-            session.extendTimeVotes = new Set(); // Reset for next potential extension
+        // Check if either 1m or 3m reached required consensus
+        let consensusMinutes = null;
+        if (votes1mCount >= totalPlayers) {
+            consensusMinutes = 1;
+        } else if (votes3mCount >= totalPlayers) {
+            consensusMinutes = 3;
+        }
+
+        if (consensusMinutes !== null) {
+            session.extendVotes = { 1: new Set(), 3: new Set() }; // Reset for next potential extension
+            session.extendTimeVotes = new Set();
             session.readyPlayers = new Set();    // Reset ready status so game doesn't instantly advance
 
-            const ADDED_MS = 60000; // +1 minute (60s)
+            const ADDED_MS = consensusMinutes * 60000; // +1m (60s) or +3m (180s)
             const now = Date.now();
             const currentEndTime = session.resultEndTime || (now + (session.resultTimeRemaining || 60000));
             const remaining = Math.max(0, currentEndTime - now);
@@ -1900,6 +1927,7 @@ io.on('connection', (socket) => {
                 if (session.status === 'showing_results' && !session.isPaused) {
                     session.status = 'playing';
                     session.readyPlayers = new Set();
+                    session.extendVotes = { 1: new Set(), 3: new Set() };
                     session.extendTimeVotes = new Set();
                     sendNextQuestion(sessionId);
                 }
@@ -1907,7 +1935,8 @@ io.on('connection', (socket) => {
 
             // Broadcast time extension to both players
             io.to(sessionId).emit('debrief_time_extended', {
-                addedSeconds: 60,
+                addedMinutes: consensusMinutes,
+                addedSeconds: consensusMinutes * 60,
                 remainingSeconds: Math.ceil(newRemaining / 1000),
                 totalDuration: Math.ceil(session.resultDuration / 1000),
                 totalPlayers
@@ -1918,9 +1947,17 @@ io.on('connection', (socket) => {
         } else {
             // Broadcast vote progress to both players
             io.to(sessionId).emit('debrief_extend_votes', {
-                votesCount,
-                totalPlayers,
-                voters: Array.from(session.extendTimeVotes)
+                votes1m: {
+                    count: session.extendVotes[1].size,
+                    voters: Array.from(session.extendVotes[1])
+                },
+                votes3m: {
+                    count: session.extendVotes[3].size,
+                    voters: Array.from(session.extendVotes[3])
+                },
+                votesCount: session.extendVotes[1].size,
+                voters: Array.from(session.extendVotes[1]),
+                totalPlayers
             });
         }
     });
@@ -2344,6 +2381,7 @@ function handleRoundEnd(sessionId) {
         session.resultTimeRemaining = 60000;
         session.resultEndTime = Date.now() + 60000;
         session.readyPlayers = new Set();
+        session.extendVotes = { 1: new Set(), 3: new Set() };
         session.extendTimeVotes = new Set();
 
         const rawQ = session.pediaQuestions?.[session.currentQuestionIndex];
@@ -2361,6 +2399,7 @@ function handleRoundEnd(sessionId) {
             if (session.status === 'showing_results' && !session.isPaused) {
                 session.status = 'playing';
                 session.readyPlayers = new Set();
+                session.extendVotes = { 1: new Set(), 3: new Set() };
                 session.extendTimeVotes = new Set();
                 sendNextQuestion(sessionId);
             }
