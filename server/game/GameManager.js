@@ -19,21 +19,23 @@ class GameManager {
         }
     }
 
-    createSession(hostId, hostName, firebaseId, clientPlayerKey, gameType = 'german') {
+    createSession(hostId, hostName, firebaseId, clientPlayerKey, gameType = 'german', maxPlayers = 2) {
         // Generate a random 4 letter/number code
         const sessionId = Math.random().toString(36).substring(2, 6).toUpperCase();
         const formattedName = formatPlayerName(hostName) || 'Hôte';
+        const parsedMax = Math.max(2, Math.min(10, parseInt(maxPlayers, 10) || 2));
         
         this.sessions.set(sessionId, {
             id: sessionId,
             hostId: hostId,
-            guestId: null,
+            guestId: null, // Maintained as legacy reference to first non-host guest
+            maxPlayers: parsedMax,
             status: 'waiting', // waiting, playing, showing_results, finished
             gameType: gameType || 'german', // 'german' | 'pedia'
             vocabList: [],
             pediaQuestions: [],
             pediaSettings: null,
-            settings: { rounds: 0, timePerWord: 15, powerupsEnabled: false, allowPause: true },
+            settings: { rounds: 0, timePerWord: 15, powerupsEnabled: false, allowPause: true, maxPlayers: parsedMax },
             currentQuestionIndex: -1,
             players: {
                 [hostId]: { id: hostId, firebaseId: firebaseId || null, clientPlayerKey: clientPlayerKey || null, name: formattedName, score: 0, answers: {} }
@@ -41,6 +43,7 @@ class GameManager {
             roundTimer: null,
             autoAdvanceTimer: null,
             readyPlayers: new Set(),
+            extendTimeVotes: new Set(),
             answersThisRound: 0,
             createdAt: Date.now(),
             lastActivity: Date.now()
@@ -52,10 +55,17 @@ class GameManager {
     joinSession(sessionId, guestId, guestName, firebaseId, clientPlayerKey) {
         const session = this.sessions.get(sessionId);
         if (!session) return { error: "Session introuvable." };
-        if (session.guestId) return { error: "Session déjà pleine." };
+        
+        const maxLimit = session.maxPlayers || session.settings?.maxPlayers || 2;
+        const currentCount = Object.keys(session.players || {}).length;
+        if (currentCount >= maxLimit) {
+            return { error: `Session déjà pleine (${maxLimit}/${maxLimit} joueurs max).` };
+        }
         
         const formattedName = formatPlayerName(guestName) || 'Invité';
-        session.guestId = guestId;
+        if (!session.guestId) {
+            session.guestId = guestId;
+        }
         session.players[guestId] = { id: guestId, firebaseId: firebaseId || null, clientPlayerKey: clientPlayerKey || null, name: formattedName, score: 0, answers: {} };
         session.lastActivity = Date.now();
         return { success: true, session };
@@ -68,24 +78,30 @@ class GameManager {
         delete session.players[playerId];
         session.lastActivity = Date.now();
 
-        if (session.guestId === playerId) {
-            session.guestId = null;
-        } else if (session.hostId === playerId) {
-            if (session.guestId) {
-                session.hostId = session.guestId; // Guest becomes host
-                session.guestId = null;
-            } else {
-                this.destroySession(sessionId);
-                return { destroyed: true };
-            }
+        if (session.readyPlayers && typeof session.readyPlayers.delete === 'function') {
+            session.readyPlayers.delete(playerId);
+        }
+        if (session.extendTimeVotes && typeof session.extendTimeVotes.delete === 'function') {
+            session.extendTimeVotes.delete(playerId);
         }
 
-        if (Object.keys(session.players).length === 0) {
+        if (session.guestId === playerId) {
+            const nextGuest = Object.keys(session.players).find(id => id !== session.hostId);
+            session.guestId = nextGuest || null;
+        }
+
+        if (session.hostId === playerId) {
             this.destroySession(sessionId);
             return { destroyed: true };
         }
 
-        return { session };
+        const remainingCount = Object.keys(session.players).length;
+        if (remainingCount === 0) {
+            this.destroySession(sessionId);
+            return { destroyed: true };
+        }
+
+        return { session, remainingCount };
     }
 
     /**

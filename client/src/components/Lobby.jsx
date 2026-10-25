@@ -154,8 +154,9 @@ export default function Lobby({
   // Keep a ref of original words to detect real changes on blur
   const wordsRef = useRef(session?.vocabList || []);
 
+  const maxPlayers = session?.maxPlayers || session?.settings?.maxPlayers || settings?.maxPlayers || 2;
   const playerCount = Object.keys(players || {}).length;
-  const isRoomFull = playerCount >= 2;
+  const isRoomFull = playerCount >= maxPlayers;
 
   // Find host player name
   const hostPlayer = Object.values(players || {}).find(p => p.id === session?.hostId) || Object.values(players || {})[0];
@@ -654,160 +655,112 @@ export default function Lobby({
         position: 'relative',
         overflow: 'hidden'
       }}>
-        {/* Top Arena Header: Title & Room Code */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', padding: '0 0.25rem' }}>
+        {/* Top Arena Header: Title, Capacity & Room Code */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', padding: '0 0.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <span style={{ fontSize: '1.1rem' }}>🥊</span>
+            <span style={{ fontSize: '1.1rem' }}>{maxPlayers > 2 ? '👥' : '🥊'}</span>
             <span style={{ fontWeight: 800, fontSize: '0.85rem', letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-              Arène de Duel
+              {maxPlayers > 2 ? 'Arène Multijoueur' : 'Arène de Duel'}
             </span>
           </div>
 
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-            background: 'var(--bg-main)',
-            border: '1px solid var(--border-color)',
-            padding: '0.25rem 0.6rem',
-            borderRadius: '10px'
-          }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>SALLE :</span>
-            <span style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--primary)', letterSpacing: '1.5px' }}>
-              {session?.id}
-            </span>
-            <button
-              onClick={handleCopyCode}
-              className="btn btn-secondary"
-              style={{ width: 'auto', padding: '0.1rem 0.4rem', fontSize: '0.7rem', borderRadius: '6px' }}
-              title="Copier le code de la salle"
-            >
-              {copiedCode ? '✓' : '📋'}
-            </button>
-          </div>
-        </div>
-
-        {/* Central Versus Arena Grid */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '0.6rem',
-          position: 'relative'
-        }}>
-          
-          {/* LEFT: HOST PLAYER (DISTINCT CARD BOX) */}
-          <div 
-            onClick={() => setSelectedProfileUser(hostPlayerObj)}
-            className="esport-podium host-active" 
-            style={{
-              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.18) 0%, rgba(20, 10, 30, 0.75) 100%)',
-              border: '1.5px solid rgba(99, 102, 241, 0.5)',
-              borderRadius: '16px',
-              padding: '0.85rem 0.6rem',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
-              flex: 1,
-              cursor: 'pointer'
-            }}
-            title="Voir le profil du joueur"
-          >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {/* Host Capacity Stepper (2 to 10 players) */}
             <div style={{
-              background: 'rgba(99, 102, 241, 0.25)',
-              border: '1px solid var(--primary)',
-              color: '#c7d2fe',
-              fontSize: '0.65rem',
-              fontWeight: 900,
-              padding: '0.15rem 0.55rem',
-              borderRadius: '6px',
-              letterSpacing: '0.5px',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.3rem',
-              lineHeight: 1
+              gap: '0.35rem',
+              background: 'var(--bg-main)',
+              border: '1px solid var(--border-color)',
+              padding: '0.22rem 0.55rem',
+              borderRadius: '10px'
             }}>
-              👑 HÔTE
-            </div>
-
-            <div className="esport-avatar-ring">
-              {hostPlayerObj.avatar || avatar || '🦊'}
-            </div>
-
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              maxWidth: '100%',
-              width: '100%',
-              textAlign: 'center',
-              overflow: 'hidden'
-            }}>
-              <span style={{
-                fontWeight: 900,
-                fontSize: '0.95rem',
-                color: 'var(--text-main)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                textDecoration: 'underline'
-              }}>
-                {formatPlayerName(hostPlayerObj.name)}
-              </span>
-              {hostPlayerObj.id === socket.id && (
-                <span style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 800, flexShrink: 0 }}>
-                  (Toi)
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>PLACES :</span>
+              {isHost ? (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <button
+                    type="button"
+                    disabled={maxPlayers <= Math.max(2, playerCount)}
+                    onClick={() => {
+                      const nextVal = Math.max(2, Math.max(playerCount, maxPlayers - 1));
+                      handleUpdateSettings({ ...settings, maxPlayers: nextVal }, `Capacité du salon ajustée à ${nextVal} joueurs max`);
+                    }}
+                    className="btn btn-secondary"
+                    style={{ width: '22px', height: '22px', padding: 0, fontSize: '0.85rem', lineHeight: 1, borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title={maxPlayers <= playerCount ? "Impossible de réduire en dessous du nombre actuel de joueurs" : "Réduire la capacité (min 2)"}
+                  >
+                    -
+                  </button>
+                  <span style={{ fontSize: '0.92rem', fontWeight: 900, color: 'var(--primary)', minWidth: '18px', textAlign: 'center' }}>
+                    {maxPlayers}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={maxPlayers >= 10}
+                    onClick={() => {
+                      const nextVal = Math.min(10, maxPlayers + 1);
+                      handleUpdateSettings({ ...settings, maxPlayers: nextVal }, `Capacité du salon ajustée à ${nextVal} joueurs max`);
+                    }}
+                    className="btn btn-secondary"
+                    style={{ width: '22px', height: '22px', padding: 0, fontSize: '0.85rem', lineHeight: 1, borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title="Augmenter la capacité (max 10)"
+                  >
+                    +
+                  </button>
+                </div>
+              ) : (
+                <span style={{ fontSize: '0.88rem', fontWeight: 900, color: 'var(--primary)' }}>
+                  {playerCount}/{maxPlayers}
                 </span>
               )}
             </div>
 
+            {/* Room Code */}
             <div style={{
-              display: 'inline-flex',
+              display: 'flex',
               alignItems: 'center',
-              gap: '0.3rem',
-              fontSize: '0.7rem',
-              color: 'var(--success)',
-              fontWeight: 800,
-              background: 'rgba(34, 197, 94, 0.1)',
-              padding: '0.15rem 0.55rem',
-              borderRadius: '6px'
+              gap: '0.4rem',
+              background: 'var(--bg-main)',
+              border: '1px solid var(--border-color)',
+              padding: '0.25rem 0.6rem',
+              borderRadius: '10px'
             }}>
-              <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
-              PRÊT
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>SALLE :</span>
+              <span style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--primary)', letterSpacing: '1.5px' }}>
+                {session?.id}
+              </span>
+              <button
+                onClick={handleCopyCode}
+                className="btn btn-secondary"
+                style={{ width: 'auto', padding: '0.1rem 0.4rem', fontSize: '0.7rem', borderRadius: '6px' }}
+                title="Copier le code de la salle"
+              >
+                {copiedCode ? '✓' : '📋'}
+              </button>
             </div>
           </div>
+        </div>
 
-          {/* CENTER: VS BADGE WITH KEYFRAMES PULSE-VS */}
+        {/* =========================================================
+            ARENA BODY: CLASSIC 1v1 (IF maxPlayers == 2) OR ESPORT GRID (> 2)
+           ========================================================= */}
+        {maxPlayers <= 2 ? (
+          /* Classic 1v1 Versus Arena Grid */
           <div style={{
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            minWidth: '60px',
-            zIndex: 10
+            justifyContent: 'space-between',
+            gap: '0.6rem',
+            position: 'relative'
           }}>
-            <div className="vs-badge">
-              VS
-            </div>
-            <span style={{
-              fontSize: '0.65rem',
-              color: 'var(--text-muted)',
-              fontWeight: 800,
-              letterSpacing: '1px',
-              textTransform: 'uppercase',
-              marginTop: '-2px'
-            }}>
-              {isPedia ? `${pediaSettings.questionCount || 10} Questions` : `${settings.rounds || words.length} Mots`}
-            </span>
-          </div>
-
-          {/* RIGHT: OPPONENT PLAYER OR WAITING SLOT (DISTINCT CARD BOX) */}
-          {opponentPlayerObj ? (
+            
+            {/* LEFT: HOST PLAYER (DISTINCT CARD BOX) */}
             <div 
-              onClick={() => setSelectedProfileUser(opponentPlayerObj)}
-              className="esport-podium opponent-active" 
+              onClick={() => setSelectedProfileUser(hostPlayerObj)}
+              className="esport-podium host-active" 
               style={{
-                background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.14) 0%, rgba(20, 10, 30, 0.75) 100%)',
-                border: '1.5px solid rgba(236, 72, 153, 0.45)',
+                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.18) 0%, rgba(20, 10, 30, 0.75) 100%)',
+                border: '1.5px solid rgba(99, 102, 241, 0.5)',
                 borderRadius: '16px',
                 padding: '0.85rem 0.6rem',
                 boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
@@ -817,9 +770,9 @@ export default function Lobby({
               title="Voir le profil du joueur"
             >
               <div style={{
-                background: 'rgba(236, 72, 153, 0.25)',
-                border: '1px solid var(--secondary)',
-                color: '#fbcfe8',
+                background: 'rgba(99, 102, 241, 0.25)',
+                border: '1px solid var(--primary)',
+                color: '#c7d2fe',
                 fontSize: '0.65rem',
                 fontWeight: 900,
                 padding: '0.15rem 0.55rem',
@@ -830,23 +783,11 @@ export default function Lobby({
                 gap: '0.3rem',
                 lineHeight: 1
               }}>
-                <span>⚔️ CHALLENGER</span>
-                {isHost && opponentPlayerObj.id !== socket.id && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      socket.emit('kick_player', { sessionId: session.id, playerId: opponentPlayerObj.id });
-                    }}
-                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 900, padding: 0, marginLeft: '2px' }}
-                    title="Expulser"
-                  >
-                    ✕
-                  </button>
-                )}
+                👑 HÔTE
               </div>
 
               <div className="esport-avatar-ring">
-                {opponentPlayerObj.avatar || '🐼'}
+                {hostPlayerObj.avatar || avatar || '🦊'}
               </div>
 
               <div style={{
@@ -868,10 +809,10 @@ export default function Lobby({
                   whiteSpace: 'nowrap',
                   textDecoration: 'underline'
                 }}>
-                  {formatPlayerName(opponentPlayerObj.name)}
+                  {formatPlayerName(hostPlayerObj.name)}
                 </span>
-                {opponentPlayerObj.id === socket.id && (
-                  <span style={{ fontSize: '0.7rem', color: 'var(--secondary)', fontWeight: 800, flexShrink: 0 }}>
+                {hostPlayerObj.id === socket.id && (
+                  <span style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 800, flexShrink: 0 }}>
                     (Toi)
                   </span>
                 )}
@@ -892,57 +833,371 @@ export default function Lobby({
                 PRÊT
               </div>
             </div>
-          ) : (
-            <div className="esport-podium" style={{
-              background: 'rgba(255, 255, 255, 0.03)',
-              border: '1.5px dashed var(--border-color)',
-              borderRadius: '16px',
-              padding: '0.85rem 0.6rem',
-              opacity: 0.9,
-              flex: 1
+
+            {/* CENTER: VS BADGE WITH KEYFRAMES PULSE-VS */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '60px',
+              zIndex: 10
             }}>
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-muted)',
+              <div className="vs-badge">
+                VS
+              </div>
+              <span style={{
                 fontSize: '0.65rem',
+                color: 'var(--text-muted)',
                 fontWeight: 800,
-                padding: '0.12rem 0.5rem',
-                borderRadius: '6px',
-                lineHeight: 1
+                letterSpacing: '1px',
+                textTransform: 'uppercase',
+                marginTop: '-2px'
               }}>
-                SLOT 2
-              </div>
-
-              <div className="esport-avatar-ring" style={{ borderStyle: 'dashed', opacity: 0.6, fontSize: '1.6rem' }}>
-                ⏳
-              </div>
-
-              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                En attente...
-              </div>
-
-              <button
-                onClick={() => {
-                  setActiveTab('online');
-                  socket.emit('get_online_users');
-                }}
-                className="btn btn-secondary"
-                style={{
-                  width: 'auto',
-                  padding: '0.25rem 0.65rem',
-                  fontSize: '0.72rem',
-                  borderRadius: '8px',
-                  borderColor: 'var(--primary)',
-                  color: 'var(--primary)'
-                }}
-              >
-                ✉️ Inviter
-              </button>
+                {isPedia ? `${pediaSettings.questionCount || 10} Questions` : `${settings.rounds || words.length} Mots`}
+              </span>
             </div>
-          )}
 
-        </div>
+            {/* RIGHT: OPPONENT PLAYER OR WAITING SLOT (DISTINCT CARD BOX) */}
+            {opponentPlayerObj ? (
+              <div 
+                onClick={() => setSelectedProfileUser(opponentPlayerObj)}
+                className="esport-podium opponent-active" 
+                style={{
+                  background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.14) 0%, rgba(20, 10, 30, 0.75) 100%)',
+                  border: '1.5px solid rgba(236, 72, 153, 0.45)',
+                  borderRadius: '16px',
+                  padding: '0.85rem 0.6rem',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+                  flex: 1,
+                  cursor: 'pointer'
+                }}
+                title="Voir le profil du joueur"
+              >
+                <div style={{
+                  background: 'rgba(236, 72, 153, 0.25)',
+                  border: '1px solid var(--secondary)',
+                  color: '#fbcfe8',
+                  fontSize: '0.65rem',
+                  fontWeight: 900,
+                  padding: '0.15rem 0.55rem',
+                  borderRadius: '6px',
+                  letterSpacing: '0.5px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  lineHeight: 1
+                }}>
+                  <span>⚔️ CHALLENGER</span>
+                  {isHost && opponentPlayerObj.id !== socket.id && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        socket.emit('kick_player', { sessionId: session.id, playerId: opponentPlayerObj.id });
+                      }}
+                      style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 900, padding: 0, marginLeft: '2px' }}
+                      title="Expulser"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div className="esport-avatar-ring">
+                  {opponentPlayerObj.avatar || '🐼'}
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  maxWidth: '100%',
+                  width: '100%',
+                  textAlign: 'center',
+                  overflow: 'hidden'
+                }}>
+                  <span style={{
+                    fontWeight: 900,
+                    fontSize: '0.95rem',
+                    color: 'var(--text-main)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    textDecoration: 'underline'
+                  }}>
+                    {formatPlayerName(opponentPlayerObj.name)}
+                  </span>
+                  {opponentPlayerObj.id === socket.id && (
+                    <span style={{ fontSize: '0.7rem', color: 'var(--secondary)', fontWeight: 800, flexShrink: 0 }}>
+                      (Toi)
+                    </span>
+                  )}
+                </div>
+
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  fontSize: '0.7rem',
+                  color: 'var(--success)',
+                  fontWeight: 800,
+                  background: 'rgba(34, 197, 94, 0.1)',
+                  padding: '0.15rem 0.55rem',
+                  borderRadius: '6px'
+                }}>
+                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+                  PRÊT
+                </div>
+              </div>
+            ) : (
+              <div className="esport-podium" style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1.5px dashed var(--border-color)',
+                borderRadius: '16px',
+                padding: '0.85rem 0.6rem',
+                opacity: 0.9,
+                flex: 1
+              }}>
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-muted)',
+                  fontSize: '0.65rem',
+                  fontWeight: 800,
+                  padding: '0.12rem 0.5rem',
+                  borderRadius: '6px',
+                  lineHeight: 1
+                }}>
+                  SLOT 2
+                </div>
+
+                <div className="esport-avatar-ring" style={{ borderStyle: 'dashed', opacity: 0.6, fontSize: '1.6rem' }}>
+                  ⏳
+                </div>
+
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  En attente...
+                </div>
+
+                <button
+                  onClick={() => {
+                    setActiveTab('online');
+                    socket.emit('get_online_users');
+                  }}
+                  className="btn btn-secondary"
+                  style={{
+                    width: 'auto',
+                    padding: '0.25rem 0.65rem',
+                    fontSize: '0.72rem',
+                    borderRadius: '8px',
+                    borderColor: 'var(--primary)',
+                    color: 'var(--primary)'
+                  }}
+                >
+                  ✉️ Inviter
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Adaptive Esport Roster Grid for 3-10 players */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+              gap: '0.6rem',
+              width: '100%'
+            }}>
+              {/* Host Card */}
+              <div
+                onClick={() => setSelectedProfileUser(hostPlayerObj)}
+                className="esport-podium host-active"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.22) 0%, rgba(20, 10, 30, 0.8) 100%)',
+                  border: '1.5px solid rgba(99, 102, 241, 0.55)',
+                  borderRadius: '14px',
+                  padding: '0.7rem 0.5rem',
+                  boxShadow: '0 6px 18px rgba(0,0,0,0.3)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '0.35rem'
+                }}
+                title="Voir le profil de l'hôte"
+              >
+                <div style={{
+                  background: 'rgba(99, 102, 241, 0.3)',
+                  border: '1px solid var(--primary)',
+                  color: '#c7d2fe',
+                  fontSize: '0.62rem',
+                  fontWeight: 900,
+                  padding: '0.12rem 0.45rem',
+                  borderRadius: '6px',
+                  lineHeight: 1
+                }}>
+                  👑 HÔTE
+                </div>
+                <div className="esport-avatar-ring" style={{ width: '48px', height: '48px', fontSize: '1.5rem' }}>
+                  {hostPlayerObj.avatar || avatar || '🦊'}
+                </div>
+                <div style={{ fontWeight: 900, fontSize: '0.85rem', color: 'var(--text-main)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+                  {formatPlayerName(hostPlayerObj.name)}
+                  {hostPlayerObj.id === socket.id && (
+                    <span style={{ fontSize: '0.68rem', color: 'var(--primary)', display: 'block' }}>(Toi)</span>
+                  )}
+                </div>
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                  fontSize: '0.65rem',
+                  color: 'var(--success)',
+                  fontWeight: 800,
+                  background: 'rgba(34, 197, 94, 0.1)',
+                  padding: '0.12rem 0.45rem',
+                  borderRadius: '6px'
+                }}>
+                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--success)' }} />
+                  PRÊT
+                </div>
+              </div>
+
+              {/* Connected Challengers */}
+              {sessionPlayerList.filter(p => p.id !== hostPlayerObj?.id).map((player, idx) => (
+                <div
+                  key={player.id}
+                  onClick={() => setSelectedProfileUser(player)}
+                  className="esport-podium opponent-active"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.16) 0%, rgba(20, 10, 30, 0.8) 100%)',
+                    border: '1.5px solid rgba(236, 72, 153, 0.45)',
+                    borderRadius: '14px',
+                    padding: '0.7rem 0.5rem',
+                    boxShadow: '0 6px 18px rgba(0,0,0,0.3)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    position: 'relative'
+                  }}
+                  title="Voir le profil du joueur"
+                >
+                  <div style={{
+                    background: 'rgba(236, 72, 153, 0.25)',
+                    border: '1px solid var(--secondary)',
+                    color: '#fbcfe8',
+                    fontSize: '0.62rem',
+                    fontWeight: 900,
+                    padding: '0.12rem 0.45rem',
+                    borderRadius: '6px',
+                    lineHeight: 1,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.25rem'
+                  }}>
+                    <span>⚔️ J{idx + 2}</span>
+                    {isHost && player.id !== socket.id && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          socket.emit('kick_player', { sessionId: session.id, playerId: player.id });
+                        }}
+                        style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 900, padding: 0 }}
+                        title="Expulser"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <div className="esport-avatar-ring" style={{ width: '48px', height: '48px', fontSize: '1.5rem' }}>
+                    {player.avatar || '🐼'}
+                  </div>
+                  <div style={{ fontWeight: 900, fontSize: '0.85rem', color: 'var(--text-main)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+                    {formatPlayerName(player.name)}
+                    {player.id === socket.id && (
+                      <span style={{ fontSize: '0.68rem', color: 'var(--secondary)', display: 'block' }}>(Toi)</span>
+                    )}
+                  </div>
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    fontSize: '0.65rem',
+                    color: 'var(--success)',
+                    fontWeight: 800,
+                    background: 'rgba(34, 197, 94, 0.1)',
+                    padding: '0.12rem 0.45rem',
+                    borderRadius: '6px'
+                  }}>
+                    <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--success)' }} />
+                    PRÊT
+                  </div>
+                </div>
+              ))}
+
+              {/* Empty Waiting Slots up to maxPlayers */}
+              {Array.from({ length: Math.max(0, maxPlayers - sessionPlayerList.length) }).map((_, i) => {
+                const slotNum = sessionPlayerList.length + i + 1;
+                return (
+                  <div
+                    key={`empty_slot_${slotNum}`}
+                    className="esport-podium"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1.5px dashed var(--border-color)',
+                      borderRadius: '14px',
+                      padding: '0.7rem 0.5rem',
+                      opacity: 0.7,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '0.35rem'
+                    }}
+                  >
+                    <div style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.62rem',
+                      fontWeight: 800,
+                      padding: '0.12rem 0.45rem',
+                      borderRadius: '6px',
+                      lineHeight: 1
+                    }}>
+                      SLOT {slotNum}
+                    </div>
+                    <div className="esport-avatar-ring" style={{ width: '48px', height: '48px', borderStyle: 'dashed', opacity: 0.5, fontSize: '1.3rem' }}>
+                      ⏳
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>
+                      En attente...
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              padding: '0.35rem 0.6rem',
+              background: 'rgba(255, 255, 255, 0.03)',
+              borderRadius: '8px',
+              fontSize: '0.75rem',
+              color: 'var(--text-muted)'
+            }}>
+              <span>⚡ Session multijoueur : {playerCount}/{maxPlayers} participants</span>
+              <span>•</span>
+              <span>{isPedia ? `${pediaSettings.questionCount || 10} Questions` : `${settings.rounds || words.length} Mots`}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* =========================================================
@@ -1000,7 +1255,7 @@ export default function Lobby({
                   gap: '0.5rem'
                 }}
               >
-                <span>{playerCount === 1 ? '🩺 DÉMARRER ENTRAÎNEMENT SOLO' : '⚔️ DÉMARRER LE DUEL MÉDICAL !'}</span>
+                <span>{playerCount === 1 ? '🩺 DÉMARRER ENTRAÎNEMENT SOLO' : (playerCount > 2 ? `🩺 DÉMARRER LE MATCH (${playerCount}/${maxPlayers})` : '⚔️ DÉMARRER LE DUEL MÉDICAL !')}</span>
               </button>
             ) : (
               playerCount === 1 ? (
@@ -1033,7 +1288,7 @@ export default function Lobby({
                     letterSpacing: '0.5px'
                   }}
                 >
-                  ⚔️ DÉMARRER LE DUEL !
+                  {playerCount > 2 ? `⚔️ DÉMARRER LE MATCH MULTIJOUEUR (${playerCount}/${maxPlayers})` : '⚔️ DÉMARRER LE DUEL !'}
                 </button>
               )
             )
@@ -1049,7 +1304,7 @@ export default function Lobby({
               fontSize: '0.85rem',
               textAlign: 'center'
             }}>
-              ⏳ En attente de l'hôte pour lancer le duel...
+              ⏳ En attente de l'hôte pour lancer la partie...
             </div>
           )}
         </div>
@@ -2029,6 +2284,38 @@ export default function Lobby({
                       <option value={60}>📚 60s (Examen)</option>
                     </select>
                   </div>
+
+                  {/* 5. Capacité du salon */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#e2e8f0', marginBottom: '0.3rem' }}>
+                      👥 Capacité max :
+                    </label>
+                    <select
+                      className="input-field"
+                      value={maxPlayers}
+                      disabled={!isHost}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        handleUpdateSettings({ ...settings, maxPlayers: val }, `Capacité réglée à ${val} joueurs max`);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '0.45rem 0.65rem',
+                        background: 'rgba(15, 23, 42, 0.95)',
+                        border: '1px solid rgba(6, 182, 212, 0.4)',
+                        borderRadius: '10px',
+                        color: '#ffffff',
+                        fontSize: '0.82rem',
+                        fontWeight: 700
+                      }}
+                    >
+                      {[2, 3, 4, 5, 6, 7, 8, 9, 10].map(cnt => (
+                        <option key={cnt} value={cnt} disabled={cnt < playerCount}>
+                          {cnt} joueurs max {cnt < playerCount ? '(plein)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* Badges explicatifs médicaux */}
@@ -2286,6 +2573,29 @@ export default function Lobby({
                     <option value={15}>⏱️ 15s (Normal)</option>
                     <option value={20}>🧘 20s (Tranquille)</option>
                     <option value={30}>🐢 30s (Lent)</option>
+                  </select>
+                </div>
+
+                {/* Capacité du salon */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>
+                    👥 Capacité du salon :
+                  </label>
+                  <select
+                    className="input-field"
+                    value={maxPlayers}
+                    disabled={!isHost}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      handleUpdateSettings({ ...settings, maxPlayers: val }, `Capacité du salon réglée à ${val} joueurs max`);
+                    }}
+                    style={{ padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}
+                  >
+                    {[2, 3, 4, 5, 6, 7, 8, 9, 10].map(cnt => (
+                      <option key={cnt} value={cnt} disabled={cnt < playerCount}>
+                        {cnt} joueurs max {cnt < playerCount ? '(occupé)' : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

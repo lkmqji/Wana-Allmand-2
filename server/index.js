@@ -77,18 +77,18 @@ async function callGeminiWaterfall(ai, requestConfig) {
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI)
-  .then(async () => {
-      console.log('Connected to MongoDB');
-      try {
-          const config = await Config.findOne({ key: 'app_config' });
-          if (config && config.forceMatchingPairs !== undefined) {
-              gameManager.forceMatchingPairs = config.forceMatchingPairs;
-          }
-      } catch (err) {
-          console.error('Error loading config on startup:', err);
-      }
-  })
-  .catch(err => console.error('MongoDB connection error:', err));
+    .then(async () => {
+        console.log('Connected to MongoDB');
+        try {
+            const config = await Config.findOne({ key: 'app_config' });
+            if (config && config.forceMatchingPairs !== undefined) {
+                gameManager.forceMatchingPairs = config.forceMatchingPairs;
+            }
+        } catch (err) {
+            console.error('Error loading config on startup:', err);
+        }
+    })
+    .catch(err => console.error('MongoDB connection error:', err));
 
 const app = express();
 const server = http.createServer(app);
@@ -117,8 +117,8 @@ const verifyAdmin = (req, res, next) => {
 
 // ---- HEALTH CHECK / KEEP-ALIVE ENDPOINTS (Render Ping) ----
 app.get(['/', '/health', '/api/health'], (req, res) => {
-    res.status(200).json({ 
-        status: 'ok', 
+    res.status(200).json({
+        status: 'ok',
         message: 'Server is awake and healthy',
         uptime: Math.floor(process.uptime()),
         timestamp: new Date().toISOString()
@@ -130,7 +130,7 @@ app.get('/api/config', async (req, res) => {
     try {
         let config = await Config.findOne({ key: 'app_config' });
         if (!config) config = await Config.create({ key: 'app_config' });
-        res.json({ 
+        res.json({
             guestMode: config.guestMode ?? true,
             maintenanceMode: config.maintenanceMode ?? false,
             requirePwaInstall: config.requirePwaInstall ?? false,
@@ -149,7 +149,7 @@ app.get('/api/admin/overview', verifyAdmin, async (req, res) => {
         const totalLists = await List.countDocuments();
         const publicLists = await List.countDocuments({ isPublic: true });
         const privateLists = totalLists - publicLists;
-        
+
         // Sum total games played & xp via MongoDB Aggregation (no memory leak)
         const statsAggregation = await User.aggregate([
             { $group: { _id: null, totalXp: { $sum: '$xp' }, totalGames: { $sum: '$gamesPlayed' } } }
@@ -260,7 +260,7 @@ app.get('/api/notifications/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
         let notifs = [];
-        
+
         if (userId && userId !== 'guest') {
             const [allNotifs, userNotifs] = await Promise.all([
                 Notification.find({ userId: 'ALL' }).sort({ createdAt: -1 }).limit(25).lean(),
@@ -374,7 +374,7 @@ app.post('/api/upload', upload.single('pdf'), async (req, res) => {
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded.' });
         }
-        
+
         const { parsePdf } = require('./utils/pdfParser');
         const vocabList = await parsePdf(req.file.buffer);
         res.json({ vocabList });
@@ -509,7 +509,7 @@ Classifie dans : NOMS, VERBES, ADJECTIFS_ADVERBES, EXPRESSIONS.`;
 
                     const parsed = JSON.parse(response.text || '{}');
                     const rawVocab = Array.isArray(parsed.vocabulary) ? parsed.vocabulary : [];
-                    
+
                     const vocabList = rawVocab.map((item, idx) => {
                         const q = [item.frenchText, item.englishText, item.arabicText].filter(Boolean).join(' | ');
                         return {
@@ -524,8 +524,8 @@ Classifie dans : NOMS, VERBES, ADJECTIFS_ADVERBES, EXPRESSIONS.`;
                     console.log(`Generated vocabList length via ${activeModel}:`, vocabList.length);
 
                     if (vocabList.length > 0) {
-                        return res.json({ 
-                            vocabList, 
+                        return res.json({
+                            vocabList,
                             usedModel: activeModel,
                             detectedInfo: {
                                 detectedLanguage: parsed.detectedLanguage,
@@ -539,38 +539,38 @@ Classifie dans : NOMS, VERBES, ADJECTIFS_ADVERBES, EXPRESSIONS.`;
                 console.error("Gemini API call error across waterfall:", aiErr);
                 // Fallback to REST fetch across models
                 if (text.startsWith("THEME:")) {
-                   try {
-                       const theme = text.replace("THEME:", "").trim();
-                       const prompt = `Génère 15 mots sur le thème "${theme}". JSON: [{"question": "français", "english": "anglais", "answer": "allemand avec article"}]`;
-                       for (const m of GEMINI_WATERFALL_MODELS) {
-                           try {
-                               const fallbackResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-                                   method: 'POST',
-                                   headers: { 'Content-Type': 'application/json', 'User-Agent': 'aistudio-build' },
-                                   body: JSON.stringify({ contents: [{ parts: [{text: prompt}] }] })
-                               });
-                               if (!fallbackResponse.ok) continue;
-                               const fallbackData = await fallbackResponse.json();
-                               let rawText = fallbackData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
-                               if (rawText.startsWith('```json')) rawText = rawText.replace(/^```json/, '').replace(/```$/, '').trim();
-                               if (rawText.startsWith('```')) rawText = rawText.replace(/^```/, '').replace(/```$/, '').trim();
-                               const parsed = JSON.parse(rawText);
-                               const vocabList = parsed.map((item, idx) => ({ id: idx+1, question: item.question, answer: item.answer }));
-                               if (vocabList.length > 0) return res.json({ vocabList, usedModel: m });
-                           } catch(fErr) {
-                               continue;
-                           }
-                       }
-                   } catch(fallbackErr) {
-                       console.error("REST Fallback error", fallbackErr);
-                   }
+                    try {
+                        const theme = text.replace("THEME:", "").trim();
+                        const prompt = `Génère 15 mots sur le thème "${theme}". JSON: [{"question": "français", "english": "anglais", "answer": "allemand avec article"}]`;
+                        for (const m of GEMINI_WATERFALL_MODELS) {
+                            try {
+                                const fallbackResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'User-Agent': 'aistudio-build' },
+                                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                                });
+                                if (!fallbackResponse.ok) continue;
+                                const fallbackData = await fallbackResponse.json();
+                                let rawText = fallbackData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+                                if (rawText.startsWith('```json')) rawText = rawText.replace(/^```json/, '').replace(/```$/, '').trim();
+                                if (rawText.startsWith('```')) rawText = rawText.replace(/^```/, '').replace(/```$/, '').trim();
+                                const parsed = JSON.parse(rawText);
+                                const vocabList = parsed.map((item, idx) => ({ id: idx + 1, question: item.question, answer: item.answer }));
+                                if (vocabList.length > 0) return res.json({ vocabList, usedModel: m });
+                            } catch (fErr) {
+                                continue;
+                            }
+                        }
+                    } catch (fallbackErr) {
+                        console.error("REST Fallback error", fallbackErr);
+                    }
                 }
             }
         }
 
         // Fallback rule-based line parser (only works for text)
         if (!text || text.startsWith("THEME:")) {
-             return res.status(500).json({ error: "L'IA est requise pour extraire le vocabulaire depuis un fichier média ou un thème." });
+            return res.status(500).json({ error: "L'IA est requise pour extraire le vocabulaire depuis un fichier média ou un thème." });
         }
         const lines = text.split('\n').filter(l => l.includes('=') || l.includes('-') || l.includes(':'));
         const vocabList = lines.map((line, idx) => {
@@ -595,7 +595,7 @@ app.post('/api/lists', async (req, res) => {
     try {
         const { userId, name, words } = req.body;
         if (!userId || !name || !words) return res.status(400).json({ error: 'Missing fields' });
-        
+
         const newList = new List({ userId, name, words });
         await newList.save();
         res.json(newList);
@@ -609,7 +609,7 @@ app.post('/api/lists', async (req, res) => {
 app.get('/api/lists/public', async (req, res) => {
     try {
         const publicLists = await List.find({ isPublic: true }).sort({ createdAt: -1 }).limit(50).lean();
-        
+
         const firebaseIds = publicLists.map(l => l.userId);
         const users = await User.find({ firebaseId: { $in: firebaseIds } });
         const userMap = {};
@@ -620,7 +620,7 @@ app.get('/api/lists/public', async (req, res) => {
             photoMap[u.firebaseId] = u.photoURL || null;
             avatarMap[u.firebaseId] = u.avatar || '🦊';
         });
-        
+
         const listsWithCreator = publicLists.map(l => ({
             ...l,
             creatorName: userMap[l.userId] || 'Membre',
@@ -653,7 +653,7 @@ app.put('/api/lists/:id', async (req, res) => {
         if (name !== undefined) updateData.name = name;
         if (words !== undefined) updateData.words = words;
         const updatedList = await List.findByIdAndUpdate(
-            req.params.id, 
+            req.params.id,
             updateData,
             { new: true }
         );
@@ -670,7 +670,7 @@ app.put('/api/lists/:id/public', async (req, res) => {
     try {
         const { isPublic } = req.body;
         const updatedList = await List.findByIdAndUpdate(
-            req.params.id, 
+            req.params.id,
             { isPublic },
             { new: true }
         );
@@ -748,8 +748,8 @@ app.post('/api/users/sync', async (req, res) => {
         const { firebaseId, name, avatar, photoURL } = req.body;
         let user = await User.findOne({ firebaseId });
         if (!user) {
-            user = await User.create({ 
-                firebaseId, 
+            user = await User.create({
+                firebaseId,
                 name: name ? formatPlayerName(name) : 'Joueur',
                 avatar: avatar || '🦊',
                 photoURL: photoURL || null
@@ -781,8 +781,8 @@ app.put('/api/users/:firebaseId/profile', async (req, res) => {
         const { name, avatar } = req.body;
         let user = await User.findOne({ firebaseId });
         if (!user) {
-            user = await User.create({ 
-                firebaseId, 
+            user = await User.create({
+                firebaseId,
                 name: name ? formatPlayerName(name) : 'Joueur',
                 avatar: avatar || '🦊'
             });
@@ -1160,28 +1160,59 @@ function broadcastOnlineUsers() {
 function handlePlayerLeave(sessionId, playerId) {
     const session = gameManager.getSession(sessionId);
     const leavingUser = onlineUsers.get(playerId);
-    
-    // Clear any disconnect timers for this session
-    for (const [key, timer] of disconnectTimers.entries()) {
-        if (key.startsWith(`${sessionId}_`)) {
-            clearTimeout(timer);
-            disconnectTimers.delete(key);
+
+    if (!session) {
+        if (leavingUser) {
+            leavingUser.status = 'available';
+            leavingUser.sessionId = null;
         }
+        broadcastOnlineUsers();
+        return;
     }
 
-    if (session) {
+    const isHost = session.hostId === playerId;
+
+    // Call gameManager.leaveSession
+    const leaveResult = gameManager.leaveSession(sessionId, playerId);
+
+    if (leavingUser) {
+        leavingUser.status = 'available';
+        leavingUser.sessionId = null;
+    }
+
+    // Clear any disconnect timers for this player
+    const dcKey = `${sessionId}_${playerId}`;
+    if (disconnectTimers.has(dcKey)) {
+        clearTimeout(disconnectTimers.get(dcKey));
+        disconnectTimers.delete(dcKey);
+    }
+
+    const remainingCount = Object.keys(session.players || {}).length;
+
+    // If host left OR fewer than 2 players remain in the lobby/game
+    if (isHost || remainingCount < 2 || !leaveResult || leaveResult.destroyed) {
         clearTimeout(session.roundTimer);
         clearTimeout(session.autoAdvanceTimer);
+        clearTimeout(session.startGameTimer);
 
-        // Notify all players in this session that it is terminated and they should go home
+        for (const [key, timer] of disconnectTimers.entries()) {
+            if (key.startsWith(`${sessionId}_`)) {
+                clearTimeout(timer);
+                disconnectTimers.delete(key);
+            }
+        }
+
         const leavingName = leavingUser?.name || "L'autre joueur";
+        const reasonMsg = isHost
+            ? `Le salon a été fermé car l'hôte (${leavingName}) a quitté la partie.`
+            : `Le salon a été fermé car il ne reste plus assez de joueurs (déconnexion de ${leavingName}).`;
+
         io.to(sessionId).emit('session_closed', {
-            message: `Le lobby est fermé à cause de la déconnexion de ${leavingName}.`,
+            message: reasonMsg,
             reason: 'player_left',
             leavingPlayerId: playerId
         });
 
-        // Make all players in this session available in onlineUsers
         if (session.players) {
             for (const pId of Object.keys(session.players)) {
                 const u = onlineUsers.get(pId);
@@ -1192,14 +1223,52 @@ function handlePlayerLeave(sessionId, playerId) {
             }
         }
 
-        // Delete and thoroughly clean the session from GameManager
         gameManager.destroySession(sessionId);
+    } else {
+        // Multi-player session continues!
+        const leavingName = leavingUser?.name || "Un joueur";
+        io.to(sessionId).emit('player_left', {
+            playerId,
+            leavingName,
+            remainingPlayers: session.players
+        });
+        io.to(sessionId).emit('session_updated', session);
+        io.to(sessionId).emit('lobby_chat_message', {
+            id: Math.random().toString(36).substring(2, 9),
+            isSystem: true,
+            text: `👋 ${leavingName} a quitté le salon (${remainingCount}/${session.maxPlayers || session.settings?.maxPlayers || 2} joueurs).`,
+            timestamp: Date.now()
+        });
+
+        // If in showing_results, recalculate required votes
+        if (session.status === 'showing_results') {
+            const reqVotes = remainingCount <= 2 ? remainingCount : Math.max(2, Math.floor(remainingCount / 2));
+            const readyCount = (session.readyPlayers && session.readyPlayers.size) || 0;
+            io.to(sessionId).emit('ready_count', { ready: readyCount, total: reqVotes, totalPlayers: remainingCount });
+            if (readyCount >= reqVotes) {
+                clearTimeout(session.autoAdvanceTimer);
+                session.status = 'playing';
+                session.readyPlayers = new Set();
+                session.extendTimeVotes = new Set();
+                sendNextQuestion(sessionId);
+            }
+
+            const votesCount = (session.extendTimeVotes && session.extendTimeVotes.size) || 0;
+            io.to(sessionId).emit('debrief_extend_votes', {
+                votesCount,
+                requiredVotes: reqVotes,
+                totalPlayers: remainingCount,
+                voters: Array.from(session.extendTimeVotes || [])
+            });
+        } else if (session.status === 'playing') {
+            // If playing, check if all remaining players have submitted an answer
+            if (session.answersThisRound >= remainingCount) {
+                clearTimeout(session.roundTimer);
+                handleRoundEnd(sessionId);
+            }
+        }
     }
 
-    if (leavingUser) {
-        leavingUser.status = 'available';
-        leavingUser.sessionId = null;
-    }
     broadcastOnlineUsers();
 }
 
@@ -1245,9 +1314,10 @@ io.on('connection', (socket) => {
         socket.emit('pedia_chapters_data', pediaProvider.getChapters());
     });
 
-    socket.on('create_session', async ({ mode, vocabList, settings, playerName, firebaseId, avatar, clientPlayerKey, gameType = 'german', pediaSettings }) => {
+    socket.on('create_session', async ({ mode, vocabList, settings, playerName, firebaseId, avatar, clientPlayerKey, gameType = 'german', pediaSettings, maxPlayers }) => {
         const formattedPlayerName = formatPlayerName(playerName);
-        const sessionId = gameManager.createSession(socket.id, formattedPlayerName, firebaseId, clientPlayerKey, gameType);
+        const effectiveMaxPlayers = Math.max(2, Math.min(10, parseInt(maxPlayers || settings?.maxPlayers, 10) || 2));
+        const sessionId = gameManager.createSession(socket.id, formattedPlayerName, firebaseId, clientPlayerKey, gameType, effectiveMaxPlayers);
 
         if (gameType === 'pedia') {
             const safePediaSettings = {
@@ -1260,11 +1330,12 @@ io.on('connection', (socket) => {
             gameManager.setPediaQuestions(sessionId, pediaQuestions, {
                 rounds: pediaQuestions.length,
                 timePerWord: settings?.timePerWord || 20,
-                allowPause: settings?.allowPause ?? true
+                allowPause: settings?.allowPause ?? true,
+                maxPlayers: effectiveMaxPlayers
             }, safePediaSettings);
         } else {
             let finalVocabList = vocabList || [];
-            
+
             if (mode === 'random_duel') {
                 try {
                     // Fetch public lists from DB only if connected to avoid hanging
@@ -1277,15 +1348,15 @@ io.on('connection', (socket) => {
                     exampleLists.forEach(list => allWords.push(...(list.words || [])));
                     // Add public lists
                     publicLists.forEach(list => allWords.push(...(list.words || [])));
-                    
+
                     // Shuffle and pick 50
                     const shuffled = allWords.sort(() => 0.5 - Math.random());
-                    finalVocabList = shuffled.slice(0, 50).map((w, idx) => ({ 
-                        id: idx + 1, 
-                        question: (w.question || w.frenchPrompt || w.french || '').trim(), 
-                        answer: (w.answer || w.germanWord || w.german || w.word || '').trim() 
+                    finalVocabList = shuffled.slice(0, 50).map((w, idx) => ({
+                        id: idx + 1,
+                        question: (w.question || w.frenchPrompt || w.french || '').trim(),
+                        answer: (w.answer || w.germanWord || w.german || w.word || '').trim()
                     })).filter(w => w.question && w.answer);
-                    
+
                     // Ensure settings rounds matches the capped length
                     if (!settings) settings = {};
                     settings.rounds = finalVocabList.length;
@@ -1300,7 +1371,7 @@ io.on('connection', (socket) => {
 
         socket.join(sessionId);
         const session = gameManager.getSession(sessionId);
-        
+
         const userObj = onlineUsers.get(socket.id);
         if (userObj) {
             userObj.status = 'in_lobby';
@@ -1422,7 +1493,7 @@ io.on('connection', (socket) => {
             return socket.emit('error', "La session n'existe plus.");
         }
         const sender = onlineUsers.get(socket.id) || { name: 'Un hôte', avatar: '🎮' };
-        
+
         const inviteData = {
             inviteId: Math.random().toString(36).substring(2, 10),
             sessionId: session.id,
@@ -1440,7 +1511,7 @@ io.on('connection', (socket) => {
         } else if (targetFirebaseId) {
             socket.to(`user_${targetFirebaseId}`).emit('game_invite_received', inviteData);
         }
-        
+
         socket.emit('invite_sent_success', { targetSocketId, targetFirebaseId });
     });
 
@@ -1471,13 +1542,13 @@ io.on('connection', (socket) => {
             }
 
             session.status = 'playing';
-            
+
             // Randomize questions for the session if they weren't already cut
             if (session.vocabList.length === session.settings.rounds) {
                 // Shuffle to ensure random order
                 session.vocabList.sort(() => Math.random() - 0.5);
             }
-            
+
             for (const pId in session.players) {
                 const u = onlineUsers.get(pId);
                 if (u) u.status = 'in_game';
@@ -1485,7 +1556,7 @@ io.on('connection', (socket) => {
             broadcastOnlineUsers();
 
             io.to(sessionId).emit('game_started');
-            
+
             // Wait a moment for clients to render the Game component before sending the first question
             session.startGameTimer = setTimeout(() => {
                 sendNextQuestion(sessionId);
@@ -1503,7 +1574,7 @@ io.on('connection', (socket) => {
         } else {
             result = gameManager.submitAnswer(sessionId, socket.id, answer, timeRemaining);
         }
-        
+
         // Real-time opponent answered notification
         if (sessionId) {
             socket.to(sessionId).emit('opponent_answered', { playerId: socket.id });
@@ -1522,7 +1593,7 @@ io.on('connection', (socket) => {
 
     socket.on('submit_matching_pairs', ({ sessionId }) => {
         const result = gameManager.submitMatchingPairs(sessionId, socket.id);
-        
+
         if (result && result.allAnswered) {
             const session = gameManager.getSession(sessionId);
             clearTimeout(session.roundTimer);
@@ -1585,9 +1656,19 @@ io.on('connection', (socket) => {
     socket.on('update_session_settings', ({ sessionId, settings, changeDescription }) => {
         const session = gameManager.getSession(sessionId);
         if (session && session.hostId === socket.id) {
+            if (settings?.maxPlayers !== undefined) {
+                const currentCount = Object.keys(session.players || {}).length;
+                const requestedMax = Math.max(2, Math.min(10, parseInt(settings.maxPlayers, 10) || 2));
+                if (requestedMax < currentCount) {
+                    socket.emit('error', `Impossible de réduire la capacité en dessous de ${currentCount} joueurs actuellement présents.`);
+                    return;
+                }
+                session.maxPlayers = requestedMax;
+                settings.maxPlayers = requestedMax;
+            }
             session.settings = { ...session.settings, ...settings };
             io.to(sessionId).emit('session_updated', session);
-            const desc = changeDescription || `Paramètres mis à jour : ${session.settings.timePerWord}s/mot, ${session.settings.rounds} questions${session.settings.powerupsEnabled ? ', Pouvoirs 🥶' : ''}.`;
+            const desc = changeDescription || `Paramètres mis à jour : ${session.settings.timePerWord}s/mot, ${session.settings.rounds} questions, ${session.maxPlayers || session.settings.maxPlayers || 2} joueurs max${session.settings.powerupsEnabled ? ', Pouvoirs 🥶' : ''}.`;
             io.to(sessionId).emit('lobby_chat_message', {
                 id: Math.random().toString(36).substring(2, 9),
                 isSystem: true,
@@ -1761,27 +1842,23 @@ io.on('connection', (socket) => {
     });
 
     // In-game & Pause Chat Messages
-    socket.on('game_chat_message', (payload) => {
-        const { sessionId, text, preset, id, isAi, modelUsed, senderName: customSenderName, senderAvatar: customSenderAvatar } = payload || {};
+    socket.on('game_chat_message', ({ sessionId, text, preset, id }) => {
         const session = gameManager.getSession(sessionId);
         if (!session) return;
         const sender = onlineUsers.get(socket.id) || {
-            name: session.players?.[socket.id]?.name || 'Joueur',
+            name: session.players[socket.id]?.name || 'Joueur',
             avatar: '🦊'
         };
         const cleanText = (text || '').trim();
         if (!cleanText) return;
 
-        const isAiMessage = Boolean(isAi);
         const chatPayload = {
             id: id || (Math.random().toString(36).substring(2, 9) + Date.now()),
-            senderId: isAiMessage ? 'ai_tutor' : socket.id,
-            senderName: isAiMessage ? (customSenderName || '🤖 Tuteur IA Pédiatrique') : (formatPlayerName(sender.name) || 'Joueur'),
-            senderAvatar: isAiMessage ? (customSenderAvatar || '⚡') : (sender.avatar || '🦊'),
+            senderId: socket.id,
+            senderName: formatPlayerName(sender.name) || 'Joueur',
+            senderAvatar: sender.avatar || '🦊',
             text: cleanText,
             preset: Boolean(preset),
-            isAi: isAiMessage,
-            modelUsed: modelUsed || null,
             timestamp: Date.now()
         };
 
@@ -1802,7 +1879,7 @@ io.on('connection', (socket) => {
             // Multi: pause game for both with blur and emit terminate request
             pauseGame(sessionId, 'leave_request', socket.id);
             const requester = onlineUsers.get(socket.id) || { name: session.players[socket.id]?.name || 'Un joueur' };
-            
+
             // Opponent gets terminate_requested modal
             socket.to(sessionId).emit('terminate_requested', {
                 requesterId: socket.id,
@@ -1847,72 +1924,73 @@ io.on('connection', (socket) => {
         const session = gameManager.getSession(sessionId);
         if (!session || session.status !== 'showing_results') return;
 
-        // Mark this player as ready
-        if (!session.readyPlayers) session.readyPlayers = new Set();
-        session.readyPlayers.add(socket.id);
+        const isHost = session.hostId === socket.id;
+        const totalPlayers = Math.max(1, Object.keys(session.players || {}).length);
+        const requiredVotes = totalPlayers <= 2 ? totalPlayers : Math.max(2, Math.floor(totalPlayers / 2));
 
-        const totalPlayers = Object.keys(session.players).length;
-        const readyCount = session.readyPlayers.size;
-
-        // Broadcast how many are ready
-        io.to(sessionId).emit('ready_count', { ready: readyCount, total: totalPlayers });
-
-        if (readyCount >= totalPlayers) {
-            // All players ready → go to next question
+        // Host executes directly without vote!
+        if (isHost) {
             clearTimeout(session.autoAdvanceTimer);
             session.status = 'playing';
             session.readyPlayers = new Set();
+            session.extendTimeVotes = new Set();
+            sendNextQuestion(sessionId);
+            return;
+        }
+
+        // Non-host player vote
+        if (!session.readyPlayers) session.readyPlayers = new Set();
+        session.readyPlayers.add(socket.id);
+
+        const readyCount = session.readyPlayers.size;
+
+        // Broadcast how many are ready vs required threshold
+        io.to(sessionId).emit('ready_count', { ready: readyCount, total: requiredVotes, totalPlayers });
+
+        if (readyCount >= requiredVotes) {
+            clearTimeout(session.autoAdvanceTimer);
+            session.status = 'playing';
+            session.readyPlayers = new Set();
+            session.extendTimeVotes = new Set();
             sendNextQuestion(sessionId);
         }
     });
 
-    // PédiaDrill: Mutual vote to extend debriefing time (+1 minute or +3 minutes)
-    socket.on('vote_extend_debrief_time', (payload) => {
-        let sessionId = typeof payload === 'string' ? payload : payload?.sessionId;
-        let minutes = (typeof payload === 'object' && payload?.minutes) ? Number(payload.minutes) : 1;
-        if (minutes !== 1 && minutes !== 3) minutes = 1;
-
+    // PédiaDrill: Mutual vote or direct host action to extend debriefing time (+1 minute)
+    socket.on('vote_extend_debrief_time', (sessionId) => {
         const session = gameManager.getSession(sessionId);
         if (!session || session.status !== 'showing_results') return;
         if (session.gameType !== 'pedia') return;
 
-        if (!session.extendVotes) {
-            session.extendVotes = { 1: new Set(), 3: new Set() };
-        }
-        if (!session.extendVotes[1]) session.extendVotes[1] = new Set();
-        if (!session.extendVotes[3]) session.extendVotes[3] = new Set();
-
-        const targetSet = session.extendVotes[minutes];
-        const otherMinutes = minutes === 1 ? 3 : 1;
-        const otherSet = session.extendVotes[otherMinutes];
-
-        // Toggle vote: clicking again cancels vote
-        if (targetSet.has(socket.id)) {
-            targetSet.delete(socket.id);
-        } else {
-            targetSet.add(socket.id);
-            // Player can only vote for one extension duration at a time
-            otherSet.delete(socket.id);
-        }
-
+        const isHost = session.hostId === socket.id;
         const totalPlayers = Math.max(1, Object.keys(session.players || {}).length);
-        const votes1mCount = session.extendVotes[1].size;
-        const votes3mCount = session.extendVotes[3].size;
+        const requiredVotes = totalPlayers <= 2 ? totalPlayers : Math.max(2, Math.floor(totalPlayers / 2));
 
-        // Check if either 1m or 3m reached required consensus
-        let consensusMinutes = null;
-        if (votes1mCount >= totalPlayers) {
-            consensusMinutes = 1;
-        } else if (votes3mCount >= totalPlayers) {
-            consensusMinutes = 3;
+        if (!session.extendTimeVotes) session.extendTimeVotes = new Set();
+
+        let executeExtension = false;
+
+        if (isHost) {
+            // Host executes directly without vote!
+            executeExtension = true;
+        } else {
+            // Toggle vote: clicking again cancels vote
+            if (session.extendTimeVotes.has(socket.id)) {
+                session.extendTimeVotes.delete(socket.id);
+            } else {
+                session.extendTimeVotes.add(socket.id);
+            }
+
+            if (session.extendTimeVotes.size >= requiredVotes) {
+                executeExtension = true;
+            }
         }
 
-        if (consensusMinutes !== null) {
-            session.extendVotes = { 1: new Set(), 3: new Set() }; // Reset for next potential extension
-            session.extendTimeVotes = new Set();
+        if (executeExtension) {
+            session.extendTimeVotes = new Set(); // Reset for next potential extension
             session.readyPlayers = new Set();    // Reset ready status so game doesn't instantly advance
 
-            const ADDED_MS = consensusMinutes * 60000; // +1m (60s) or +3m (180s)
+            const ADDED_MS = 60000; // +1 minute (60s)
             const now = Date.now();
             const currentEndTime = session.resultEndTime || (now + (session.resultTimeRemaining || 60000));
             const remaining = Math.max(0, currentEndTime - now);
@@ -1927,37 +2005,30 @@ io.on('connection', (socket) => {
                 if (session.status === 'showing_results' && !session.isPaused) {
                     session.status = 'playing';
                     session.readyPlayers = new Set();
-                    session.extendVotes = { 1: new Set(), 3: new Set() };
                     session.extendTimeVotes = new Set();
                     sendNextQuestion(sessionId);
                 }
             }, newRemaining);
 
-            // Broadcast time extension to both players
+            // Broadcast time extension to all players
             io.to(sessionId).emit('debrief_time_extended', {
-                addedMinutes: consensusMinutes,
-                addedSeconds: consensusMinutes * 60,
+                addedSeconds: 60,
                 remainingSeconds: Math.ceil(newRemaining / 1000),
                 totalDuration: Math.ceil(session.resultDuration / 1000),
-                totalPlayers
+                totalPlayers,
+                requiredVotes,
+                triggeredByHost: isHost
             });
 
             // Reset ready indicator
-            io.to(sessionId).emit('ready_count', { ready: 0, total: totalPlayers });
+            io.to(sessionId).emit('ready_count', { ready: 0, total: requiredVotes, totalPlayers });
         } else {
-            // Broadcast vote progress to both players
+            // Broadcast vote progress to all players
             io.to(sessionId).emit('debrief_extend_votes', {
-                votes1m: {
-                    count: session.extendVotes[1].size,
-                    voters: Array.from(session.extendVotes[1])
-                },
-                votes3m: {
-                    count: session.extendVotes[3].size,
-                    voters: Array.from(session.extendVotes[3])
-                },
-                votesCount: session.extendVotes[1].size,
-                voters: Array.from(session.extendVotes[1]),
-                totalPlayers
+                votesCount: session.extendTimeVotes.size,
+                requiredVotes,
+                totalPlayers,
+                voters: Array.from(session.extendTimeVotes)
             });
         }
     });
@@ -2018,7 +2089,7 @@ io.on('connection', (socket) => {
         // Update socket mapping
         if (foundPlayerId !== socket.id) {
             const oldSocket = io.sockets.sockets.get(foundPlayerId);
-            
+
             delete session.players[foundPlayerId];
             foundPlayer.id = socket.id;
             if (clientPlayerKey) foundPlayer.clientPlayerKey = clientPlayerKey;
@@ -2238,7 +2309,7 @@ function sendNextQuestion(sessionId) {
     const next = gameManager.nextQuestion(sessionId);
     const session = gameManager.getSession(sessionId);
     if (!session) return;
-    
+
     if (next.finished) {
         // Update DB stats
         Object.values(session.players).forEach(async (p) => {
@@ -2248,7 +2319,7 @@ function sendNextQuestion(sessionId) {
                     if (dbUser) {
                         dbUser.xp += p.score;
                         dbUser.gamesPlayed += 1;
-                        
+
                         // Check if won
                         const maxScore = Math.max(...Object.values(session.players).map(x => x.score));
                         if (p.score === maxScore) {
@@ -2257,10 +2328,10 @@ function sendNextQuestion(sessionId) {
 
                         // Level up logic: every 1000 XP = 1 level
                         dbUser.level = Math.floor(dbUser.xp / 1000) + 1;
-                        
+
                         // Update daily XP history, streak, and lastSeen
                         recordUserDailyXpAndStreak(dbUser, p.score);
-                        
+
                         // Update failed words (for German mode)
                         if (session.gameType !== 'pedia') {
                             Object.entries(p.answers || {}).forEach(([idxStr, ans]) => {
@@ -2369,23 +2440,33 @@ function sendNextQuestion(sessionId) {
 function handleRoundEnd(sessionId) {
     const session = gameManager.getSession(sessionId);
     if (!session) return;
-    
-    // Reset ready players
+
+    // Reset ready players and extend votes
     session.readyPlayers = new Set();
+    session.extendTimeVotes = new Set();
     session.status = 'showing_results';
     session.resultStartTime = Date.now();
+
+    const totalPlayers = Math.max(1, Object.keys(session.players || {}).length);
+    const requiredVotes = totalPlayers <= 2 ? totalPlayers : Math.max(2, Math.floor(totalPlayers / 2));
+
+    io.to(sessionId).emit('ready_count', { ready: 0, total: requiredVotes, totalPlayers });
 
     if (session.gameType === 'pedia') {
         // 60 seconds debrief phase with review and chat
         session.resultDuration = 60000;
         session.resultTimeRemaining = 60000;
         session.resultEndTime = Date.now() + 60000;
-        session.readyPlayers = new Set();
-        session.extendVotes = { 1: new Set(), 3: new Set() };
-        session.extendTimeVotes = new Set();
 
         const rawQ = session.pediaQuestions?.[session.currentQuestionIndex];
         const debriefQ = pediaProvider.prepareDebriefQuestion(rawQ);
+
+        io.to(sessionId).emit('debrief_extend_votes', {
+            votesCount: 0,
+            requiredVotes,
+            totalPlayers,
+            voters: []
+        });
 
         io.to(sessionId).emit('round_results', {
             players: session.players,
@@ -2399,7 +2480,6 @@ function handleRoundEnd(sessionId) {
             if (session.status === 'showing_results' && !session.isPaused) {
                 session.status = 'playing';
                 session.readyPlayers = new Set();
-                session.extendVotes = { 1: new Set(), 3: new Set() };
                 session.extendTimeVotes = new Set();
                 sendNextQuestion(sessionId);
             }

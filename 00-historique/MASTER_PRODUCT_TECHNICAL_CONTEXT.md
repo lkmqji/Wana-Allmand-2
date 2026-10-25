@@ -20,9 +20,11 @@ La plateforme s'articule autour de 4 piliers de gameplay :
           └───────────────────────────── (Purification des erreurs) ──────────────────────┘
 ```
 
-1. **Duel Classique (Multijoueur / Solo)** :
+1. **Duel Classique & Arène Multijoueur (2 à 10 Joueurs / Solo)** :
+   - Capacité de salon configurable par l'Hôte de 2 à 10 joueurs (`maxPlayers`).
+   - Affichage adaptatif de l'arène : duel 1v1 Street Fighter / Smash Bros classique si capacité = 2, et grille esport responsive (cartes joueurs, avatars, couronnes, slots d'attente ⏳, bouton d'expulsion hôte ✕) si capacité > 2.
    - Séquence de questions chronométrées (~15s par manche).
-   - Saisie exacte de la traduction allemande avec son article de genre.
+   - Saisie exacte de la traduction allemande avec son article de genre ou QCM/CROQ médicaux.
    - Système de score pondéré par la rapidité et la distance de Levenshtein.
 2. **Mode Survie (Contre-la-montre infini)** :
    - Chronomètre court (~10.5s) avec pénalités de temps en cas d'erreur.
@@ -115,9 +117,11 @@ L'algorithme de validation compare la chaîne soumise à la réponse attendue se
 
 ## 5. RÉSEAU, WEBSOCKETS & RÉSILIENCE MOBILE
 
-### 5.1 Gestion des Déconnexions & Fermeture de Session
-- **Nettoyage Immédiat** : Si un joueur quitte ou se déconnecte d'un salon ou d'une partie, la session est immédiatement détruite sur le serveur.
-- **Événement `session_closed`** : Notification instantanée à tous les participants restants via un toast explicite (*« Le lobby est fermé à cause de la déconnexion de l'autre joueur »*) et redirection automatique vers l'accueil (`home`).
+### 5.1 Gestion des Déconnexions & Résilience Multi-Joueurs
+- **Résilience Multi-Joueurs (> 2 Joueurs)** : Si un invité quitte ou se déconnecte d'une salle à plus de 2 joueurs, la session n'est PAS détruite. Le joueur est retiré de `session.players`, un événement `player_left` est émis aux participants restants, et les seuils de vote/validation (`ready_count`, `debrief_extend_votes`, `answersThisRound`) sont instantanément recalculés en direct.
+- **Fermeture de Session (`session_closed`)** : La session est immédiatement fermée et détruite si :
+  1. L'**Hôte** quitte ou se déconnecte du salon/partie.
+  2. Le nombre de joueurs restants passe en dessous du seuil minimal de 2 joueurs.
 - **Tolérance Réseau** : Configuration de Socket.IO avec `pingInterval: 25000` et `pingTimeout: 60000` pour absorber les micro-coupures 4G.
 - **Sortie de Veille Mobile** : Écoute des événements `visibilitychange`, `focus` et `pageshow` pour rétablir proactivement le socket si nécessaire.
 
@@ -185,10 +189,14 @@ Wana-Allmand-2/
 
 | Événement Socket (Client ➔ Serveur) | Description & Payload |
 | :--- | :--- |
-| `create_session` | `{ listId, listTitle, words, roundTime, hostName, avatar, userId }` |
-| `join_session` | `{ sessionId, playerName, avatar, userId }` |
+| `create_session` | `{ mode, vocabList, settings, playerName, firebaseId, avatar, gameType, pediaSettings, maxPlayers }` |
+| `update_session_settings` | `{ sessionId, settings: { maxPlayers, rounds, timePerWord, powerupsEnabled, allowPause } }` |
+| `join_session` | `{ sessionId, playerName, avatar, userId, firebaseId, clientPlayerKey }` |
 | `leave_session` | `{ sessionId }` |
-| `start_game` | `{ sessionId }` |
+| `kick_player` | `{ sessionId, playerId }` (Réservé à l'hôte) |
+| `start_game` | `{ sessionId }` (Réservé à l'hôte) |
+| `ready_for_next` | `{ sessionId }` (Action directe pour l'Hôte ; vote pour les invités) |
+| `vote_extend_debrief_time` | `{ sessionId }` (Action directe pour l'Hôte ; vote toggle pour les invités) |
 | `submit_answer` | `{ sessionId, answer, timeRemaining }` |
 | `chat_message` | `{ sessionId, message, senderName, avatar }` |
 | `send_reaction` | `{ sessionId, emoji, playerName }` |
@@ -196,9 +204,13 @@ Wana-Allmand-2/
 
 | Événement Socket (Serveur ➔ Client) | Description & Payload |
 | :--- | :--- |
-| `session_created` / `session_joined` | Renvoie l'objet complet de la session (`players`, `settings`, `id`) |
+| `session_created` / `session_joined` | Renvoie l'objet complet de la session (`players`, `settings`, `id`, `maxPlayers`) |
+| `session_updated` | Diffusion des paramètres actualisés (ex: capacité `maxPlayers` modifiée par l'hôte) |
 | `player_joined` / `player_left` | Mise à jour en direct de la liste des joueurs d'un salon |
-| `session_closed` | Destruction de la session (déconnexion de l'autre joueur, retour accueil) |
+| `ready_count` | Progression des joueurs prêts (`ready`, seuil requis `total`, `totalPlayers`) |
+| `debrief_extend_votes` | Progression du vote de prolongation (`votesCount`, `requiredVotes`, `totalPlayers`, `voters`) |
+| `debrief_time_extended` | Notification de prolongation (+60s, `remainingSeconds`, `triggeredByHost`) |
+| `session_closed` | Destruction de la session (départ de l'hôte ou effectif < 2, retour accueil) |
 | `game_started` | Déclenchement de la première manche avec liste des questions |
 | `round_result` | Résultat de la manche (`scores`, `correctAnswer`, `rankings`) |
 | `game_over` | Fin de partie avec podium final et statistiques complètes |
@@ -499,19 +511,22 @@ L'application intègre désormais une architecture multi-univers sans régressio
   - **Chat Débriefing en Direct** :
     - Historique des messages des joueurs en temps réel.
     - Barre de 5 réactions rapides en 1 clic (`💡 Bravo !`, `😅 Pas évident`, `🏥 Cas typique`, etc.) et saisie personnalisée.
-  - **Option de Prolongation Temporelle Mutuelle (+1 min & +3 min)** :
-    - Deux boutons interactifs `⏱️ +1 min` et `⏳ +3 min` intégrés côte à côte dans l'en-tête permettant d'ajouter respectivement +60 secondes ou +180 secondes au chronomètre de débriefing de manière illimitée.
-    - **Règle de Vote Mutuel Sélectif** : En duel (2 joueurs), l'extension correspondante (+1m ou +3m) n'est déclenchée que lorsque les **2 joueurs ont voté** pour cette même durée (`vote_extend_debrief_time`). Un joueur peut basculer son vote d'une durée à l'autre en un clic ou le révoquer en recliquant dessus.
+  - **Option de Prolongation Temporelle Mutuelle (+1 min) & Passage à la Suite** :
+    - Bouton interactif `⏱️ +1 min` dans l'en-tête permettant d'ajouter 60 secondes au chronomètre de débriefing de manière illimitée, et bouton `Passer ➔` pour abréger la revue.
+    - **Privilège Exécutif de l'Hôte (Sans Vote)** : L'Hôte dispose d'un pouvoir d'exécution instantané. Un clic sur `⚡ Passer à la suite` ou `⚡ +1 min (Direct)` applique immédiatement l'action à l'ensemble du salon sans requérir de votes ni incrémenter de compteur.
+    - **Règle de Vote des Invités (Seuil de la Moitié)** :
+      - En duel ($\le 2$ joueurs) : l'unanimité reste requise (2/2).
+      - À plus de 2 joueurs ($> 2$) : il suffit que la **moitié** des joueurs vote selon la formule `Math.max(2, Math.floor(totalPlayers / 2))` (ex: 2/3, 2/4, 2/5, 3/6, 3/7, 4/8, 5/10). Dès que ce seuil est atteint, l'action est exécutée automatiquement.
     - **Feedback Visuel Intelligent** :
-      - Bouton `⏱️ +1 min` (thème ambre doré) & Bouton `⏳ +3 min` (thème violet électrique).
-      - Joueur ayant voté : état "En attente (1/2)" avec halo coloré spécifique.
-      - Joueur n'ayant pas encore voté : bouton incitatif "Accepter +1 min ! (1/2)" ou "Accepter +3 min ! (1/2)" avec lueur pulsante.
-      - En solo : 1 clic ajoute immédiatement +60s ou +180s.
-    - **Gestion Temps Réel** : Le serveur réarme `session.autoAdvanceTimer`, recalcule `session.resultEndTime`, réinitialise les votes pour les futures extensions, et réinitialise `session.readyPlayers` pour laisser aux étudiants le plein temps de discussion et d'apprentissage.
-  - **Moteur d'Explication Clinique Approfondie IA (Structure 4 Cartes PédiaDrill)** :
-    - Intégration du moteur `geminiService` (`client/src/services/geminiService.js`) avec cascade de résilience 100% modèles Flash (`gemini-3-flash-preview`, `gemini-flash-lite-latest`, `gemini-3.1-flash-lite`, etc.) et filtre LaTeX médical `cleanLatexMath`.
-    - Bouton d'action interactif `✨ Analyser par IA` et `🔄 Réanalyser` générant un raisonnement médical approfondi sans latence bloquante (~1.2s).
-    - Découpage automatique en 4 cartes médicales thématiques :
+      - Hôte : boutons distinctifs `⚡ Passer à la suite` et `⚡ +1 min (Direct)` avec lueur néon ambre.
+      - Invité ayant voté : état `En attente (votes/requis)` avec halo ambré.
+      - Invité n'ayant pas encore voté : bouton incitatif `Accepter +1 min ! (votes/requis)` avec lueur pulsante.
+      - En solo : 1 clic ajoute immédiatement +60 secondes.
+    - **Gestion Temps Réel** : Le serveur réarme `session.autoAdvanceTimer`, recalcule `session.resultEndTime`, réinitialise les votes pour les futures extensions, et réinitialise `session.readyPlayers` pour laisser aux étudiants le plein temps de discussion.
+
+
+
+
       - 🎯 **Piège Clinique & Analyse de l'Erreur** (rose/ambre) : analyse de la confusion fréquente et du piège de l'énoncé.
       - 📋 **Justification Proposition par Proposition** (violet/indigo) : passage en revue exhaustif des propositions A à E.
       - 🩺 **Démarche Clinique & Raisonnement** (cyan/bleu) : sémiologie pas-à-pas et élimination des diagnostics différentiels.

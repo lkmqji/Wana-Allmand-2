@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { formatPlayerName } from '../../utils/formatters';
-import { geminiService, cleanLatexMath } from '../../services/geminiService';
 
 /**
  * Format medical text with clean line breaks
@@ -14,109 +13,19 @@ function formatMedicalText(raw) {
   return text;
 }
 
-/**
- * Parse structured reasoning note from Gemini Flash into 4 clinical sections
- */
-function parseReasoningCards(noteText) {
-  if (!noteText || typeof noteText !== 'string') return null;
-  const raw = cleanLatexMath(noteText.trim());
-
-  const sec1Regex = /(?:###\s*|\*\*|#\s*)?(?:1[\.\)]\s*)?🎯\s*PI[ÈÉEeèéê]GE[^\n:]*[:\n]([\s\S]*?)(?=(?:###\s*|\*\*|#\s*)?(?:2[\.\)]\s*)?📋\s*JUSTIFICATION|(?:###\s*|\*\*|#\s*)?(?:3[\.\)]\s*)?🩺\s*D[ÉEèéê]MARCHE|(?:###\s*|\*\*|#\s*)?(?:2[\.\)]\s*)?🩺\s*M[ÉEèéê]THODE|$)/i;
-  const sec2Regex = /(?:###\s*|\*\*|#\s*)?(?:2[\.\)]\s*)?📋\s*JUSTIFICATION[^\n:]*[:\n]([\s\S]*?)(?=(?:###\s*|\*\*|#\s*)?(?:3[\.\)]\s*)?🩺\s*D[ÉEèéê]MARCHE|(?:###\s*|\*\*|#\s*)?(?:4[\.\)]\s*)?💡\s*R[ÈÉEeèéê]GLE|$)/i;
-  const sec3Regex = /(?:###\s*|\*\*|#\s*)?(?:[23][\.\)]\s*)?🩺\s*(?:D[ÉEèéê]MARCHE|M[ÉEèéê]THODE)[^\n:]*[:\n]([\s\S]*?)(?=(?:###\s*|\*\*|#\s*)?(?:[34][\.\)]\s*)?💡\s*R[ÈÉEeèéê]GLE|$)/i;
-  const sec4Regex = /(?:###\s*|\*\*|#\s*)?(?:[34][\.\)]\s*)?💡\s*R[ÈÉEeèéê]GLE[^\n:]*[:\n]([\s\S]*?)$/i;
-
-  const match1 = raw.match(sec1Regex);
-  const match2 = raw.match(sec2Regex);
-  const match3 = raw.match(sec3Regex);
-  const match4 = raw.match(sec4Regex);
-
-  return {
-    trap: match1?.[1]?.trim(),
-    justification: match2?.[1]?.trim(),
-    method: match3?.[1]?.trim(),
-    rule: match4?.[1]?.trim(),
-    rawFallback: raw
-  };
-}
-
-function renderInlineMarkdown(str) {
-  if (!str) return '';
-  const parts = str.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith('*') && part.endsWith('*')) {
-      return <em key={i}>{part.slice(1, -1)}</em>;
-    }
-    return part;
-  });
-}
-
-function renderFormattedNoteSection(text) {
-  if (!text) return null;
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  const elements = [];
-  let currentList = [];
-  let keyIdx = 0;
-
-  const flushList = () => {
-    if (currentList.length > 0) {
-      elements.push(
-        <ul key={`ul-${keyIdx++}`} className="reasoning-list">
-          {currentList.map((item, idx) => (
-            <li key={idx} className="reasoning-list-item">{renderInlineMarkdown(item)}</li>
-          ))}
-        </ul>
-      );
-      currentList = [];
-    }
-  };
-
-  lines.forEach((line) => {
-    if (/^[\-–—*]{3,}$/.test(line)) return;
-
-    if (line.startsWith('>')) {
-      flushList();
-      elements.push(
-        <blockquote key={`quote-${keyIdx++}`} className="reasoning-callout-quote">
-          {renderInlineMarkdown(line.replace(/^>\s*/, ''))}
-        </blockquote>
-      );
-      return;
-    }
-
-    if (/^[-•*]\s+/.test(line)) {
-      currentList.push(line.replace(/^[-•*]\s+/, ''));
-      return;
-    }
-
-    flushList();
-    elements.push(
-      <p key={`p-${keyIdx++}`} className="reasoning-paragraph">
-        {renderInlineMarkdown(line)}
-      </p>
-    );
-  });
-
-  flushList();
-  return elements;
-}
-
 const PRESET_DEBRIEF_REACTIONS = [
   '💡 Bravo !',
   '😅 Pas évident',
   '🏥 Cas typique',
   '👏 Bien joué',
-  '🤔 Piège !',
-  '🤖 Explique le piège !'
+  '🤔 Piège !'
 ];
 
 export default function PediaReviewModal({
   debriefQuestion,
   players = {},
   myPlayerId,
+  isHost = false,
   onReadyNext,
   readyCount = 0,
   totalPlayers = 2,
@@ -128,31 +37,11 @@ export default function PediaReviewModal({
   extendVotesCount = 0,
   extendTotalRequired = 2,
   hasVotedExtend = false,
-  extendVotes1m = null,
-  extendVotes3m = null,
   extendedRemainingSeconds = null
 }) {
   const [timeLeft, setTimeLeft] = useState(reviewDuration);
   const [inputMsg, setInputMsg] = useState('');
-  const [isAiMode, setIsAiMode] = useState(false);
-  const [isAiThinking, setIsAiThinking] = useState(false);
-  const [aiReasoning, setAiReasoning] = useState({
-    loading: false,
-    note: null,
-    modelUsed: null,
-    error: null
-  });
   const chatBottomRef = useRef(null);
-
-  const count1m = extendVotes1m ? (extendVotes1m.count || 0) : extendVotesCount;
-  const hasVoted1m = extendVotes1m?.voters
-    ? extendVotes1m.voters.includes(myPlayerId)
-    : hasVotedExtend;
-
-  const count3m = extendVotes3m?.count || 0;
-  const hasVoted3m = extendVotes3m?.voters
-    ? extendVotes3m.voters.includes(myPlayerId)
-    : false;
 
   // Sync remaining seconds when time is extended by server
   useEffect(() => {
@@ -160,17 +49,6 @@ export default function PediaReviewModal({
       setTimeLeft(extendedRemainingSeconds);
     }
   }, [extendedRemainingSeconds]);
-
-  // Reset AI states when switching question
-  useEffect(() => {
-    setAiReasoning({
-      loading: false,
-      note: null,
-      modelUsed: null,
-      error: null
-    });
-    setIsAiThinking(false);
-  }, [debriefQuestion?.uid]);
 
   // Local 1-second countdown ticker for the 60s debrief
   useEffect(() => {
@@ -192,82 +70,16 @@ export default function PediaReviewModal({
     if (chatBottomRef.current) {
       chatBottomRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [chatMessages, isAiThinking]);
+  }, [chatMessages]);
 
-  const handleSendChat = async (e) => {
+  const handleSendChat = (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    const rawText = inputMsg.trim();
-    if (!rawText) return;
-
-    const startsWithAi = /^\/(?:ia|ai)\b/i.test(rawText);
-    const isAiTargeted = isAiMode || startsWithAi;
-
-    if (isAiTargeted) {
-      const promptText = startsWithAi ? rawText.replace(/^\/(?:ia|ai)\s*/i, '').trim() : rawText;
-      if (!promptText) {
-        setInputMsg('');
-        return;
-      }
-
-      // 1. Send user's prompt so both players see the question in chat
-      const displayMsg = startsWithAi ? rawText : `🤖 [Question IA] ${rawText}`;
-      if (onSendChatMessage) {
-        onSendChatMessage(displayMsg);
-      }
-      setInputMsg('');
-
-      // 2. Call Gemini Flash AI Tutor
-      setIsAiThinking(true);
-      try {
-        const conversationHistory = (chatMessages || [])
-          .filter(m => m.text)
-          .map(m => ({
-            role: m.isAi ? 'ai' : 'user',
-            text: m.text
-          }));
-
-        const response = await geminiService.askAboutQuestion(
-          debriefQuestion,
-          conversationHistory,
-          promptText
-        );
-
-        if (onSendChatMessage) {
-          onSendChatMessage({
-            text: response.text,
-            senderName: `🤖 Tuteur IA (${response.modelUsed || 'Gemini Flash'})`,
-            senderAvatar: '⚡',
-            isAi: true,
-            modelUsed: response.modelUsed
-          });
-        }
-      } catch (err) {
-        console.error('Erreur Tuteur IA:', err);
-        if (onSendChatMessage) {
-          onSendChatMessage({
-            text: `⚠️ Le Tuteur IA n'a pas pu répondre : ${err.message}`,
-            senderName: '🤖 Tuteur IA',
-            senderAvatar: '⚠️',
-            isAi: true
-          });
-        }
-      } finally {
-        setIsAiThinking(false);
-      }
-    } else {
-      if (onSendChatMessage) {
-        onSendChatMessage(rawText);
-      }
-      setInputMsg('');
-    }
+    if (!inputMsg.trim() || !onSendChatMessage) return;
+    onSendChatMessage(inputMsg.trim());
+    setInputMsg('');
   };
 
   const handleSendPreset = (preset) => {
-    if (!preset) return;
-    if (preset === '🤖 Explique le piège !') {
-      setInputMsg('/ia Explique-moi le piège principal de ce cas clinique');
-      return;
-    }
     if (!onSendChatMessage) return;
     onSendChatMessage(preset);
   };
@@ -302,118 +114,6 @@ export default function PediaReviewModal({
     : (Array.isArray(opponentAnswer?.answer) ? opponentAnswer.answer : []);
 
   const progressPercent = Math.max(0, Math.min(100, (timeLeft / reviewDuration) * 100));
-
-  const handleGenerateAiReasoning = async () => {
-    if (!debriefQuestion || aiReasoning.loading) return;
-    setAiReasoning(prev => ({ ...prev, loading: true, error: null }));
-    try {
-      const studentAnsLetters = mySelectedLetters || [];
-      const studentCroqText = myAnswer?.text || myAnswer?.answer || '';
-      const result = await geminiService.generateReasoningNote(
-        debriefQuestion,
-        studentAnsLetters,
-        isCroq,
-        studentCroqText
-      );
-      setAiReasoning({
-        loading: false,
-        note: result.note,
-        modelUsed: result.modelUsed,
-        error: null
-      });
-    } catch (err) {
-      console.error('Erreur génération raisonnement IA:', err);
-      setAiReasoning({
-        loading: false,
-        note: null,
-        modelUsed: null,
-        error: err.message || 'Impossible de générer le raisonnement IA.'
-      });
-    }
-  };
-
-  const renderReasoningCards = (noteText) => {
-    const parsed = parseReasoningCards(noteText);
-    if (!parsed) return null;
-
-    const hasAnySection = parsed.trap || parsed.justification || parsed.method || parsed.rule;
-
-    if (!hasAnySection) {
-      return (
-        <div className="reasoning-cards-container">
-          <div className="reasoning-card card-method">
-            <div className="reasoning-card-body">
-              {renderFormattedNoteSection(parsed.rawFallback)}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="reasoning-cards-container">
-        {/* Card 1: Piège Clinique & Analyse de l'Erreur */}
-        {parsed.trap && (
-          <div className="reasoning-card card-trap">
-            <div className="reasoning-card-header">
-              <span className="reasoning-badge badge-trap">
-                <span>🎯</span>
-                <span>Piège Clinique &amp; Analyse de l'Erreur</span>
-              </span>
-            </div>
-            <div className="reasoning-card-body">
-              {renderFormattedNoteSection(parsed.trap)}
-            </div>
-          </div>
-        )}
-
-        {/* Card 2: Justification Proposition par Proposition */}
-        {parsed.justification && (
-          <div className="reasoning-card card-options-analysis">
-            <div className="reasoning-card-header">
-              <span className="reasoning-badge badge-options-analysis">
-                <span>📋</span>
-                <span>Justification Proposition par Proposition</span>
-              </span>
-            </div>
-            <div className="reasoning-card-body">
-              {renderFormattedNoteSection(parsed.justification)}
-            </div>
-          </div>
-        )}
-
-        {/* Card 3: Démarche Clinique & Raisonnement */}
-        {parsed.method && (
-          <div className="reasoning-card card-method">
-            <div className="reasoning-card-header">
-              <span className="reasoning-badge badge-method">
-                <span>🩺</span>
-                <span>Démarche Clinique &amp; Raisonnement</span>
-              </span>
-            </div>
-            <div className="reasoning-card-body">
-              {renderFormattedNoteSection(parsed.method)}
-            </div>
-          </div>
-        )}
-
-        {/* Card 4: Règle d'or & Mémo Concours */}
-        {parsed.rule && (
-          <div className="reasoning-card card-rule">
-            <div className="reasoning-card-header">
-              <span className="reasoning-badge badge-rule">
-                <span>💡</span>
-                <span>Règle d'Or &amp; Mémo Concours</span>
-              </span>
-            </div>
-            <div className="reasoning-card-body">
-              {renderFormattedNoteSection(parsed.rule)}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
 
   const modalContent = (
     <div className="pedia-review-overlay">
@@ -461,101 +161,62 @@ export default function PediaReviewModal({
               <span>{timeLeft}s</span>
             </div>
 
-            {/* Extend Time Buttons (+1 min & +3 min with Mutual Voting) */}
+            {/* Extend Time Button (+1 min with Mutual Voting or Host Direct) */}
             {onVoteExtendDebriefTime && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                {/* +1 min Button */}
-                <button
-                  type="button"
-                  onClick={() => onVoteExtendDebriefTime(1)}
-                  className="btn-extend-debrief"
-                  style={{
-                    padding: '0.42rem 0.85rem',
-                    fontSize: '0.84rem',
-                    fontWeight: 800,
-                    borderRadius: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.35rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    background: hasVoted1m
+              <button
+                type="button"
+                onClick={onVoteExtendDebriefTime}
+                className="btn-extend-debrief"
+                style={{
+                  padding: '0.42rem 0.95rem',
+                  fontSize: '0.86rem',
+                  fontWeight: 800,
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  background: isHost
+                    ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.35), rgba(234, 88, 12, 0.25))'
+                    : (hasVotedExtend
                       ? 'rgba(245, 158, 11, 0.22)'
-                      : (!hasVoted1m && count1m > 0 ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.35), rgba(234, 88, 12, 0.25))' : 'rgba(255, 255, 255, 0.08)'),
-                    color: hasVoted1m
-                      ? '#fbbf24'
-                      : (!hasVoted1m && count1m > 0 ? '#fef08a' : '#cbd5e1'),
-                    border: hasVoted1m
+                      : (!hasVotedExtend && extendVotesCount > 0 ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.35), rgba(234, 88, 12, 0.25))' : 'rgba(255, 255, 255, 0.08)')),
+                  color: (isHost || hasVotedExtend)
+                    ? '#fbbf24'
+                    : (!hasVotedExtend && extendVotesCount > 0 ? '#fef08a' : '#cbd5e1'),
+                  border: isHost
+                    ? '1.5px solid #f59e0b'
+                    : (hasVotedExtend
                       ? '1.5px solid #f59e0b'
-                      : (!hasVoted1m && count1m > 0 ? '1.5px solid #fbbf24' : '1px solid rgba(255, 255, 255, 0.16)'),
-                    boxShadow: hasVoted1m
-                      ? '0 0 14px rgba(245, 158, 11, 0.45)'
-                      : (!hasVoted1m && count1m > 0 ? '0 0 18px rgba(245, 158, 11, 0.6)' : 'none')
-                  }}
-                  title={totalPlayers > 1 ? "Voter pour ajouter 1 minute supplémentaire au débriefing (les 2 joueurs doivent voter)" : "Ajouter 1 minute supplémentaire au débriefing"}
-                >
-                  <span style={{ fontSize: '0.95rem' }}>⏱️</span>
-                  {totalPlayers <= 1 ? (
-                    <span>+1 min</span>
-                  ) : hasVoted1m ? (
-                    <span>En attente ({count1m}/{extendTotalRequired})</span>
-                  ) : (!hasVoted1m && count1m > 0) ? (
-                    <span>Accepter +1 min ! ({count1m}/{extendTotalRequired})</span>
-                  ) : (
-                    <span>+1 min ({count1m}/{extendTotalRequired})</span>
-                  )}
-                </button>
-
-                {/* +3 min Button */}
-                <button
-                  type="button"
-                  onClick={() => onVoteExtendDebriefTime(3)}
-                  className="btn-extend-debrief"
-                  style={{
-                    padding: '0.42rem 0.85rem',
-                    fontSize: '0.84rem',
-                    fontWeight: 800,
-                    borderRadius: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.35rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    background: hasVoted3m
-                      ? 'rgba(168, 85, 247, 0.25)'
-                      : (!hasVoted3m && count3m > 0 ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.35), rgba(139, 92, 246, 0.25))' : 'rgba(255, 255, 255, 0.08)'),
-                    color: hasVoted3m
-                      ? '#c084fc'
-                      : (!hasVoted3m && count3m > 0 ? '#f3e8ff' : '#cbd5e1'),
-                    border: hasVoted3m
-                      ? '1.5px solid #a855f7'
-                      : (!hasVoted3m && count3m > 0 ? '1.5px solid #c084fc' : '1px solid rgba(255, 255, 255, 0.16)'),
-                    boxShadow: hasVoted3m
-                      ? '0 0 14px rgba(168, 85, 247, 0.45)'
-                      : (!hasVoted3m && count3m > 0 ? '0 0 18px rgba(168, 85, 247, 0.6)' : 'none')
-                  }}
-                  title={totalPlayers > 1 ? "Voter pour ajouter 3 minutes supplémentaires au débriefing (les 2 joueurs doivent voter)" : "Ajouter 3 minutes supplémentaires au débriefing"}
-                >
-                  <span style={{ fontSize: '0.95rem' }}>⏳</span>
-                  {totalPlayers <= 1 ? (
-                    <span>+3 min</span>
-                  ) : hasVoted3m ? (
-                    <span>En attente ({count3m}/{extendTotalRequired})</span>
-                  ) : (!hasVoted3m && count3m > 0) ? (
-                    <span>Accepter +3 min ! ({count3m}/{extendTotalRequired})</span>
-                  ) : (
-                    <span>+3 min ({count3m}/{extendTotalRequired})</span>
-                  )}
-                </button>
-              </div>
+                      : (!hasVotedExtend && extendVotesCount > 0 ? '1.5px solid #fbbf24' : '1px solid rgba(255, 255, 255, 0.16)')),
+                  boxShadow: (isHost || hasVotedExtend)
+                    ? '0 0 14px rgba(245, 158, 11, 0.45)'
+                    : (!hasVotedExtend && extendVotesCount > 0 ? '0 0 18px rgba(245, 158, 11, 0.6)' : 'none')
+                }}
+                title={isHost ? "Ajouter instantanément 1 minute supplémentaire (Action Hôte sans vote)" : (totalPlayers > 1 ? `Voter pour ajouter 1 minute supplémentaire au débriefing (${extendTotalRequired} votes nécessaires)` : "Ajouter 1 minute supplémentaire au débriefing")}
+              >
+                <span style={{ fontSize: '1rem' }}>⏱️</span>
+                {isHost ? (
+                  <span>⚡ +1 min (Direct)</span>
+                ) : totalPlayers <= 1 ? (
+                  <span>+1 min</span>
+                ) : hasVotedExtend ? (
+                  <span>En attente ({extendVotesCount}/{extendTotalRequired})</span>
+                ) : (!hasVotedExtend && extendVotesCount > 0) ? (
+                  <span>Accepter +1 min ! ({extendVotesCount}/{extendTotalRequired})</span>
+                ) : (
+                  <span>+1 min ({extendVotesCount}/{extendTotalRequired})</span>
+                )}
+              </button>
             )}
 
             {/* Ready / Skip Button */}
             <button
               type="button"
               onClick={onReadyNext}
-              disabled={isReady}
-              className={`btn ${isReady ? 'btn-success' : 'btn-primary'}`}
+              disabled={!isHost && isReady}
+              className={`btn ${isReady && !isHost ? 'btn-success' : 'btn-primary'}`}
               style={{
                 padding: '0.55rem 1.25rem',
                 fontSize: '0.92rem',
@@ -564,12 +225,19 @@ export default function PediaReviewModal({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.45rem',
-                boxShadow: isReady ? '0 0 16px rgba(16, 185, 129, 0.6)' : '0 0 16px rgba(0, 212, 255, 0.45)',
+                boxShadow: isReady && !isHost ? '0 0 16px rgba(16, 185, 129, 0.6)' : '0 0 16px rgba(0, 212, 255, 0.45)',
                 transition: 'all 0.2s ease',
-                cursor: isReady ? 'default' : 'pointer'
+                cursor: (!isHost && isReady) ? 'default' : 'pointer'
               }}
+              title={isHost ? "Passer immédiatement à la question suivante (Action Hôte sans vote)" : "Voter pour passer à la suite"}
             >
-              {isReady ? `✓ Prêt (${readyCount}/${totalPlayers})` : `Passer ➔ (${readyCount}/${totalPlayers})`}
+              {isHost ? (
+                `⚡ Passer à la suite`
+              ) : isReady ? (
+                `✓ Prêt (${readyCount}/${totalPlayers})`
+              ) : (
+                `Passer ➔ (${readyCount}/${totalPlayers})`
+              )}
             </button>
           </div>
         </div>
@@ -588,7 +256,7 @@ export default function PediaReviewModal({
         <div className="pedia-review-grid">
           {/* Column 1: Detailed Explanations & Answers (Scrollable) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto', paddingRight: '0.3rem' }}>
-            
+
             {/* Score Comparison Banner */}
             <div style={{
               display: 'flex',
@@ -753,7 +421,7 @@ export default function PediaReviewModal({
                           {opt.text}
                         </span>
                       </div>
-                      
+
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
                         {isOpponentChoice && (
                           <span style={{
@@ -850,118 +518,9 @@ export default function PediaReviewModal({
                 </div>
               </div>
             )}
-
-            {/* Deep Clinical AI Reasoning Note (Gemini Flash Cascade - 4 Cards) */}
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(13, 21, 39, 0.95), rgba(168, 85, 247, 0.08))',
-              padding: '1.1rem 1.25rem',
-              borderRadius: '16px',
-              border: '1.5px solid rgba(168, 85, 247, 0.35)',
-              boxShadow: '0 4px 24px rgba(168, 85, 247, 0.12)'
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '0.6rem',
-                marginBottom: aiReasoning.note || aiReasoning.loading ? '0.85rem' : '0.4rem'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '1.25rem' }}>🤖</span>
-                  <div>
-                    <div style={{
-                      fontSize: '0.86rem',
-                      fontWeight: 900,
-                      color: '#c084fc',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px'
-                    }}>
-                      Explication &amp; Raisonnement Clinique IA
-                    </div>
-                    <div style={{ fontSize: '0.74rem', color: '#94a3b8' }}>
-                      {aiReasoning.modelUsed ? `Modèle : ${aiReasoning.modelUsed}` : 'Moteur Gemini Flash Médical'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Action button: Generate or Reanalyze */}
-                {!aiReasoning.loading && (
-                  <button
-                    type="button"
-                    onClick={handleGenerateAiReasoning}
-                    style={{
-                      background: aiReasoning.note ? 'rgba(255, 255, 255, 0.08)' : 'linear-gradient(135deg, #a855f7, #6366f1)',
-                      color: '#ffffff',
-                      border: aiReasoning.note ? '1px solid rgba(255, 255, 255, 0.2)' : 'none',
-                      borderRadius: '10px',
-                      padding: '0.45rem 0.9rem',
-                      fontSize: '0.82rem',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.4rem',
-                      boxShadow: aiReasoning.note ? 'none' : '0 0 14px rgba(168, 85, 247, 0.45)',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    <span>{aiReasoning.note ? '🔄' : '✨'}</span>
-                    <span>{aiReasoning.note ? 'Réanalyser' : 'Analyser par IA'}</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Loading State */}
-              {aiReasoning.loading && (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '1rem 0.5rem',
-                  color: '#c084fc'
-                }}>
-                  <div className="typing-indicator">
-                    <span style={{ background: '#a855f7' }}></span>
-                    <span style={{ background: '#a855f7' }}></span>
-                    <span style={{ background: '#a855f7' }}></span>
-                  </div>
-                  <span style={{ fontSize: '0.86rem', fontWeight: 700, fontStyle: 'italic' }}>
-                    Gemini Flash analyse le cas clinique et justifie chaque proposition (A à E)...
-                  </span>
-                </div>
-              )}
-
-              {/* Error State */}
-              {aiReasoning.error && !aiReasoning.loading && (
-                <div style={{
-                  padding: '0.75rem',
-                  borderRadius: '10px',
-                  background: 'rgba(239, 68, 68, 0.12)',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                  color: '#fca5a5',
-                  fontSize: '0.82rem',
-                  marginTop: '0.5rem'
-                }}>
-                  ⚠️ {aiReasoning.error}
-                </div>
-              )}
-
-              {/* Invitation Text */}
-              {!aiReasoning.loading && !aiReasoning.note && !aiReasoning.error && (
-                <div style={{ fontSize: '0.84rem', color: '#94a3b8', lineHeight: 1.5 }}>
-                  Cliquez sur <strong>"Analyser par IA"</strong> pour obtenir une analyse exhaustive : piège clinique classique, justifications proposition par proposition (A-E), démarche diagnostique et règle mémo concours.
-                </div>
-              )}
-
-              {/* Render Structured Cards */}
-              {aiReasoning.note && !aiReasoning.loading && (
-                renderReasoningCards(aiReasoning.note)
-              )}
-            </div>
           </div>
 
-          {/* Column 2: Interactive Live Chat Between Both Players & AI Tutor */}
+          {/* Column 2: Interactive Live Chat Between Both Players */}
           <div style={{
             background: 'rgba(18, 29, 51, 0.9)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -980,23 +539,9 @@ export default function PediaReviewModal({
               color: '#38bdf8',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
               gap: '0.45rem'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                <span>💬</span> Chat Débriefing (En direct)
-              </div>
-              <div style={{
-                fontSize: '0.72rem',
-                color: '#c084fc',
-                background: 'rgba(168, 85, 247, 0.15)',
-                border: '1px solid rgba(168, 85, 247, 0.3)',
-                padding: '2px 8px',
-                borderRadius: '999px',
-                fontWeight: 700
-              }}>
-                🤖 Tuteur Flash intégré
-              </div>
+              <span>💬</span> Chat Débriefing (En direct)
             </div>
 
             {/* Chat Messages List */}
@@ -1011,60 +556,11 @@ export default function PediaReviewModal({
             }}>
               {chatMessages.length === 0 ? (
                 <div style={{ textAlign: 'center', color: '#64748b', fontSize: '0.82rem', margin: 'auto 0', padding: '1rem' }}>
-                  Échangez avec votre adversaire ou posez vos questions au <strong>Tuteur IA (/ia)</strong> ! 💬
+                  Échangez avec votre adversaire sur ce cas clinique ! 💬
                 </div>
               ) : (
                 chatMessages.map((msg) => {
                   const isMe = msg.senderId === myPlayerId;
-                  const isAi = Boolean(msg.isAi || msg.senderId === 'ai_tutor');
-
-                  if (isAi) {
-                    return (
-                      <div
-                        key={msg.id}
-                        className="chat-bubble bubble-ai"
-                        style={{
-                          alignSelf: 'flex-start',
-                          maxWidth: '92%',
-                          background: 'linear-gradient(135deg, rgba(18, 29, 51, 0.98), rgba(88, 28, 135, 0.35))',
-                          border: '1.5px solid rgba(0, 212, 255, 0.35)',
-                          borderRadius: '14px',
-                          borderBottomLeftRadius: '4px',
-                          padding: '0.7rem 0.9rem',
-                          boxShadow: '0 4px 18px rgba(0, 212, 255, 0.12)'
-                        }}
-                      >
-                        <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: '0.5rem',
-                          marginBottom: '0.35rem',
-                          fontSize: '0.72rem'
-                        }}>
-                          <span style={{ fontWeight: 800, color: '#38bdf8' }}>
-                            {msg.senderName || '🤖 Tuteur IA Pédiatrique'}
-                          </span>
-                          {msg.modelUsed && (
-                            <span style={{
-                              fontSize: '0.65rem',
-                              padding: '1px 6px',
-                              borderRadius: '999px',
-                              background: 'rgba(0, 212, 255, 0.15)',
-                              color: '#7dd3fc',
-                              border: '1px solid rgba(0, 212, 255, 0.3)'
-                            }}>
-                              {msg.modelUsed}
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ color: '#f1f5f9', wordBreak: 'break-word', lineHeight: 1.5, fontSize: '0.84rem' }}>
-                          {renderFormattedNoteSection(msg.text)}
-                        </div>
-                      </div>
-                    );
-                  }
-
                   return (
                     <div
                       key={msg.id}
@@ -1086,31 +582,6 @@ export default function PediaReviewModal({
                   );
                 })
               )}
-
-              {/* AI Thinking Indicator */}
-              {isAiThinking && (
-                <div style={{
-                  alignSelf: 'flex-start',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '0.65rem 0.95rem',
-                  background: 'rgba(18, 29, 51, 0.95)',
-                  border: '1px solid rgba(0, 212, 255, 0.35)',
-                  borderRadius: '14px',
-                  borderBottomLeftRadius: '4px',
-                  boxShadow: '0 2px 14px rgba(0, 212, 255, 0.2)'
-                }}>
-                  <div className="typing-indicator">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
-                  <span style={{ color: '#38bdf8', fontSize: '0.78rem', fontStyle: 'italic', fontWeight: 700 }}>
-                    Gemini Flash analyse ce QCM...
-                  </span>
-                </div>
-              )}
               <div ref={chatBottomRef} />
             </div>
 
@@ -1129,53 +600,28 @@ export default function PediaReviewModal({
                   type="button"
                   onClick={() => handleSendPreset(preset)}
                   style={{
-                    background: preset.includes('🤖') ? 'rgba(168, 85, 247, 0.18)' : 'rgba(255, 255, 255, 0.06)',
-                    border: preset.includes('🤖') ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
                     borderRadius: '8px',
                     padding: '0.25rem 0.5rem',
-                    color: preset.includes('🤖') ? '#e9d5ff' : '#e2e8f0',
+                    color: '#e2e8f0',
                     fontSize: '0.75rem',
                     cursor: 'pointer',
                     whiteSpace: 'nowrap',
-                    transition: 'all 0.15s ease',
-                    fontWeight: preset.includes('🤖') ? 700 : 500
+                    transition: 'all 0.15s ease'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = preset.includes('🤖') ? 'rgba(168, 85, 247, 0.3)' : 'rgba(0, 212, 255, 0.15)';
-                    e.currentTarget.style.borderColor = preset.includes('🤖') ? '#c084fc' : '#00d4ff';
+                    e.currentTarget.style.background = 'rgba(0, 212, 255, 0.15)';
+                    e.currentTarget.style.borderColor = '#00d4ff';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = preset.includes('🤖') ? 'rgba(168, 85, 247, 0.18)' : 'rgba(255, 255, 255, 0.06)';
-                    e.currentTarget.style.borderColor = preset.includes('🤖') ? 'rgba(168, 85, 247, 0.4)' : 'rgba(255, 255, 255, 0.1)';
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
                   }}
                 >
                   {preset}
                 </button>
               ))}
-            </div>
-
-            {/* AI Tutor Toggle & Quick Trigger Bar */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.35rem 0.8rem',
-              background: 'rgba(7, 11, 20, 0.65)',
-              borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-              fontSize: '0.76rem'
-            }}>
-              <button
-                type="button"
-                onClick={() => setIsAiMode(prev => !prev)}
-                className={`btn-chat-ai-toggle ${isAiMode ? 'active' : ''}`}
-                title="Cocher pour envoyer directement vos questions au Tuteur IA Pédiatrique"
-              >
-                <span>🤖</span>
-                <span>{isAiMode ? '✓ Tuteur IA Actif' : 'Tuteur IA'}</span>
-              </button>
-              <span style={{ color: isAiMode ? '#c084fc' : '#64748b', fontSize: '0.72rem', fontStyle: 'italic' }}>
-                {isAiMode ? 'Vos questions s\'adressent au Tuteur IA' : 'Tapez /ia [question] ou cochez 🤖'}
-              </span>
             </div>
 
             {/* Chat Input */}
@@ -1188,14 +634,13 @@ export default function PediaReviewModal({
             }}>
               <input
                 type="text"
-                placeholder={isAiMode ? "Posez votre question médicale au Tuteur IA..." : "Un commentaire sur ce cas clinique ? (Tapez /ia pour l'IA)..."}
+                placeholder="Un commentaire sur ce cas clinique ?..."
                 value={inputMsg}
                 onChange={(e) => setInputMsg(e.target.value)}
-                disabled={isAiThinking}
                 style={{
                   flex: 1,
-                  background: isAiMode ? 'rgba(168, 85, 247, 0.08)' : 'rgba(255, 255, 255, 0.06)',
-                  border: isAiMode ? '1.5px solid rgba(168, 85, 247, 0.4)' : '1px solid rgba(255, 255, 255, 0.12)',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
                   borderRadius: '10px',
                   padding: '0.5rem 0.8rem',
                   color: '#ffffff',
@@ -1205,21 +650,21 @@ export default function PediaReviewModal({
               />
               <button
                 type="submit"
-                disabled={!inputMsg.trim() || isAiThinking}
+                disabled={!inputMsg.trim()}
                 style={{
-                  background: isAiMode ? 'linear-gradient(135deg, #a855f7, #6366f1)' : '#00d4ff',
-                  color: isAiMode ? '#ffffff' : '#070b14',
+                  background: '#00d4ff',
+                  color: '#070b14',
                   border: 'none',
                   borderRadius: '10px',
                   padding: '0.5rem 0.95rem',
                   fontWeight: 900,
                   fontSize: '0.85rem',
-                  cursor: (inputMsg.trim() && !isAiThinking) ? 'pointer' : 'default',
-                  opacity: (inputMsg.trim() && !isAiThinking) ? 1 : 0.4,
-                  boxShadow: (inputMsg.trim() && !isAiThinking) ? (isAiMode ? '0 0 12px rgba(168, 85, 247, 0.5)' : '0 0 10px rgba(0, 212, 255, 0.4)') : 'none'
+                  cursor: inputMsg.trim() ? 'pointer' : 'default',
+                  opacity: inputMsg.trim() ? 1 : 0.4,
+                  boxShadow: inputMsg.trim() ? '0 0 10px rgba(0, 212, 255, 0.4)' : 'none'
                 }}
               >
-                {isAiThinking ? '⏳' : 'Envoyer'}
+                Envoyer
               </button>
             </form>
           </div>

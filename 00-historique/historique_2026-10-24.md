@@ -130,30 +130,9 @@ Intégration complète d'un deuxième univers de jeu compétitif axé sur la mé
      - Si l'adversaire a voté en premier : `⏱️ Accepter +1 min ! (1/2)` avec effet de lueur dorée incitative pour faciliter le consensus rapide.
      - En solo : `⏱️ +1 min` avec application instantanée.
    - Synchronisation automatique du chronomètre `timeLeft` dès réception de la prolongation serveur.
----
 
-### 2026-10-24 23:10 — Ajout du Bouton de Prolongation +3 min aux côtés du Bouton +1 min
 
-#### Contexte & Besoin
-- L'utilisateur a demandé d'ajouter un bouton permettant d'ajouter **3 minutes (+180s)** directement à côté du bouton existant de **1 minute** dans le menu d'explication et de débriefing.
-- Cette option permet aux joueurs d'avoir suffisamment de temps pour étudier des explications détaillées ou de longs cas cliniques sans devoir voter 3 fois de suite pour +1 min.
 
-#### Modifications apportées
-1. **Logique Serveur Multi-Durées (`server/index.js`)** :
-   - Mise à niveau du gestionnaire `vote_extend_debrief_time` pour accepter un objet `{ sessionId, minutes: 1 | 3 }` (avec rétrocompatibilité si un string ou aucune durée n'est fourni).
-   - Suivi distinct des votes par durée via `session.extendVotes = { 1: new Set(), 3: new Set() }`.
-   - Règle d'exclusivité par joueur : un joueur vote soit pour +1 min soit pour +3 min (le clic sur l'autre durée bascule son vote ; un nouveau clic sur la même durée annule son vote).
-   - Détection de consensus : dès que l'un des deux choix atteint le nombre total de joueurs requis (`votes1mCount >= totalPlayers` ou `votes3mCount >= totalPlayers`), le temps correspondant (+60s ou +180s) est ajouté immédiatement à `session.resultEndTime` et `session.resultDuration`.
-   - Émission de `debrief_time_extended` avec `{ addedMinutes, addedSeconds, remainingSeconds }` et `debrief_extend_votes` avec les détails de chaque durée (`votes1m`, `votes3m`).
-2. **Gestionnaire Frontend (`client/src/components/Game.jsx`)** :
-   - Adaptation du state `extendVotes` pour suivre `votes1m: { count, voters }` et `votes3m: { count, voters }`.
-   - Notification Toast dynamique précisant le nombre exact de minutes ajoutées (`⏱️ +1 minute ajoutée` ou `⏱️ +3 minutes ajoutées`).
-   - Méthode `handleVoteExtendDebriefTime(minutes)` acceptant la durée sélectionnée (1 ou 3) et transmission des props `extendVotes1m` et `extendVotes3m` au composant `PediaReviewModal`.
-3. **Interface Utilisateur du Débriefing (`client/src/components/pedia/PediaReviewModal.jsx`)** :
-   - Intégration harmonieuse des deux boutons côte à côte dans la barre d'en-tête du modal :
-     - **Bouton `+1 min`** : Identité ambre/dorée avec icône chronomètre (`⏱️`), états réactifs `En attente (1/2)` et `Accepter +1 min ! (1/2)`.
-     - **Bouton `+3 min`** : Identité violette/lilas avec icône sablier (`⏳`), états réactifs `En attente (1/2)` et `Accepter +3 min ! (1/2)`.
-   - En mode solo, les deux boutons affichent sobrement `+1 min` et `+3 min` avec effet immédiat au clic.
 
 ---
 

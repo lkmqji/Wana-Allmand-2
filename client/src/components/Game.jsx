@@ -139,11 +139,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     pediaQuestion ||
     roundResult?.gameType === 'pedia'
   );
-  const [extendVotes, setExtendVotes] = useState({
-    votes1m: { count: 0, voters: [] },
-    votes3m: { count: 0, voters: [] },
-    total: 2
-  });
+  const [extendVotes, setExtendVotes] = useState({ count: 0, total: 2, voters: [] });
   const [extendedRemainingSeconds, setExtendedRemainingSeconds] = useState(null);
   const [players, setPlayers] = useState(session?.players || {});
   const [jokers, setJokers] = useState(3);
@@ -196,7 +192,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
 
   const [leaderId, setLeaderId] = useState(null);
   const [overtakerId, setOvertakerId] = useState(null);
-  
+
   const { isActive, currentStep, nextStep, skipOnboarding } = useOnboarding();
   const inputRef = useSpotlightTarget(['TYPE_HUND', 'ARTICLE_WARNING']);
   const [shakeInput, setShakeInput] = useState(false);
@@ -374,11 +370,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       setRoundResult(null);
       setIAmReady(false);
       setReadyCount({ ready: 0, total: 0 });
-      setExtendVotes({
-        votes1m: { count: 0, voters: [] },
-        votes3m: { count: 0, voters: [] },
-        total: 2
-      });
+      setExtendVotes({ count: 0, total: 2, voters: [] });
       setExtendedRemainingSeconds(null);
       setIsPaused(false);
       setPauseData(null);
@@ -394,16 +386,12 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       hasAnsweredRef.current = true;
       setRoundResult(result);
       setPlayers(result.players);
-      setExtendVotes({
-        votes1m: { count: 0, voters: [] },
-        votes3m: { count: 0, voters: [] },
-        total: 2
-      });
+      setExtendVotes({ count: 0, total: 2, voters: [] });
       setExtendedRemainingSeconds(null);
       if (result.gameType === 'pedia') {
         setDebriefQuestion(result.debriefQuestion || null);
       }
-      
+
       const myPlayer = result.players[socket.id];
       if (myPlayer) {
         setQuestionIndex(prevIndex => {
@@ -545,23 +533,19 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     const onDebriefExtendVotes = (data) => {
       if (data) {
         setExtendVotes({
-          votes1m: data.votes1m || { count: data.votesCount || 0, voters: data.voters || [] },
-          votes3m: data.votes3m || { count: 0, voters: [] },
-          total: data.totalPlayers || 2
+          count: data.votesCount || 0,
+          total: data.requiredVotes || data.totalPlayers || 2,
+          voters: data.voters || []
         });
       }
     };
 
     const onDebriefTimeExtended = (data) => {
       playSuccess();
-      const addedMins = data?.addedMinutes || (data?.addedSeconds ? Math.round(data.addedSeconds / 60) : 1);
-      showToast(`⏱️ +${addedMins} minute${addedMins > 1 ? 's' : ''} ajoutée${addedMins > 1 ? 's' : ''} au débriefing ! (${data?.remainingSeconds || 60}s restantes)`, 'success');
+      const byHostText = data?.triggeredByHost ? " par l'hôte" : "";
+      showToast(`⏱️ +1 minute ajoutée au débriefing${byHostText} ! (${data?.remainingSeconds || 60}s restantes)`, 'success');
       setExtendedRemainingSeconds(data?.remainingSeconds || null);
-      setExtendVotes({
-        votes1m: { count: 0, voters: [] },
-        votes3m: { count: 0, voters: [] },
-        total: data?.totalPlayers || 2
-      });
+      setExtendVotes({ count: 0, total: data?.requiredVotes || data?.totalPlayers || 2, voters: [] });
       setIAmReady(false);
     };
 
@@ -649,52 +633,33 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     });
   }, [socket]);
 
-  const handleSendPediaDebriefChat = (payload) => {
-    if (!payload || !sessionRef.current?.id) return;
-    const isObj = typeof payload === 'object';
-    const text = (isObj ? payload.text : payload)?.trim();
-    if (!text) return;
-
-    const isAi = isObj && Boolean(payload.isAi);
-    if (!isAi) {
-      playMessageSent();
-    } else {
-      playSuccess();
-    }
-
+  const handleSendPediaDebriefChat = (text) => {
+    if (!text || !sessionRef.current?.id) return;
+    playMessageSent();
     const localMsg = {
-      id: (isObj && payload.id) || (Math.random().toString(36).substring(2, 9) + Date.now()),
-      senderId: isAi ? 'ai_tutor' : socket.id,
-      senderName: isAi ? (payload.senderName || '🤖 Tuteur IA Pédiatrique') : playerName,
-      senderAvatar: isAi ? (payload.senderAvatar || '⚡') : avatar,
-      text,
-      isAi,
-      modelUsed: (isObj && payload.modelUsed) || null,
+      id: Math.random().toString(36).substring(2, 9) + Date.now(),
+      senderId: socket.id,
+      senderName: playerName,
+      senderAvatar: avatar,
+      text: text.trim(),
       timestamp: Date.now()
     };
-
     if (setChatMessages) {
-      setChatMessages(prev => {
-        if (prev.some(m => m.id === localMsg.id)) return prev;
-        return [...prev, localMsg];
-      });
+      setChatMessages(prev => [...prev, localMsg]);
     }
-
     socket.emit('game_chat_message', {
       sessionId: sessionRef.current.id,
-      text,
+      text: text.trim(),
       id: localMsg.id,
-      isAi,
-      modelUsed: localMsg.modelUsed,
-      senderName: localMsg.senderName,
-      senderAvatar: localMsg.senderAvatar
+      senderName: playerName,
+      senderAvatar: avatar
     });
   };
 
-  const handleVoteExtendDebriefTime = (minutes = 1) => {
+  const handleVoteExtendDebriefTime = () => {
     if (!session?.id) return;
     playCountdownTick();
-    socket.emit('vote_extend_debrief_time', { sessionId: session.id, minutes: Number(minutes) || 1 });
+    socket.emit('vote_extend_debrief_time', session.id);
   };
 
   const handleUseJoker = () => {
@@ -763,7 +728,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
 
   const handleSendQuickMessage = (text) => {
     if (reactionCooldown > 0 || !session?.id) return;
-    
+
     playMessageSent();
     playReactionBurst();
 
@@ -888,15 +853,15 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const renderDiff = (expected, actual, isCorrect, isTypo) => {
     if (!actual) return <span style={{ color: 'var(--danger)' }}>(Aucune réponse)</span>;
     if (isCorrect || isTypo) return <span style={{ color: 'var(--success)' }}>{actual}</span>;
-    
+
     let matchCount = 0;
-    for(let i=0; i<Math.min(expected.length, actual.length); i++) {
-      if(expected[i].toLowerCase() === actual[i].toLowerCase()) matchCount++;
+    for (let i = 0; i < Math.min(expected.length, actual.length); i++) {
+      if (expected[i].toLowerCase() === actual[i].toLowerCase()) matchCount++;
     }
     if (matchCount < expected.length / 3) {
       return <span style={{ color: 'var(--danger)' }}>{actual}</span>;
     }
-    
+
     return (
       <span>
         {actual.split('').map((char, i) => {
@@ -910,19 +875,19 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const isBlurred = isPaused || leaveRequestState !== 'none' || disconnectGrace.disconnected;
 
   return (
-    <div style={{ 
-      maxWidth: isPedia ? '940px' : '800px', 
+    <div style={{
+      maxWidth: isPedia ? '940px' : '800px',
       width: '100%',
-      margin: '0 auto', 
-      textAlign: 'center', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      height: isPedia ? 'auto' : '100%', 
+      margin: '0 auto',
+      textAlign: 'center',
+      display: 'flex',
+      flexDirection: 'column',
+      height: isPedia ? 'auto' : '100%',
       minHeight: '100%',
-      position: 'relative', 
-      flex: 1 
+      position: 'relative',
+      flex: 1
     }}>
-      
+
       {/* Flash Effect Overlay */}
       {flashEffect && (
         <div style={{
@@ -1022,7 +987,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       {/* =========================================================
           1. LEAVE REQUEST MODALS (BLURRED OVERLAY)
          ========================================================= */}
-      
+
       {/* 1A. SENDER WAITING MODAL */}
       {leaveRequestState === 'pending' && !disconnectGrace.disconnected && (
         <div style={{
@@ -1056,7 +1021,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', margin: 0, lineHeight: 1.5 }}>
               La partie est mise en pause. En attente de la confirmation de votre adversaire...
             </p>
-            
+
             <div style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -1071,8 +1036,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
               <span>⏳</span> <span>Vous pouvez annuler à tout moment pour reprendre le jeu.</span>
             </div>
 
-            <button 
-              onClick={handleCancelTerminate} 
+            <button
+              onClick={handleCancelTerminate}
               className="btn btn-secondary"
               style={{
                 padding: '0.75rem 1.5rem',
@@ -1123,13 +1088,13 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', margin: 0, lineHeight: 1.5 }}>
               <strong style={{ color: 'var(--text-main)' }}>{formatPlayerName(leaveRequesterName)}</strong> souhaite arrêter et quitter la partie en cours.
             </p>
-            
+
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '0.5rem', flexWrap: 'wrap' }}>
-              <button 
-                onClick={handleAcceptTerminate} 
-                className="btn btn-primary" 
-                style={{ 
-                  background: 'var(--danger)', 
+              <button
+                onClick={handleAcceptTerminate}
+                className="btn btn-primary"
+                style={{
+                  background: 'var(--danger)',
                   borderColor: 'var(--danger)',
                   flex: 1,
                   minWidth: '140px',
@@ -1139,10 +1104,10 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
               >
                 ✅ Accepter & Quitter
               </button>
-              <button 
-                onClick={handleRefuseTerminate} 
+              <button
+                onClick={handleRefuseTerminate}
                 className="btn btn-secondary"
-                style={{ 
+                style={{
                   flex: 1,
                   minWidth: '140px',
                   padding: '0.75rem 1rem',
@@ -1655,13 +1620,13 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
         alignItems: 'center',
         zIndex: 60
       }}>
-        <button 
+        <button
           onClick={() => setIsQuickChatOpen(v => !v)}
-          style={{ 
-            background: isQuickChatOpen ? 'var(--primary)' : 'var(--bg-main)', 
-            border: `2px solid ${isQuickChatOpen ? 'var(--primary)' : 'var(--border-color)'}`, 
-            color: isQuickChatOpen ? '#ffffff' : 'var(--primary)', 
-            cursor: 'pointer', 
+          style={{
+            background: isQuickChatOpen ? 'var(--primary)' : 'var(--bg-main)',
+            border: `2px solid ${isQuickChatOpen ? 'var(--primary)' : 'var(--border-color)'}`,
+            color: isQuickChatOpen ? '#ffffff' : 'var(--primary)',
+            cursor: 'pointer',
             width: '38px',
             height: '38px',
             borderRadius: '50%',
@@ -1700,7 +1665,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               ⚡ Réactions en 1 clic
             </span>
-            <button 
+            <button
               onClick={() => setIsQuickChatOpen(false)}
               style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1rem', padding: '0 4px' }}
             >
@@ -1780,6 +1745,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           debriefQuestion={debriefQuestion || roundResult?.debriefQuestion}
           players={players}
           myPlayerId={socket.id}
+          isHost={session?.hostId === socket?.id}
           onReadyNext={handleReadyForNext}
           readyCount={readyCount.ready}
           totalPlayers={readyCount.total || Object.keys(players || {}).length}
@@ -1788,9 +1754,9 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           chatMessages={chatMessages}
           onSendChatMessage={handleSendPediaDebriefChat}
           onVoteExtendDebriefTime={handleVoteExtendDebriefTime}
-          extendVotes1m={extendVotes.votes1m}
-          extendVotes3m={extendVotes.votes3m}
+          extendVotesCount={extendVotes.count}
           extendTotalRequired={extendVotes.total}
+          hasVotedExtend={extendVotes.voters.includes(socket.id)}
           extendedRemainingSeconds={extendedRemainingSeconds}
         />
       )}
@@ -1810,288 +1776,290 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           opacity: isBlurred ? 0.6 : 1
         }}>
           {/* Central Game Card wrapped in BattleCard */}
-        <BattleCard
-          mode={isPedia ? 'pedia' : 'classic'}
-          isShaking={shakeInput}
-          pauseSlot={null}
-          timerSlot={
-            <GameTimerBadge
-              key={`round_${questionIndex}`}
-              questionIndex={questionIndex}
-              initialDuration={initialRoundDuration}
-              isFrozenOrPaused={isGameFrozenOrPaused || (isActive && (currentStep === 'TYPE_HUND' || currentStep === 'ARTICLE_WARNING'))}
-              hasAnswered={hasAnswered}
-              roundResult={roundResult}
-              onTimeout={() => {
-                if (!isActive) submitAnswer('');
-              }}
-              timeRef={timeRemainingRef}
-              playTimeWarning={playTimeWarning}
-            />
-          }
-          progressSlot={
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-              {streak >= 2 && (
-                <span className="duo-streak-badge" title={`Série de ${streak} bonnes réponses consécutives !`}>
-                  🔥 {streak}
-                </span>
-              )}
-              <span>{questionIndex + 1} / {totalQuestions}</span>
-            </div>
-          }
-          specialRuleSlot={
-            <div style={{ display: 'flex', gap: '1rem', width: '100%', justifyContent: 'center' }}>
-              {Object.values(players).map((p) => {
-                const isLeader = p.id === leaderId;
-                const isOvertaking = p.id === overtakerId;
-                return (
-                  <div 
-                    key={p.id} 
-                    className={`player-score ${isOvertaking ? 'leader-overtake' : ''}`} 
-                    style={{ color: p.id === socket?.id ? 'var(--primary)' : 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                  >
-                    {isLeader && <div className="leader-crown">👑</div>}
-                    <div 
-                      className="name" 
-                      onClick={() => setSelectedProfileUser(p)} 
-                      style={{ cursor: 'pointer', textDecoration: 'underline' }} 
-                      title="Voir le profil du joueur"
-                    >
-                      {formatPlayerName(p.name)} {p.id === socket?.id ? '(Vous)' : ''}
-                    </div>
-                    <div className="score" style={{ fontWeight: 'bold' }}>{p.score}</div>
-                  </div>
-                );
-              })}
-            </div>
-          }
-        >
-          {isPedia ? (
-            <PediaArenaCard
-              question={pediaQuestion}
-              questionIndex={questionIndex}
-              totalQuestions={totalQuestions}
-              onSubmitAnswer={handleSubmitPediaAnswer}
-              hasAnswered={hasAnswered}
-              opponentAnswered={opponentHasAnswered}
-              timeRemaining={timeRemainingRef.current}
-            />
-          ) : (
-            !roundResult ? (
-              questionType === 'matching_pairs' && matchingPairs ? (
-              <MatchingPairs 
-                key={`matching_pairs_${questionIndex}`}
-                pairs={matchingPairs} 
-                timeLimit={initialRoundDuration}
-                onSubmit={(success) => {
-                  if (hasAnsweredRef.current || isGameFrozenOrPausedRef.current) return;
-                  if (!success) return; // Server timer will handle timeout
-                  
-                  setHasAnswered(true);
-                  hasAnsweredRef.current = true;
-                  socket.emit('submit_matching_pairs', {
-                    sessionId: sessionRef.current?.id,
-                  });
+          <BattleCard
+            mode={isPedia ? 'pedia' : 'classic'}
+            isShaking={shakeInput}
+            pauseSlot={null}
+            timerSlot={
+              <GameTimerBadge
+                key={`round_${questionIndex}`}
+                questionIndex={questionIndex}
+                initialDuration={initialRoundDuration}
+                isFrozenOrPaused={isGameFrozenOrPaused || (isActive && (currentStep === 'TYPE_HUND' || currentStep === 'ARTICLE_WARNING'))}
+                hasAnswered={hasAnswered}
+                roundResult={roundResult}
+                onTimeout={() => {
+                  if (!isActive) submitAnswer('');
                 }}
+                timeRef={timeRemainingRef}
+                playTimeWarning={playTimeWarning}
               />
-            ) : (
-              <div style={{ display: 'block' }}>
-                <BattleConsole
-                  question={question || 'Chargement...'}
-                  inputValue={inputVal}
-                  onInputChange={setInputVal}
-                  onSubmit={handleSubmit}
-                  isDisabled={hasAnswered || isFrozen || isGameFrozenOrPaused}
-                  isError={false} // Handled by BattleCard isShaking
-                  adminAnswer={isAdmin ? (currentAnswer || session?.vocabList?.[questionIndex]?.answer || '') : null}
-                  inputPlaceholder={
-                    isActive
-                      ? (currentStep === 'TYPE_HUND' ? "Tape 'Hund' sans l'article..." : (currentStep === 'ARTICLE_WARNING' ? "Tape 'der Hund' avec l'article..." : (isFrozen ? "GELÉ..." : "Ex: der Tisch")))
-                      : (isFrozen ? "GELÉ..." : "Ex: der Tisch")
-                  }
-                  inputRef={inputRef}
-                  theme="default"
-                  useNativeKeyboard={useNativeKeyboard}
-                  topSlot={
-                    <h2 style={{ fontSize: '1rem', color: 'var(--text-muted)', marginBottom: '0.5rem', textAlign: 'center' }}>
-                      Traduisez en allemand :
-                    </h2>
-                  }
-                />
-
-                <div style={{ position: 'relative', display: 'inline-block', marginTop: '1rem' }}>
-                  <button 
-                    onClick={handleUseJoker} 
-                    disabled={jokers <= 0 || hasAnswered || jokerHint || isGameFrozenOrPaused} 
-                    style={{ 
-                      background: 'var(--warning)', 
-                      color: 'white', 
-                      border: 'none',
-                      width: '44px', 
-                      height: '44px', 
-                      borderRadius: '50%',
-                      display: 'flex',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      cursor: 'pointer',
-                      opacity: (jokers <= 0 || hasAnswered || jokerHint || isGameFrozenOrPaused) ? 0.5 : 1,
-                      boxShadow: '0 4px 10px rgba(245, 158, 11, 0.3)'
-                    }}
-                    title="Utiliser un Joker"
-                  >
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9 18h6"></path>
-                      <path d="M10 22h4"></path>
-                      <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .34 2.02 1.5 3.5.76.76 1.23 1.52 1.41 2.5"></path>
-                    </svg>
-                  </button>
-                  <span style={{ 
-                    position: 'absolute', 
-                    top: '-5px', 
-                    right: '-5px', 
-                    background: 'var(--danger)', 
-                    color: 'white',
-                    fontSize: '0.75rem', 
-                    fontWeight: 'bold',
-                    width: '20px',
-                    height: '20px',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    borderRadius: '50%',
-                    border: '2px solid var(--bg-main)'
-                  }}>
-                    {jokers}
+            }
+            progressSlot={
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                {streak >= 2 && (
+                  <span className="duo-streak-badge" title={`Série de ${streak} bonnes réponses consécutives !`}>
+                    🔥 {streak}
                   </span>
-                  {jokerHint && <div style={{ marginTop: '0.75rem', color: 'var(--warning)', fontSize: '1.1rem', fontWeight: 'bold' }}>Indice : {jokerHint}</div>}
-                </div>
-
-                {isFrozen && (
-                  <div style={{ background: 'rgba(56, 189, 248, 0.2)', color: 'var(--text-main)', padding: '0.75rem', borderRadius: '8px', marginTop: '1rem', border: '1px solid #38bdf8', fontSize: '0.9rem' }}>
-                    🥶 <strong>GELÉ !</strong> L'adversaire a répondu juste 3 fois de suite !
-                  </div>
                 )}
+                <span>{questionIndex + 1} / {totalQuestions}</span>
               </div>
-            )
-          ) : (
-            <div 
-              className="duo-result-card"
-              onClick={handleReadyForNext}
-              style={{ cursor: 'pointer' }}
-            >
-              {/* Duolingo Style Feedback Drawer */}
-              {(() => {
-                const myAns = roundResult.players?.[socket?.id]?.answers?.[questionIndex];
-                const isCorrect = myAns ? myAns.score >= 100 : false;
-                const isTypo = myAns?.isTypo;
-                const isMatching = questionType === 'matching_pairs';
-                
-                let bannerClass = 'duo-banner-error';
-                let bannerIcon = '❌';
-                let bannerTitle = 'Pas tout à fait...';
-                if (isMatching) {
-                  const wonMatching = myAns && myAns.score >= 100;
-                  bannerClass = wonMatching ? 'duo-banner-success' : 'duo-banner-neutral';
-                  bannerIcon = wonMatching ? '⚡' : '⌛';
-                  bannerTitle = wonMatching ? 'Course aux paires réussie !' : 'Temps écoulé pour les paires';
-                } else if (isCorrect) {
-                  bannerClass = 'duo-banner-success';
-                  bannerIcon = '✓';
-                  bannerTitle = streak >= 3 ? `En feu ! 🔥 Série de ${streak}` : 'Excellent !';
-                } else if (isTypo) {
-                  bannerClass = 'duo-banner-typo';
-                  bannerIcon = '⚡';
-                  bannerTitle = 'Presque ! Faute de frappe tolérée';
-                }
-
-                return (
-                  <div className={`duo-feedback-banner ${bannerClass}`}>
-                    <div className="duo-banner-header">
-                      <div className="duo-banner-status">
-                        <span className="duo-banner-icon">{bannerIcon}</span>
-                        <span className="duo-banner-title">{bannerTitle}</span>
-                      </div>
-                      {myAns && myAns.score > 0 && (
-                        <div className="duo-banner-xp">
-                          +{myAns.score} pts
-                        </div>
-                      )}
-                    </div>
-
-                    {!isMatching && roundResult.correctAnswer && (
-                      <div className="duo-banner-answer-row">
-                        <div className="duo-banner-answer-label">La bonne réponse :</div>
-                        <div className="duo-banner-answer-text">
-                          <span className="duo-answer-word">{roundResult.correctAnswer}</span>
-                          <button 
-                            type="button"
-                            className="duo-speaker-btn"
-                            onClick={(e) => { 
-                              e.stopPropagation(); 
-                              playAudio(roundResult.correctAnswer); 
-                            }}
-                            title="Réécouter la prononciation"
-                          >
-                            🔊
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-              
-              {/* Scores multi-joueurs */}
-              <div className="duo-players-list">
-                {Object.values(roundResult.players).map(p => {
-                  const playerAns = p.answers[questionIndex];
-                  const isPlayerCorrect = playerAns?.score >= 100;
-                  const isMe = p.id === socket?.id;
+            }
+            specialRuleSlot={
+              <div style={{ display: 'flex', gap: '1rem', width: '100%', justifyContent: 'center' }}>
+                {Object.values(players).map((p) => {
+                  const isLeader = p.id === leaderId;
+                  const isOvertaking = p.id === overtakerId;
                   return (
-                    <div key={p.id} className={`duo-player-row ${isMe ? 'is-me' : ''}`}>
-                      <div className="duo-player-name">
-                        {formatPlayerName(p.name)} {isMe ? '(Vous)' : ''}
+                    <div
+                      key={p.id}
+                      className={`player-score ${isOvertaking ? 'leader-overtake' : ''}`}
+                      style={{ color: p.id === socket?.id ? 'var(--primary)' : 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                      {isLeader && <div className="leader-crown">👑</div>}
+                      <div
+                        className="name"
+                        onClick={() => setSelectedProfileUser(p)}
+                        style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                        title="Voir le profil du joueur"
+                      >
+                        {formatPlayerName(p.name)} {p.id === socket?.id ? '(Vous)' : ''}
                       </div>
-                      <div className="duo-player-result">
-                        <span className="duo-player-diff">
-                          {renderDiff(roundResult.correctAnswer, playerAns?.answer, isPlayerCorrect, playerAns?.isTypo)}
-                        </span>
-                        {playerAns && (
-                          <span className="duo-player-score-tag">
-                            +{playerAns.score} pts
-                          </span>
-                        )}
-                      </div>
+                      <div className="score" style={{ fontWeight: 'bold' }}>{p.score}</div>
                     </div>
                   );
                 })}
               </div>
-              
-              {/* Bouton 3D Duolingo Continuer */}
-              <div className="duo-action-row">
-                <button
-                  type="button"
-                  className="duo-btn-continue"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleReadyForNext();
-                  }}
+            }
+          >
+            {isPedia ? (
+              <PediaArenaCard
+                question={pediaQuestion}
+                questionIndex={questionIndex}
+                totalQuestions={totalQuestions}
+                onSubmitAnswer={handleSubmitPediaAnswer}
+                hasAnswered={hasAnswered}
+                opponentAnswered={opponentHasAnswered}
+                timeRemaining={timeRemainingRef.current}
+              />
+            ) : (
+              !roundResult ? (
+                questionType === 'matching_pairs' && matchingPairs ? (
+                  <MatchingPairs
+                    key={`matching_pairs_${questionIndex}`}
+                    pairs={matchingPairs}
+                    timeLimit={initialRoundDuration}
+                    onSubmit={(success) => {
+                      if (hasAnsweredRef.current || isGameFrozenOrPausedRef.current) return;
+                      if (!success) return; // Server timer will handle timeout
+
+                      setHasAnswered(true);
+                      hasAnsweredRef.current = true;
+                      socket.emit('submit_matching_pairs', {
+                        sessionId: sessionRef.current?.id,
+                      });
+                    }}
+                  />
+                ) : (
+                  <div style={{ display: 'block' }}>
+                    <BattleConsole
+                      question={question || 'Chargement...'}
+                      inputValue={inputVal}
+                      onInputChange={setInputVal}
+                      onSubmit={handleSubmit}
+                      isDisabled={hasAnswered || isFrozen || isGameFrozenOrPaused}
+                      isError={false} // Handled by BattleCard isShaking
+                      adminAnswer={isAdmin ? (currentAnswer || session?.vocabList?.[questionIndex]?.answer || '') : null}
+                      inputPlaceholder={
+                        isActive
+                          ? (currentStep === 'TYPE_HUND' ? "Tape 'Hund' sans l'article..." : (currentStep === 'ARTICLE_WARNING' ? "Tape 'der Hund' avec l'article..." : (isFrozen ? "GELÉ..." : "Ex: der Tisch")))
+                          : (isFrozen ? "GELÉ..." : "Ex: der Tisch")
+                      }
+                      inputRef={inputRef}
+                      theme="default"
+                      useNativeKeyboard={useNativeKeyboard}
+                      topSlot={
+                        <h2 style={{ fontSize: '1rem', color: 'var(--text-muted)', marginBottom: '0.5rem', textAlign: 'center' }}>
+                          Traduisez en allemand :
+                        </h2>
+                      }
+                    />
+
+                    <div style={{ position: 'relative', display: 'inline-block', marginTop: '1rem' }}>
+                      <button
+                        onClick={handleUseJoker}
+                        disabled={jokers <= 0 || hasAnswered || jokerHint || isGameFrozenOrPaused}
+                        style={{
+                          background: 'var(--warning)',
+                          color: 'white',
+                          border: 'none',
+                          width: '44px',
+                          height: '44px',
+                          borderRadius: '50%',
+                          display: 'flex',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          cursor: 'pointer',
+                          opacity: (jokers <= 0 || hasAnswered || jokerHint || isGameFrozenOrPaused) ? 0.5 : 1,
+                          boxShadow: '0 4px 10px rgba(245, 158, 11, 0.3)'
+                        }}
+                        title="Utiliser un Joker"
+                      >
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M9 18h6"></path>
+                          <path d="M10 22h4"></path>
+                          <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .34 2.02 1.5 3.5.76.76 1.23 1.52 1.41 2.5"></path>
+                        </svg>
+                      </button>
+                      <span style={{
+                        position: 'absolute',
+                        top: '-5px',
+                        right: '-5px',
+                        background: 'var(--danger)',
+                        color: 'white',
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        width: '20px',
+                        height: '20px',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        borderRadius: '50%',
+                        border: '2px solid var(--bg-main)'
+                      }}>
+                        {jokers}
+                      </span>
+                      {jokerHint && <div style={{ marginTop: '0.75rem', color: 'var(--warning)', fontSize: '1.1rem', fontWeight: 'bold' }}>Indice : {jokerHint}</div>}
+                    </div>
+
+                    {isFrozen && (
+                      <div style={{ background: 'rgba(56, 189, 248, 0.2)', color: 'var(--text-main)', padding: '0.75rem', borderRadius: '8px', marginTop: '1rem', border: '1px solid #38bdf8', fontSize: '0.9rem' }}>
+                        🥶 <strong>GELÉ !</strong> L'adversaire a répondu juste 3 fois de suite !
+                      </div>
+                    )}
+                  </div>
+                )
+              ) : (
+                <div
+                  className="duo-result-card"
+                  onClick={handleReadyForNext}
+                  style={{ cursor: 'pointer' }}
                 >
-                  {iAmReady ? (
-                    readyCount.total > 1 ? (
-                      `En attente de l'adversaire (${readyCount.ready}/${readyCount.total})...`
-                    ) : 'Prêt !'
-                  ) : (
-                    'CONTINUER ➔'
-                  )}
-                </button>
-                <div className="duo-keyboard-hint">Appuyez sur Entrée ou touchez pour continuer</div>
-              </div>
-            </div>
-          )
-        )}
-        </BattleCard>
-      </div>
+                  {/* Duolingo Style Feedback Drawer */}
+                  {(() => {
+                    const myAns = roundResult.players?.[socket?.id]?.answers?.[questionIndex];
+                    const isCorrect = myAns ? myAns.score >= 100 : false;
+                    const isTypo = myAns?.isTypo;
+                    const isMatching = questionType === 'matching_pairs';
+
+                    let bannerClass = 'duo-banner-error';
+                    let bannerIcon = '❌';
+                    let bannerTitle = 'Pas tout à fait...';
+                    if (isMatching) {
+                      const wonMatching = myAns && myAns.score >= 100;
+                      bannerClass = wonMatching ? 'duo-banner-success' : 'duo-banner-neutral';
+                      bannerIcon = wonMatching ? '⚡' : '⌛';
+                      bannerTitle = wonMatching ? 'Course aux paires réussie !' : 'Temps écoulé pour les paires';
+                    } else if (isCorrect) {
+                      bannerClass = 'duo-banner-success';
+                      bannerIcon = '✓';
+                      bannerTitle = streak >= 3 ? `En feu ! 🔥 Série de ${streak}` : 'Excellent !';
+                    } else if (isTypo) {
+                      bannerClass = 'duo-banner-typo';
+                      bannerIcon = '⚡';
+                      bannerTitle = 'Presque ! Faute de frappe tolérée';
+                    }
+
+                    return (
+                      <div className={`duo-feedback-banner ${bannerClass}`}>
+                        <div className="duo-banner-header">
+                          <div className="duo-banner-status">
+                            <span className="duo-banner-icon">{bannerIcon}</span>
+                            <span className="duo-banner-title">{bannerTitle}</span>
+                          </div>
+                          {myAns && myAns.score > 0 && (
+                            <div className="duo-banner-xp">
+                              +{myAns.score} pts
+                            </div>
+                          )}
+                        </div>
+
+                        {!isMatching && roundResult.correctAnswer && (
+                          <div className="duo-banner-answer-row">
+                            <div className="duo-banner-answer-label">La bonne réponse :</div>
+                            <div className="duo-banner-answer-text">
+                              <span className="duo-answer-word">{roundResult.correctAnswer}</span>
+                              <button
+                                type="button"
+                                className="duo-speaker-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  playAudio(roundResult.correctAnswer);
+                                }}
+                                title="Réécouter la prononciation"
+                              >
+                                🔊
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Scores multi-joueurs */}
+                  <div className="duo-players-list">
+                    {Object.values(roundResult.players).map(p => {
+                      const playerAns = p.answers[questionIndex];
+                      const isPlayerCorrect = playerAns?.score >= 100;
+                      const isMe = p.id === socket?.id;
+                      return (
+                        <div key={p.id} className={`duo-player-row ${isMe ? 'is-me' : ''}`}>
+                          <div className="duo-player-name">
+                            {formatPlayerName(p.name)} {isMe ? '(Vous)' : ''}
+                          </div>
+                          <div className="duo-player-result">
+                            <span className="duo-player-diff">
+                              {renderDiff(roundResult.correctAnswer, playerAns?.answer, isPlayerCorrect, playerAns?.isTypo)}
+                            </span>
+                            {playerAns && (
+                              <span className="duo-player-score-tag">
+                                +{playerAns.score} pts
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Bouton 3D Duolingo Continuer */}
+                  <div className="duo-action-row">
+                    <button
+                      type="button"
+                      className="duo-btn-continue"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleReadyForNext();
+                      }}
+                    >
+                      {session?.hostId === socket?.id ? (
+                        '⚡ CONTINUER (Direct)'
+                      ) : iAmReady ? (
+                        readyCount.total > 1 ? (
+                          `En attente (${readyCount.ready}/${readyCount.total} votes)...`
+                        ) : 'Prêt !'
+                      ) : (
+                        'CONTINUER ➔'
+                      )}
+                    </button>
+                    <div className="duo-keyboard-hint">Appuyez sur Entrée ou touchez pour continuer</div>
+                  </div>
+                </div>
+              )
+            )}
+          </BattleCard>
+        </div>
       )}
 
       {/* Full-Screen Telegram Burst Floating Reactions Layer */}
