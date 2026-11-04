@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAudio } from '../context/AudioContext';
 import { useOnboarding } from '../context/OnboardingContext';
+import { APP_VERSION_NAME, APP_VERSION, GITHUB_REPO } from '../constants/version';
+import { checkForAppUpdate } from '../services/updateService';
 
 export default function Profil({
   user,
@@ -35,6 +37,28 @@ export default function Profil({
       localStorage.setItem('wana_use_native_keyboard', String(next));
       return next;
     });
+  };
+
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState(null);
+
+  const handleManualUpdateCheck = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateStatus(null);
+    try {
+      const info = await checkForAppUpdate({ silent: false });
+      if (info && info.updateAvailable) {
+        setUpdateStatus({ type: 'info', text: `✨ Mise à jour trouvée : v${info.latestVersion}` });
+        window.dispatchEvent(new CustomEvent('wana:show_update_modal', { detail: info }));
+      } else {
+        setUpdateStatus({ type: 'success', text: `✓ Votre version (v${APP_VERSION_NAME}) est à jour !` });
+      }
+    } catch (err) {
+      console.error('Erreur vérification manuelle:', err);
+      setUpdateStatus({ type: 'error', text: 'Impossible de joindre GitHub. Vérifiez votre connexion.' });
+    } finally {
+      setIsCheckingUpdate(false);
+    }
   };
 
 
@@ -431,6 +455,77 @@ export default function Profil({
                   boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
                   display: 'block'
                 }} />
+              </button>
+            </div>
+          </div>
+
+          {/* Mises à jour & Version de l'application */}
+          <div className="card" style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '0.9rem',
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(0, 240, 255, 0.04))',
+            borderColor: 'rgba(99, 102, 241, 0.35)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.6rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <span style={{ fontSize: '1.4rem' }}>🚀</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    Application & Mises à jour
+                    <span style={{
+                      fontSize: '0.72rem',
+                      background: 'rgba(99, 102, 241, 0.25)',
+                      color: 'var(--primary)',
+                      padding: '0.15rem 0.55rem',
+                      borderRadius: '10px',
+                      fontWeight: 800,
+                      border: '1px solid rgba(99, 102, 241, 0.4)'
+                    }}>
+                      v{APP_VERSION_NAME}
+                    </span>
+                  </h3>
+                  <div className="text-muted" style={{ fontSize: '0.82rem', marginTop: '0.15rem' }}>
+                    Vérification automatique à chaque ouverture depuis GitHub ({GITHUB_REPO})
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.8rem', paddingTop: '0.3rem' }}>
+              <div>
+                <div style={{ fontSize: '0.86rem', color: 'var(--text-main)', fontWeight: 600 }}>
+                  Version installée : <strong style={{ color: '#00f0ff' }}>Wana Allmand {APP_VERSION_NAME} (Build 2)</strong>
+                </div>
+                {updateStatus && (
+                  <div style={{ 
+                    fontSize: '0.82rem', 
+                    marginTop: '0.3rem', 
+                    fontWeight: 600,
+                    color: updateStatus.type === 'success' ? '#10b981' : updateStatus.type === 'error' ? '#ef4444' : '#6366f1' 
+                  }}>
+                    {updateStatus.text}
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleManualUpdateCheck}
+                disabled={isCheckingUpdate}
+                className="btn btn-secondary"
+                style={{
+                  padding: '0.55rem 1.2rem',
+                  fontSize: '0.88rem',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  borderColor: '#6366f1',
+                  color: '#6366f1'
+                }}
+              >
+                {isCheckingUpdate ? '⏳ Vérification...' : '🔄 Vérifier les mises à jour'}
               </button>
             </div>
           </div>

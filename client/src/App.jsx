@@ -10,11 +10,13 @@ import Layout from './components/Layout';
 import Admin from './components/Admin';
 import NotificationCenter from './components/NotificationCenter';
 import InviteModal from './components/InviteModal';
+import UpdateModal from './components/UpdateModal';
 import RightPanel from './components/RightPanel';
 import TitleScreen from './components/TitleScreen';
 import InstallGate from './components/InstallGate';
 import AppSplashScreen from './components/AppSplashScreen';
 import { exampleLists } from './data/exampleLists';
+import { checkForAppUpdate } from './services/updateService';
 import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
@@ -238,6 +240,35 @@ function App() {
   });
   const [survivalSession, setSurvivalSession] = useState(null); // { words: [...], title: '...' }
   const [tugOfWarSession, setTugOfWarSession] = useState(null); // { words: [...], title: '...', wager: 10 }
+  const [appUpdateInfo, setAppUpdateInfo] = useState(null);
+
+  // Vérification automatique des mises à jour sur GitHub Releases à chaque lancement de l'application
+  useEffect(() => {
+    let isMounted = true;
+    const timer = setTimeout(async () => {
+      try {
+        const info = await checkForAppUpdate({ silent: true });
+        if (isMounted && info && info.updateAvailable && !info.isDismissed) {
+          setAppUpdateInfo(info);
+        }
+      } catch (err) {
+        console.debug('[App] Erreur vérification mise à jour au démarrage:', err);
+      }
+    }, 2200);
+
+    const handleTriggerUpdateModal = (e) => {
+      if (e.detail) {
+        setAppUpdateInfo(e.detail);
+      }
+    };
+    window.addEventListener('wana:show_update_modal', handleTriggerUpdateModal);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+      window.removeEventListener('wana:show_update_modal', handleTriggerUpdateModal);
+    };
+  }, []);
 
   const handleStartSurvival = (wordsList, title = 'Mode Survie') => {
     const valid = (wordsList || []).filter(w => (w.question?.trim() || w.germanWord || w.word) && (w.answer?.trim() || w.frenchPrompt || w.question));
@@ -1493,6 +1524,14 @@ function App() {
 
       {/* Agentation visual feedback - Active in local dev OR for the confirmed administrator */}
       {(import.meta.env.DEV || isAdmin || standaloneDebug.isLocalDev) && <Agentation />}
+
+      {/* GitHub Releases App Update Dialog */}
+      {appUpdateInfo && (
+        <UpdateModal
+          updateInfo={appUpdateInfo}
+          onClose={() => setAppUpdateInfo(null)}
+        />
+      )}
     </>
   );
 }

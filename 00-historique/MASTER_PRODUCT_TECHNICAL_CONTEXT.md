@@ -162,23 +162,31 @@ Wana-Allmand-2/
 │   │   │   ├── TugOfWarBeam.jsx     # Jauge d'énergie Cyan vs Crimson
 │   │   │   ├── ParticleBurst.jsx    # Système de particules Canvas 60fps
 │   │   │   ├── TypoFallingVFX.jsx   # Effet de chute physique de lettres
-│   │   │   ├── Game.jsx             # Arène Duel & Classique
+│   │   │   ├── Game.jsx             # Arène Duel & Classique (Multijoueur 2-10)
 │   │   │   ├── VengeanceMode.jsx    # Mode Purification & Survie
+│   │   │   ├── UpdateModal.jsx      # Dialogue Glassmorphism de mise à jour GitHub
 │   │   │   ├── Home.jsx, Lobby.jsx, Results.jsx, Layout.jsx, Admin.jsx, Profil.jsx
-│   │   ├── context/             # AudioContext.jsx
+│   │   ├── constants/           # version.js (Constantes de version & repo GitHub)
+│   │   ├── context/             # AudioContext.jsx, OnboardingContext.jsx
+│   │   ├── services/            # geminiService.js (IA Clinique), updateService.js (Vérificateur GitHub)
 │   │   ├── utils/               # sfxManager.js, soundEngine.js, levenshtein.js, useSocketEvent.js
 │   │   ├── App.jsx              # Orchestrateur & Routeur principal
 │   │   ├── index.css            # Design System, Thèmes, Boutons 3D
 │   │   └── main.jsx
 ├── server/                      # Backend API & WebSocket (Node.js + Express)
-│   ├── game/                    # GameManager.js (Gestion sessions & Matchmaking)
+│   ├── game/                    # GameManager.js (Gestion sessions & Matchmaking 2-10)
 │   ├── models/                  # Schémas Mongoose (User, List, MatchSchedule, Notification, Config)
+│   ├── services/                # geminiServerService.js (IA Clinique 4 cartes & Tuteur)
 │   ├── utils/                   # diagnostics.js, levenshtein.js, pdfParser.js
 │   └── index.js                 # Serveur Express, Handlers Socket.IO
-├── android/                     # Projet Natif Android (Capacitor)
+├── client/android/              # Projet Natif Android (Capacitor 8.5)
 │   ├── app/src/main/            # Sources Java/Kotlin, AndroidManifest.xml
-│   └── app/build/outputs/apk/   # Dossier de génération des builds (.apk)
+│   └── app/build/outputs/apk/   # Dossier de génération des builds (app-debug.apk)
+├── WanaAllmand.apk              # Binaire APK Android prêt à installer (v2.0 / Build 2)
+├── RELEASE_NOTES_v2.0.md        # Notes de version officielles pour GitHub Releases
 └── 00-historique/               # Historiques quotidiens & Master Context
+    ├── MASTER_PRODUCT_TECHNICAL_CONTEXT.md # Contexte technique unique de vérité
+    ├── historique_YYYY-MM-DD.md # Journal quotidien daté
     ├── ENV_CONFIG.md            # Configuration et variables de production
     └── .env                     # Variables d'environnement de référence
 ```
@@ -511,22 +519,21 @@ L'application intègre désormais une architecture multi-univers sans régressio
   - **Chat Débriefing en Direct** :
     - Historique des messages des joueurs en temps réel.
     - Barre de 5 réactions rapides en 1 clic (`💡 Bravo !`, `😅 Pas évident`, `🏥 Cas typique`, etc.) et saisie personnalisée.
-  - **Option de Prolongation Temporelle Mutuelle (+1 min) & Passage à la Suite** :
-    - Bouton interactif `⏱️ +1 min` dans l'en-tête permettant d'ajouter 60 secondes au chronomètre de débriefing de manière illimitée, et bouton `Passer ➔` pour abréger la revue.
-    - **Privilège Exécutif de l'Hôte (Sans Vote)** : L'Hôte dispose d'un pouvoir d'exécution instantané. Un clic sur `⚡ Passer à la suite` ou `⚡ +1 min (Direct)` applique immédiatement l'action à l'ensemble du salon sans requérir de votes ni incrémenter de compteur.
+  - **Option de Prolongation Temporelle Mutuelle (+1 min & +3 min) & Passage à la Suite** :
+    - Deux boutons interactifs dans l'en-tête : `⏱️ +1 min` (+60 secondes) et `⏳ +3 min` (+180 secondes) permettant d'ajouter du temps de débriefing de manière illimitée, et bouton `Passer ➔` pour abréger la revue.
+    - **Privilège Exécutif de l'Hôte (Sans Vote)** : L'Hôte dispose d'un pouvoir d'exécution instantané. Un clic sur `⚡ Passer à la suite`, `⚡ +1 min (Direct)` ou `⚡ +3 min (Direct)` applique immédiatement l'action à l'ensemble du salon sans requérir de votes ni incrémenter de compteur.
     - **Règle de Vote des Invités (Seuil de la Moitié)** :
       - En duel ($\le 2$ joueurs) : l'unanimité reste requise (2/2).
-      - À plus de 2 joueurs ($> 2$) : il suffit que la **moitié** des joueurs vote selon la formule `Math.max(2, Math.floor(totalPlayers / 2))` (ex: 2/3, 2/4, 2/5, 3/6, 3/7, 4/8, 5/10). Dès que ce seuil est atteint, l'action est exécutée automatiquement.
+      - À plus de 2 joueurs ($> 2$) : il suffit que la **moitié** des joueurs vote selon la formule `Math.max(2, Math.floor(totalPlayers / 2))` (ex: 2/3, 2/4, 2/5, 3/6, 3/7, 4/8, 5/10). Dès que ce seuil est atteint pour l'une des durées (+1 min ou +3 min), l'extension correspondante est appliquée automatiquement.
     - **Feedback Visuel Intelligent** :
-      - Hôte : boutons distinctifs `⚡ Passer à la suite` et `⚡ +1 min (Direct)` avec lueur néon ambre.
-      - Invité ayant voté : état `En attente (votes/requis)` avec halo ambré.
-      - Invité n'ayant pas encore voté : bouton incitatif `Accepter +1 min ! (votes/requis)` avec lueur pulsante.
-      - En solo : 1 clic ajoute immédiatement +60 secondes.
+      - Hôte : boutons distinctifs `⚡ Passer à la suite`, `⚡ +1 min (Direct)` (doré) et `⚡ +3 min (Direct)` (violet) avec lueur néon.
+      - Invité ayant voté : état `En attente (votes/requis)` avec halo lumineux de la couleur correspondante.
+      - Invité n'ayant pas encore voté : bouton incitatif `Accepter +1 min ! (votes/requis)` ou `Accepter +3 min ! (votes/requis)` avec lueur pulsante.
+      - En solo : 1 clic ajoute immédiatement le temps sélectionné.
     - **Gestion Temps Réel** : Le serveur réarme `session.autoAdvanceTimer`, recalcule `session.resultEndTime`, réinitialise les votes pour les futures extensions, et réinitialise `session.readyPlayers` pour laisser aux étudiants le plein temps de discussion.
-
-
-
-
+  - **Explication & Raisonnement Clinique IA Structuré en 4 Cartes (`client/src/services/geminiService.js`)** :
+    - Intégration du moteur Gemini Flash médical avec cascade de résilience 100% Flash (`gemini-3-flash-preview`, `gemini-flash-lite-latest`, `gemini-3.1-flash-lite`, etc.) et nettoyeur LaTeX `cleanLatexMath`.
+    - Bouton d'action interactif `✨ Analyser par IA` et `🔄 Réanalyser` générant une note médicale complète automatiquement découpée en 4 cartes colorées distinctes :
       - 🎯 **Piège Clinique & Analyse de l'Erreur** (rose/ambre) : analyse de la confusion fréquente et du piège de l'énoncé.
       - 📋 **Justification Proposition par Proposition** (violet/indigo) : passage en revue exhaustif des propositions A à E.
       - 🩺 **Démarche Clinique & Raisonnement** (cyan/bleu) : sémiologie pas-à-pas et élimination des diagnostics différentiels.
@@ -537,6 +544,51 @@ L'application intègre désormais une architecture multi-univers sans régressio
     - Indicateur de frappe animé (`typing-indicator`) avec message d'attente pendant la génération de la réponse.
     - Formatage visuel distinctif des bulles IA (`.chat-bubble.bubble-ai`) avec badge du modèle utilisé et diffusion temps réel via Socket.IO (`game_chat_message` avec `isAi: true`) pour que tous les candidats profitent de l'explication du tuteur.
     - Bouton de réaction rapide : `🤖 Explique le piège !`.
+
+---
+
+## 11. SYSTÈME DE MISE À JOUR AUTOMATIQUE GITHUB RELEASES (WANA ALLMAND 2.0)
+
+### 11.1 Vision & Objectifs
+Afin de garantir que tous les utilisateurs sur Android (via APK) et sur PWA disposent systématiquement des dernières fonctionnalités (corrections médicales, modes de jeu, tuteur IA, optimisations), l'application intègre un vérificateur de version autonome connecté directement à l'API publique des Releases GitHub du dépôt officiel `lkmqji/Wana-Allmand-2`.
+
+### 11.2 Architecture Modulaire
+Le système repose sur trois couches découplées :
+
+1. **Constantes de Version (`client/src/constants/version.js`)** :
+   - `APP_VERSION = "2.0.0"` (chaîne SemVer stricte).
+   - `APP_VERSION_NAME = "2.0"` (libellé d'affichage).
+   - `APP_BUILD_NUMBER = 2` (identique au `versionCode` Android).
+   - `GITHUB_REPO = "lkmqji/Wana-Allmand-2"` (répertoire cible).
+
+2. **Moteur de Détection (`client/src/services/updateService.js`)** :
+   - **Comparateur SemVer (`compareVersions`)** : gère les versions préfixées par `v` (ex: `v2.0.1` vs `2.0.0`), segmente les numéros majeurs, mineurs et patchs, et détecte avec fiabilité si une mise à jour est requise.
+   - **Découverte d'Assets APK** : extrait automatiquement le premier asset de la release dont le nom se termine par `.apk`, récupère l'URL directe de téléchargement `browser_download_url`, le nom de fichier et la taille formatée en Mo.
+   - **Fallback d'API** : interroge d'abord `/repos/:repo/releases/latest`, et en cas de 404 ou release draft/pre-release, bascule sur la liste `/repos/:repo/releases` pour sélectionner la première release valide.
+   - **Gestion des Préférences (`localStorage`)** :
+     - `dismissUpdateVersion(version)` enregistre la clé `wana_dismissed_update_version`.
+     - Si une version a été rejetée par l'utilisateur, elle ne s'affiche plus automatiquement au lancement, mais reste détectable lors d'un contrôle manuel.
+   - **Ouverture Sécurisée (`openUpdateDownload`)** : déclenche le téléchargement direct sur Android et Web via `window.open(url, '_system')`.
+
+3. **Dialogue Visuel Glassmorphism (`client/src/components/UpdateModal.jsx`)** :
+   - Modale moderne et non-intrusive avec backdrop flouté (`backdrop-filter: blur(12px)`).
+   - Affiche les badges de comparaison : version actuelle vs nouvelle version.
+   - Affiche la taille de l'APK, la date de publication et les notes de version Markdown intégrées (`body` de la release).
+   - Bouton de téléchargement direct `⚡ Télécharger la mise à jour (.APK)` avec feedback immédiat.
+   - Actions secondaires : *Plus tard* et *Ignorer cette version*.
+
+4. **Points d'Entrée & Déclenchement** :
+   - **Au Démarrage (`App.jsx`)** : déclenchement transparent après une temporisation de 2.2s (`checkForAppUpdate({ silent: true })`).
+   - **Manuellement (`Profil.jsx`)** : carte *« Application & Mises à jour »* avec bouton *« 🔄 Vérifier les mises à jour »*, affichage du statut en temps réel et dispatch de l'événement personnalisé `window.dispatchEvent(new CustomEvent('wana:show_update_modal', { detail: info }))`.
+
+### 11.3 Packaging & Déploiement Android (Release v2.0)
+- **Configuration Gradle (`client/android/app/build.gradle`)** :
+  - `versionCode 2`
+  - `versionName "2.0"`
+- **Package Client (`client/package.json`)** : `"version": "2.0.0"`.
+- **Binaire Produit** : [WanaAllmand.apk](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/WanaAllmand.apk) (19.6 Mo) généré par `assembleDebug` et copié à la racine du workspace, prêt pour installation directe et upload sur les GitHub Releases.
+- **Notes Officielles** : [RELEASE_NOTES_v2.0.md](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/RELEASE_NOTES_v2.0.md).
+
 
 
 
