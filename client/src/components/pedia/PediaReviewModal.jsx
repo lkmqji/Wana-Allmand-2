@@ -119,6 +119,7 @@ export default function PediaReviewModal({
   myPlayerId,
   isHost = false,
   onReadyNext,
+  onForceNext,
   readyCount = 0,
   totalPlayers = 2,
   isReady = false,
@@ -482,131 +483,223 @@ export default function PediaReviewModal({
               <span>{timeLeft}s</span>
             </div>
 
-            {/* Extend Time Buttons (+1 min & +3 min with Mutual Voting or Host Privilege) */}
+            {/* Extend Time Buttons (+1 min & +3 min with Mutual Voting and Host Direct Force) */}
             {onVoteExtendDebriefTime && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                {/* +1 min Button */}
-                <button
-                  type="button"
-                  onClick={() => onVoteExtendDebriefTime(1)}
-                  className="btn-extend-debrief"
-                  style={{
-                    padding: '0.42rem 0.85rem',
-                    fontSize: '0.84rem',
-                    fontWeight: 800,
-                    borderRadius: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.35rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    background: isHost
-                      ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.35), rgba(234, 88, 12, 0.25))'
-                      : (hasVoted1m
-                        ? 'rgba(245, 158, 11, 0.22)'
-                        : (!hasVoted1m && count1m > 0 ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.35), rgba(234, 88, 12, 0.25))' : 'rgba(255, 255, 255, 0.08)')),
-                    color: (isHost || hasVoted1m)
-                      ? '#fbbf24'
-                      : (!hasVoted1m && count1m > 0 ? '#fef08a' : '#cbd5e1'),
-                    border: (isHost || hasVoted1m)
-                      ? '1.5px solid #f59e0b'
-                      : (!hasVoted1m && count1m > 0 ? '1.5px solid #fbbf24' : '1px solid rgba(255, 255, 255, 0.16)'),
-                    boxShadow: (isHost || hasVoted1m)
-                      ? '0 0 14px rgba(245, 158, 11, 0.45)'
-                      : (!hasVoted1m && count1m > 0 ? '0 0 18px rgba(245, 158, 11, 0.6)' : 'none')
-                  }}
-                  title={isHost ? "Ajouter instantanément 1 minute supplémentaire (Action Hôte sans vote)" : (totalPlayers > 1 ? `Voter pour ajouter 1 minute supplémentaire au débriefing (${extendTotalRequired} votes nécessaires)` : "Ajouter 1 minute supplémentaire au débriefing")}
-                >
-                  <span style={{ fontSize: '0.95rem' }}>⏱️</span>
-                  {isHost ? (
-                    <span>⚡ +1 min (Direct)</span>
-                  ) : totalPlayers <= 1 ? (
-                    <span>+1 min</span>
-                  ) : hasVoted1m ? (
-                    <span>En attente ({count1m}/{extendTotalRequired})</span>
-                  ) : (!hasVoted1m && count1m > 0) ? (
-                    <span>Accepter +1 min ! ({count1m}/{extendTotalRequired})</span>
-                  ) : (
-                    <span>+1 min ({count1m}/{extendTotalRequired})</span>
+                {/* +1 min Group */}
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  borderRadius: '12px',
+                  background: (hasVoted1m
+                    ? 'rgba(245, 158, 11, 0.22)'
+                    : (!hasVoted1m && count1m > 0 ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.35), rgba(234, 88, 12, 0.25))' : 'rgba(255, 255, 255, 0.08)')),
+                  border: (hasVoted1m
+                    ? '1.5px solid #f59e0b'
+                    : (!hasVoted1m && count1m > 0 ? '1.5px solid #fbbf24' : '1px solid rgba(255, 255, 255, 0.16)')),
+                  boxShadow: (hasVoted1m
+                    ? '0 0 14px rgba(245, 158, 11, 0.45)'
+                    : (!hasVoted1m && count1m > 0 ? '0 0 18px rgba(245, 158, 11, 0.6)' : 'none')),
+                  overflow: 'hidden'
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => onVoteExtendDebriefTime(1, false)}
+                    className="btn-extend-debrief"
+                    style={{
+                      padding: '0.42rem 0.75rem',
+                      fontSize: '0.84rem',
+                      fontWeight: 800,
+                      border: 'none',
+                      background: 'transparent',
+                      color: hasVoted1m ? '#fbbf24' : (!hasVoted1m && count1m > 0 ? '#fef08a' : '#cbd5e1'),
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.35rem'
+                    }}
+                    title={totalPlayers > 1 ? `Voter pour +1 min (${count1m}/${extendTotalRequired} requis)` : "Ajouter 1 minute"}
+                  >
+                    <span style={{ fontSize: '0.95rem' }}>⏱️</span>
+                    {totalPlayers <= 1 ? (
+                      <span>+1 min</span>
+                    ) : hasVoted1m ? (
+                      <span>En attente ({count1m}/{extendTotalRequired})</span>
+                    ) : (!hasVoted1m && count1m > 0) ? (
+                      <span>Accepter +1 min ! ({count1m}/{extendTotalRequired})</span>
+                    ) : (
+                      <span>+1 min ({count1m}/{extendTotalRequired})</span>
+                    )}
+                  </button>
+                  {isHost && totalPlayers > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => onVoteExtendDebriefTime(1, true)}
+                      style={{
+                        padding: '0.42rem 0.55rem',
+                        fontSize: '0.78rem',
+                        fontWeight: 900,
+                        border: 'none',
+                        borderLeft: '1px solid rgba(245, 158, 11, 0.4)',
+                        background: 'rgba(245, 158, 11, 0.28)',
+                        color: '#fbbf24',
+                        cursor: 'pointer'
+                      }}
+                      title="Action Hôte : Forcer +1 min immédiatement sans attendre les votes"
+                    >
+                      ⚡ Direct
+                    </button>
                   )}
-                </button>
+                </div>
 
-                {/* +3 min Button */}
-                <button
-                  type="button"
-                  onClick={() => onVoteExtendDebriefTime(3)}
-                  className="btn-extend-debrief"
-                  style={{
-                    padding: '0.42rem 0.85rem',
-                    fontSize: '0.84rem',
-                    fontWeight: 800,
-                    borderRadius: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.35rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    background: isHost
-                      ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.35), rgba(139, 92, 246, 0.25))'
-                      : (hasVoted3m
-                        ? 'rgba(168, 85, 247, 0.25)'
-                        : (!hasVoted3m && count3m > 0 ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.35), rgba(139, 92, 246, 0.25))' : 'rgba(255, 255, 255, 0.08)')),
-                    color: (isHost || hasVoted3m)
-                      ? '#c084fc'
-                      : (!hasVoted3m && count3m > 0 ? '#f3e8ff' : '#cbd5e1'),
-                    border: (isHost || hasVoted3m)
-                      ? '1.5px solid #a855f7'
-                      : (!hasVoted3m && count3m > 0 ? '1.5px solid #c084fc' : '1px solid rgba(255, 255, 255, 0.16)'),
-                    boxShadow: (isHost || hasVoted3m)
-                      ? '0 0 14px rgba(168, 85, 247, 0.45)'
-                      : (!hasVoted3m && count3m > 0 ? '0 0 18px rgba(168, 85, 247, 0.6)' : 'none')
-                  }}
-                  title={isHost ? "Ajouter instantanément 3 minutes supplémentaires (Action Hôte sans vote)" : (totalPlayers > 1 ? `Voter pour ajouter 3 minutes supplémentaires au débriefing (${extendTotalRequired} votes nécessaires)` : "Ajouter 3 minutes supplémentaires au débriefing")}
-                >
-                  <span style={{ fontSize: '0.95rem' }}>⏳</span>
-                  {isHost ? (
-                    <span>⚡ +3 min (Direct)</span>
-                  ) : totalPlayers <= 1 ? (
-                    <span>+3 min</span>
-                  ) : hasVoted3m ? (
-                    <span>En attente ({count3m}/{extendTotalRequired})</span>
-                  ) : (!hasVoted3m && count3m > 0) ? (
-                    <span>Accepter +3 min ! ({count3m}/{extendTotalRequired})</span>
-                  ) : (
-                    <span>+3 min ({count3m}/{extendTotalRequired})</span>
+                {/* +3 min Group */}
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  borderRadius: '12px',
+                  background: (hasVoted3m
+                    ? 'rgba(168, 85, 247, 0.25)'
+                    : (!hasVoted3m && count3m > 0 ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.35), rgba(139, 92, 246, 0.25))' : 'rgba(255, 255, 255, 0.08)')),
+                  border: (hasVoted3m
+                    ? '1.5px solid #a855f7'
+                    : (!hasVoted3m && count3m > 0 ? '1.5px solid #c084fc' : '1px solid rgba(255, 255, 255, 0.16)')),
+                  boxShadow: (hasVoted3m
+                    ? '0 0 14px rgba(168, 85, 247, 0.45)'
+                    : (!hasVoted3m && count3m > 0 ? '0 0 18px rgba(168, 85, 247, 0.6)' : 'none')),
+                  overflow: 'hidden'
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => onVoteExtendDebriefTime(3, false)}
+                    className="btn-extend-debrief"
+                    style={{
+                      padding: '0.42rem 0.75rem',
+                      fontSize: '0.84rem',
+                      fontWeight: 800,
+                      border: 'none',
+                      background: 'transparent',
+                      color: hasVoted3m ? '#c084fc' : (!hasVoted3m && count3m > 0 ? '#f3e8ff' : '#cbd5e1'),
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.35rem'
+                    }}
+                    title={totalPlayers > 1 ? `Voter pour +3 min (${count3m}/${extendTotalRequired} requis)` : "Ajouter 3 minutes"}
+                  >
+                    <span style={{ fontSize: '0.95rem' }}>⏳</span>
+                    {totalPlayers <= 1 ? (
+                      <span>+3 min</span>
+                    ) : hasVoted3m ? (
+                      <span>En attente ({count3m}/{extendTotalRequired})</span>
+                    ) : (!hasVoted3m && count3m > 0) ? (
+                      <span>Accepter +3 min ! ({count3m}/{extendTotalRequired})</span>
+                    ) : (
+                      <span>+3 min ({count3m}/{extendTotalRequired})</span>
+                    )}
+                  </button>
+                  {isHost && totalPlayers > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => onVoteExtendDebriefTime(3, true)}
+                      style={{
+                        padding: '0.42rem 0.55rem',
+                        fontSize: '0.78rem',
+                        fontWeight: 900,
+                        border: 'none',
+                        borderLeft: '1px solid rgba(168, 85, 247, 0.4)',
+                        background: 'rgba(168, 85, 247, 0.28)',
+                        color: '#c084fc',
+                        cursor: 'pointer'
+                      }}
+                      title="Action Hôte : Forcer +3 min immédiatement sans attendre les votes"
+                    >
+                      ⚡ Direct
+                    </button>
                   )}
-                </button>
+                </div>
               </div>
             )}
 
             {/* Ready / Skip Button */}
-            <button
-              type="button"
-              onClick={onReadyNext}
-              disabled={!isHost && isReady}
-              className={`btn ${isReady && !isHost ? 'btn-success' : 'btn-primary'}`}
-              style={{
-                padding: '0.55rem 1.25rem',
-                fontSize: '0.92rem',
-                fontWeight: 900,
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                boxShadow: isReady && !isHost ? '0 0 16px rgba(16, 185, 129, 0.6)' : '0 0 16px rgba(0, 212, 255, 0.45)',
-                transition: 'all 0.2s ease',
-                cursor: (!isHost && isReady) ? 'default' : 'pointer'
-              }}
-              title={isHost ? "Passer immédiatement à la question suivante (Action Hôte sans vote)" : "Voter pour passer à la suite"}
-            >
-              {isHost ? (
-                `⚡ Passer à la suite`
-              ) : isReady ? (
-                `✓ Prêt (${readyCount}/${totalPlayers})`
-              ) : (
-                `Passer ➔ (${readyCount}/${totalPlayers})`
-              )}
-            </button>
+            {isHost && totalPlayers > 1 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                {/* Host Normal Vote Button */}
+                <button
+                  type="button"
+                  onClick={onReadyNext}
+                  className={`btn ${isReady ? 'btn-success' : 'btn-secondary'}`}
+                  style={{
+                    padding: '0.52rem 0.95rem',
+                    fontSize: '0.88rem',
+                    fontWeight: 800,
+                    borderRadius: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    background: isReady ? 'rgba(16, 185, 129, 0.22)' : 'rgba(255, 255, 255, 0.08)',
+                    border: isReady ? '1.5px solid #10b981' : '1px solid rgba(255, 255, 255, 0.2)',
+                    color: isReady ? '#34d399' : '#e2e8f0',
+                    boxShadow: isReady ? '0 0 14px rgba(16, 185, 129, 0.45)' : 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  title="Voter pour passer à la suite (votre vote compte dans le total requis)"
+                >
+                  {isReady ? `✓ Prêt (${readyCount}/${totalPlayers})` : `Voter Prêt (${readyCount}/${totalPlayers})`}
+                </button>
+
+                {/* Host Direct Executive Skip Button */}
+                <button
+                  type="button"
+                  onClick={onForceNext || (() => onReadyNext(true))}
+                  className="btn btn-primary"
+                  style={{
+                    padding: '0.52rem 1.1rem',
+                    fontSize: '0.88rem',
+                    fontWeight: 900,
+                    borderRadius: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                    border: '1.5px solid #38bdf8',
+                    color: '#ffffff',
+                    boxShadow: '0 0 16px rgba(14, 165, 233, 0.45)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  title="Action Hôte : Forcer immédiatement le passage à la question suivante pour tous sans attendre les votes"
+                >
+                  <span>⚡</span>
+                  <span>Passer direct</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={onReadyNext}
+                className={`btn ${isReady ? 'btn-success' : 'btn-primary'}`}
+                style={{
+                  padding: '0.55rem 1.25rem',
+                  fontSize: '0.92rem',
+                  fontWeight: 900,
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  boxShadow: isReady ? '0 0 16px rgba(16, 185, 129, 0.6)' : '0 0 16px rgba(0, 212, 255, 0.45)',
+                  transition: 'all 0.2s ease',
+                  cursor: 'pointer'
+                }}
+                title={totalPlayers <= 1 ? "Passer à la question suivante" : "Voter pour passer à la suite"}
+              >
+                {totalPlayers <= 1
+                  ? `Passer à la suite ➔`
+                  : isReady
+                    ? `✓ Prêt (${readyCount}/${totalPlayers})`
+                    : `Passer ➔ (${readyCount}/${totalPlayers})`}
+              </button>
+            )}
           </div>
         </div>
 

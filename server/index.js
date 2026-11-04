@@ -1955,7 +1955,9 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('ready_for_next', (sessionId) => {
+    socket.on('ready_for_next', (payload) => {
+        const sessionId = typeof payload === 'string' ? payload : payload?.sessionId;
+        const force = typeof payload === 'object' ? Boolean(payload?.force) : false;
         const session = gameManager.getSession(sessionId);
         if (!session || session.status !== 'showing_results') return;
 
@@ -1963,8 +1965,10 @@ io.on('connection', (socket) => {
         const totalPlayers = Math.max(1, Object.keys(session.players || {}).length);
         const requiredVotes = totalPlayers <= 2 ? totalPlayers : Math.max(2, Math.floor(totalPlayers / 2));
 
-        // Host executes directly without vote!
-        if (isHost) {
+        if (!session.readyPlayers) session.readyPlayers = new Set();
+
+        // Host executive force action (or solo)
+        if ((isHost && force) || totalPlayers <= 1) {
             clearTimeout(session.autoAdvanceTimer);
             session.status = 'playing';
             session.readyPlayers = new Set();
@@ -1974,14 +1978,22 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // Non-host player vote
-        if (!session.readyPlayers) session.readyPlayers = new Set();
-        session.readyPlayers.add(socket.id);
+        // Vote: both host and guests participate in voting
+        if (session.readyPlayers.has(socket.id)) {
+            session.readyPlayers.delete(socket.id); // Toggle vote off if clicked again
+        } else {
+            session.readyPlayers.add(socket.id);
+        }
 
         const readyCount = session.readyPlayers.size;
 
-        // Broadcast how many are ready vs required threshold
-        io.to(sessionId).emit('ready_count', { ready: readyCount, total: requiredVotes, totalPlayers });
+        // Broadcast to everyone (including the host)
+        io.to(sessionId).emit('ready_count', {
+            ready: readyCount,
+            total: requiredVotes,
+            totalPlayers,
+            voters: Array.from(session.readyPlayers)
+        });
 
         if (readyCount >= requiredVotes) {
             clearTimeout(session.autoAdvanceTimer);
@@ -1993,10 +2005,25 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Dedicated host event to force advance immediately without vote
+    socket.on('force_next_question', (sessionId) => {
+        const session = gameManager.getSession(sessionId);
+        if (!session || session.status !== 'showing_results') return;
+        if (session.hostId !== socket.id) return; // Host only
+
+        clearTimeout(session.autoAdvanceTimer);
+        session.status = 'playing';
+        session.readyPlayers = new Set();
+        session.extendVotes = { 1: new Set(), 3: new Set() };
+        session.extendTimeVotes = new Set();
+        sendNextQuestion(sessionId);
+    });
+
     // PédiaDrill: Mutual vote or direct host action to extend debriefing time (+1 minute or +3 minutes)
     socket.on('vote_extend_debrief_time', (payload) => {
         let sessionId = typeof payload === 'string' ? payload : payload?.sessionId;
         let minutes = (typeof payload === 'object' && payload?.minutes) ? Number(payload.minutes) : 1;
+        let force = (typeof payload === 'object' && payload?.force) ? Boolean(payload.force) : false;
         if (minutes !== 1 && minutes !== 3) minutes = 1;
 
         const session = gameManager.getSession(sessionId);
@@ -2017,8 +2044,8 @@ io.on('connection', (socket) => {
         let executeExtension = false;
         let consensusMinutes = minutes;
 
-        if (isHost) {
-            // Host executes directly without vote!
+        if ((isHost && force) || totalPlayers <= 1) {
+            // Host forced extension or solo: execute directly!
             executeExtension = true;
             consensusMinutes = minutes;
         } else {

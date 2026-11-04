@@ -616,3 +616,9 @@ Historiquement, la sortie en cours de partie reposait exclusivement sur une nég
 3. **Sécurité d'Abandon Mutuel** :
    - Dans la vue d'attente d'accord mutuel (`leaveRequestState === 'pending'`), un bouton de secours « 🚪 Quitter direct » permet d'abandonner sans attendre la réponse adverse.
    - L'acceptation de l'arrêt mutuel (`accept_terminate`) diffuse désormais `session_closed` à toute la salle et détruit proprement la session.
+
+
+### 4.8 Gestion des Votes Inter-Questions pour l'Hôte (Visibilité & Double Action)
+- **Visibilité Temps Réel** : L'hôte dispose de la même visibilité que les invités sur tous les décomptes de votes en attente (`readyCount/totalPlayers` et `votesCount/requiredVotes`).
+- **Option de Vote Régulier** : L'hôte peut participer au vote démocratique en cliquant sur `Voter Prêt` ou sur les extensions `+1 min` / `+3 min`. Son vote incrémente le seuil requis et est répercuté à l'ensemble du salon.
+- **Option Exécutive (Bypass Sans Vote)** : En mode multijoueur, l'hôte dispose en parallèle de boutons exécutifs dédiés (`⚡ Passer direct` et `⚡ Direct`) permettant d'abréger ou de prolonger instantanément sans attendre les votes.

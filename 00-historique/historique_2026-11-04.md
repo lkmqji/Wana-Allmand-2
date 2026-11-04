@@ -72,3 +72,36 @@
    - Syntaxe Node.js vérifiée avec 0 erreur (`node -c server/index.js`).
    - Compilation de production Vite / PWA réussie (`npm.cmd --prefix client run build`) : 120 modules compilés en 997ms, Service Worker PWA régénéré.
    - Synchronisation des assets Capacitor Android validée (`npx.cmd cap sync android`).
+
+
+---
+
+### 2026-11-04 23:25 — Affichage des Votes pour l'Hôte et Double Option (Voter ou Passer Sans Vote) Entre les Questions
+
+#### Contexte & Problème
+- Entre les questions (pendant la phase de débriefing en mode pédiatrie ou sur le bandeau de score en mode allemand), l'hôte de la salle multijoueur ne voyait pas les votes des participants :
+  - Sur le bouton de passage, seul le libellé fixe `⚡ Passer à la suite` était affiché pour l'hôte, masquant le compteur de participants prêts (`readyCount/totalPlayers`).
+  - Sur les boutons de prolongation (+1 min et +3 min), seul `⚡ +1 min (Direct)` et `⚡ +3 min (Direct)` s'affichaient, sans indication des votes en cours.
+  - Côté serveur, tout clic de l'hôte sur `ready_for_next` ou `vote_extend_debrief_time` était automatiquement interprété comme un passage en force unilatéral, interdisant à l'hôte de simplement voter pour participer au décompte collectif.
+
+#### Correctifs apportés
+1. **Visibilité Totale des Votes pour l'Hôte ([client/src/components/pedia/PediaReviewModal.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/pedia/PediaReviewModal.jsx) & [client/src/components/Game.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/Game.jsx))** :
+   - L'hôte voit désormais en temps réel les compteurs dynamiques de votes sur tous les boutons :
+     - Bouton de passage : `Voter Prêt (X/Y)` / `✓ Prêt (X/Y)`.
+     - Prolongation +1 min : `+1 min (X/Y)` / `En attente (X/Y)`.
+     - Prolongation +3 min : `+3 min (X/Y)` / `En attente (X/Y)`.
+2. **Capacité pour l'Hôte de Voter Normalement** :
+   - Lorsque l'hôte clique sur le bouton de passage ou sur les boutons +1 min / +3 min, son vote est enregistré dans `session.readyPlayers` et `session.extendVotes` aux côtés des autres participants.
+   - Les statistiques sont instantanément rediffusées à tous les clients (`ready_count` et `debrief_extend_votes`), synchronisant l'état `isReady` de l'hôte.
+   - Si le seuil requis est atteint grâce au vote de l'hôte, l'action s'exécute de façon collective.
+3. **Maintien du Privilège Exécutif Hôte ("Passer sans vote" / Forcer le passage)** :
+   - **Passage à la question suivante** : Un bouton dédié `⚡ Passer direct` est affiché à côté du bouton de vote pour l'hôte en multijoueur. Il permet de forcer immédiatement la suite sans attendre les votes des retardataires.
+   - **Prolongations temporelles** : Un bouton intégré `⚡ Direct` est juxtaposé sur les pilules +1 min et +3 min, permettant à l'hôte d'injecter immédiatement le temps sans attendre le consensus.
+4. **Logique Serveur ([server/index.js](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/server/index.js))** :
+   - Mise à niveau de `ready_for_next` pour distinguer un vote régulier (`force: false`) d'un forçage direct (`force: true` ou événement `force_next_question`).
+   - Prise en charge du paramètre `force` dans `vote_extend_debrief_time` pour permettre soit le vote normal de l'hôte, soit l'application directe.
+   - Synchronisation temps réel des listes de votants (`voters`) transmises dans les événements Socket.IO.
+5. **Validation** :
+   - Syntaxe Node.js vérifiée sans erreur (`node -c server/index.js`).
+   - Compilation de production Vite / PWA validée (`npm.cmd --prefix client run build`) : 120 modules compilés en 912ms.
+   - Synchronisation des assets Capacitor Android validée.

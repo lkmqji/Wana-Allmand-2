@@ -527,6 +527,9 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
         playCountdownTick();
       }
       setReadyCount(data);
+      if (Array.isArray(data?.voters)) {
+        setIAmReady(data.voters.includes(socket?.id));
+      }
     };
 
     const onGameChatMessage = (msg) => {
@@ -713,10 +716,14 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     });
   };
 
-  const handleVoteExtendDebriefTime = (minutes = 1) => {
+  const handleVoteExtendDebriefTime = (minutes = 1, force = false) => {
     if (!session?.id) return;
     playCountdownTick();
-    socket.emit('vote_extend_debrief_time', { sessionId: session.id, minutes: Number(minutes) || 1 });
+    socket.emit('vote_extend_debrief_time', {
+      sessionId: session.id,
+      minutes: Number(minutes) || 1,
+      force: Boolean(force)
+    });
   };
 
   const handleUseJoker = () => {
@@ -737,11 +744,22 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     setInputVal('');
   };
 
-  const handleReadyForNext = () => {
-    if (iAmReady || isGameFrozenOrPaused) return;
-    setIAmReady(true);
+  const handleReadyForNext = (force = false) => {
+    if (isGameFrozenOrPaused) return;
+    if (force) {
+      playCountdownTick();
+      socket.emit('force_next_question', session?.id);
+      socket.emit('ready_for_next', { sessionId: session?.id, force: true });
+      return;
+    }
+    const nextState = !iAmReady;
+    setIAmReady(nextState);
     playCountdownTick();
-    socket.emit('ready_for_next', session?.id);
+    socket.emit('ready_for_next', { sessionId: session?.id, force: false });
+  };
+
+  const handleForceNext = () => {
+    handleReadyForNext(true);
   };
 
   // Leave Actions
@@ -1901,6 +1919,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
           myPlayerId={socket.id}
           isHost={session?.hostId === socket?.id}
           onReadyNext={handleReadyForNext}
+          onForceNext={handleForceNext}
           readyCount={readyCount.ready}
           totalPlayers={readyCount.total || Object.keys(players || {}).length}
           isReady={iAmReady}
@@ -2191,24 +2210,61 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
 
                   {/* Bouton 3D Duolingo Continuer */}
                   <div className="duo-action-row">
-                    <button
-                      type="button"
-                      className="duo-btn-continue"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleReadyForNext();
-                      }}
-                    >
-                      {session?.hostId === socket?.id ? (
-                        '⚡ CONTINUER (Direct)'
-                      ) : iAmReady ? (
-                        readyCount.total > 1 ? (
-                          `En attente (${readyCount.ready}/${readyCount.total} votes)...`
-                        ) : 'Prêt !'
-                      ) : (
-                        'CONTINUER ➔'
-                      )}
-                    </button>
+                    {session?.hostId === socket?.id && (readyCount.total > 1 || Object.keys(players || {}).length > 1) ? (
+                      <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className="duo-btn-continue"
+                          style={{
+                            background: iAmReady ? 'rgba(16, 185, 129, 0.25)' : undefined,
+                            borderColor: iAmReady ? '#10b981' : undefined
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReadyForNext(false);
+                          }}
+                        >
+                          {iAmReady
+                            ? `✓ Prêt (${readyCount.ready}/${readyCount.total || 2})`
+                            : `Voter Prêt (${readyCount.ready}/${readyCount.total || 2})`}
+                        </button>
+                        <button
+                          type="button"
+                          className="duo-btn-continue"
+                          style={{
+                            background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                            borderColor: '#38bdf8',
+                            color: '#ffffff'
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleForceNext();
+                          }}
+                          title="Passer immédiatement à la suite sans attendre les votes"
+                        >
+                          ⚡ Passer direct
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="duo-btn-continue"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleReadyForNext(false);
+                        }}
+                      >
+                        {session?.hostId === socket?.id ? (
+                          'CONTINUER ➔'
+                        ) : iAmReady ? (
+                          readyCount.total > 1 ? (
+                            `En attente (${readyCount.ready}/${readyCount.total} votes)...`
+                          ) : 'Prêt !'
+                        ) : (
+                          'CONTINUER ➔'
+                        )}
+                      </button>
+                    )}
                     <div className="duo-keyboard-hint">Appuyez sur Entrée ou touchez pour continuer</div>
                   </div>
                 </div>
