@@ -105,7 +105,7 @@ const GameTimerBadge = React.memo(function GameTimerBadge({
 });
 
 
-export default function Game({ socket, session, playerName = '', avatar = '🦊', chatMessages = [], setChatMessages, isAdmin = false }) {
+export default function Game({ socket, session, playerName = '', avatar = '🦊', chatMessages = [], setChatMessages, isAdmin = false, setView, onLeaveGame }) {
   const {
     playMessageSent,
     playReactionBurst,
@@ -162,6 +162,27 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   // 'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'refused'
   const [leaveRequestState, setLeaveRequestState] = useState('none');
   const [leaveRequesterName, setLeaveRequesterName] = useState('');
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false);
+
+  // Quitter immédiatement la partie (Solo ou Multi) sans rester bloqué
+  const handleDirectLeave = () => {
+    try {
+      if (session?.id) {
+        socket?.emit('leave_session', session.id);
+      }
+    } catch (err) {
+      console.error('Error leaving session:', err);
+    }
+    if (setChatMessages) setChatMessages([]);
+    setShowQuitConfirm(false);
+    if (onLeaveGame) {
+      onLeaveGame();
+    } else if (setView) {
+      setView('home');
+    } else {
+      window.dispatchEvent(new CustomEvent('wana:leave_to_home'));
+    }
+  };
   const [leaveRequestCountdown, setLeaveRequestCountdown] = useState(30);
 
   const [floatingReactions, setFloatingReactions] = useState([]);
@@ -736,6 +757,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const handleAcceptTerminate = () => {
     socket.emit('accept_terminate', session?.id);
     setLeaveRequestState('none');
+    handleDirectLeave();
   };
 
   const handleRefuseTerminate = () => {
@@ -1072,21 +1094,41 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
               <span>⏳</span> <span>Vous pouvez annuler à tout moment pour reprendre le jeu.</span>
             </div>
 
-            <button
-              onClick={handleCancelTerminate}
-              className="btn btn-secondary"
-              style={{
-                padding: '0.75rem 1.5rem',
-                fontSize: '0.95rem',
-                fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem'
-              }}
-            >
-              <span>✖️</span> Annuler la demande & Reprendre
-            </button>
+            <div style={{ display: 'flex', gap: '0.6rem', width: '100%' }}>
+              <button
+                type="button"
+                onClick={handleCancelTerminate}
+                className="btn btn-secondary"
+                style={{
+                  flex: 1,
+                  padding: '0.75rem 0.8rem',
+                  fontSize: '0.88rem',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem'
+                }}
+              >
+                <span>✖️</span> Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleDirectLeave}
+                className="btn"
+                style={{
+                  flex: 1,
+                  padding: '0.75rem 0.8rem',
+                  fontSize: '0.88rem',
+                  fontWeight: 'bold',
+                  background: 'rgba(239, 68, 68, 0.18)',
+                  border: '1px solid var(--danger)',
+                  color: '#f87171'
+                }}
+              >
+                🚪 Quitter direct
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1158,6 +1200,79 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
       )}
 
       {/* =========================================================
+          1C. CONFIRMATION DE SORTIE IMMÉDIATE (QUIT CONFIRM)
+         ========================================================= */}
+      {showQuitConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.85)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          zIndex: 1050,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '1.2rem',
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <div className="card" style={{
+            maxWidth: '440px',
+            width: '100%',
+            padding: '1.8rem',
+            textAlign: 'center',
+            border: '2px solid rgba(239, 68, 68, 0.5)',
+            boxShadow: '0 25px 50px -12px rgba(239, 68, 68, 0.3)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem',
+            borderRadius: '16px'
+          }}>
+            <div style={{ fontSize: '2.8rem' }}>🚪</div>
+            <h2 style={{ fontSize: '1.35rem', margin: 0, color: 'var(--text-main)', fontWeight: 800 }}>
+              Quitter la partie ?
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0, lineHeight: 1.5 }}>
+              Êtes-vous sûr de vouloir quitter le match en cours ? Vous quitterez la session et retournerez immédiatement à l'accueil.
+            </p>
+
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setShowQuitConfirm(false)}
+                className="btn btn-secondary"
+                style={{
+                  flex: 1,
+                  padding: '0.75rem 1rem',
+                  fontSize: '0.9rem',
+                  fontWeight: 700
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleDirectLeave}
+                className="btn"
+                style={{
+                  flex: 1,
+                  padding: '0.75rem 1rem',
+                  fontSize: '0.9rem',
+                  fontWeight: 800,
+                  background: 'var(--danger, #ef4444)',
+                  borderColor: 'var(--danger, #ef4444)',
+                  color: '#ffffff',
+                  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)'
+                }}
+              >
+                Oui, Quitter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================
           2. IN-GAME PAUSE & CHAT MODAL (BLURRED OVERLAY)
          ========================================================= */}
       {isPaused && leaveRequestState === 'none' && !disconnectGrace.disconnected && (
@@ -1201,7 +1316,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
               <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
                 <button
                   type="button"
-                  onClick={handleRequestTerminate}
+                  onClick={() => setShowQuitConfirm(true)}
                   className="btn btn-secondary"
                   style={{
                     width: 'auto',
@@ -1212,7 +1327,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
                     borderColor: 'rgba(239, 68, 68, 0.45)',
                     background: 'rgba(239, 68, 68, 0.12)'
                   }}
-                  title="Demander à sortir / quitter la partie"
+                  title="Quitter la partie"
                 >
                   🚪 Quitter
                 </button>
@@ -1619,7 +1734,10 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
             {/* Quitter */}
             <button
               type="button"
-              onClick={handleRequestTerminate}
+              onClick={() => {
+                setIsPauseMenuOpen(false);
+                setShowQuitConfirm(true);
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',

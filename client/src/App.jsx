@@ -115,6 +115,18 @@ function App() {
 
   const [view, setView] = useState('home'); // home, lobby, game, results
 
+  // Écouteur global pour quitter immédiatement une partie vers l'accueil
+  useEffect(() => {
+    const handleLeaveToHome = () => {
+      setSession(null);
+      setPlayers({});
+      setChatMessages([]);
+      setView('home');
+    };
+    window.addEventListener('wana:leave_to_home', handleLeaveToHome);
+    return () => window.removeEventListener('wana:leave_to_home', handleLeaveToHome);
+  }, []);
+
   // PrǸ-chauffage immǸdiat du backend pour rǸduire le temps de dǸmarrage du lobby (Cold-Start mitigation)
   useEffect(() => {
     fetch(`${API_URL}/health`, { method: 'GET', keepalive: true }).catch(() => {});
@@ -1255,6 +1267,13 @@ function App() {
             chatMessages={chatMessages} 
             setChatMessages={setChatMessages} 
             isAdmin={isAdmin}
+            setView={setView}
+            onLeaveGame={() => {
+              setSession(null);
+              setPlayers({});
+              setChatMessages([]);
+              setView('home');
+            }}
           />
         </div>
       );

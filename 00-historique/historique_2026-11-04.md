@@ -40,3 +40,35 @@
 - **Vérification syntaxique Node.js** : `node -c server/index.js server/services/geminiServerService.js` validée avec 0 erreur (Code 0).
 - **Compilation de production Vite / PWA** : `npm.cmd --prefix client run build` validée à 100% avec 120 modules compilés en 1.22s, Service Worker PWA généré sans erreur.
 - **Synchronisation Master Context** : `00-historique/MASTER_PRODUCT_TECHNICAL_CONTEXT.md` mis à jour et aligné sur l'architecture active.
+
+
+
+---
+
+### 2026-11-04 23:10 — Résolution du Dysfonctionnement du Bouton "🚪 Quitter" en Cours de Partie
+
+#### Problème identifié
+- Lorsqu'un utilisateur mettait le jeu en pause et cliquait sur le bouton **« 🚪 Quitter »** dans le bandeau de pause (ou dans le menu déroulant en haut à gauche), la partie ne se fermait pas ou l'utilisateur restait bloqué dans le jeu.
+- **Causes racines** :
+  1. Dans `client/src/components/Game.jsx`, le clic sur `🚪 Quitter` appelait `handleRequestTerminate` qui émettait uniquement l'événement socket `request_terminate` sans proposer de sortie directe ou de confirmation.
+  2. Côté serveur (`server/index.js`), en mode pédiatrique solo (`gameType === 'pedia'`), `session.vocabList` est vide (`[]`), donc `session.currentQuestionIndex = session.vocabList.length` fixait l'index à 0. L'appel consécutif à `sendNextQuestion` ré-incrémentait l'index à 1, ce qui relançait la question suivante et désactivait la pause sans jamais terminer la partie.
+  3. En mode multijoueur, le joueur était enfermé dans une attente passive d'approbation adverse (« En attente de la confirmation de votre adversaire... »), sans possibilité d'abandonner unilatéralement si l'adversaire était inactif.
+  4. Le composant `Game` dans `client/src/App.jsx` ne recevait ni `setView` ni `onLeaveGame`, interdisant toute redirection directe vers l'accueil (`home`).
+
+#### Correctifs apportés
+1. **Composant Moteur de Jeu ([client/src/components/Game.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/Game.jsx))** :
+   - Réception des props `setView` et `onLeaveGame`.
+   - Ajout d'une fenêtre modale de confirmation dédiée (`showQuitConfirm`) : clic sur « 🚪 Quitter » ou « Quitter la partie » ouvre une invite claire avec « Annuler » ou « Oui, Quitter ».
+   - Implémentation de `handleDirectLeave()` : émet `leave_session` au serveur, vide les messages de chat, et redirige instantanément l'utilisateur vers la vue d'accueil (`setView('home')` et dispatch de sécurité `wana:leave_to_home`).
+   - Dans la modale de demande d'arrêt mutuel en attente, ajout d'un bouton de secours « 🚪 Quitter direct » permettant d'abandonner immédiatement sans attendre le joueur adverse.
+   - Sécurisation de `handleAcceptTerminate` avec exécution de `handleDirectLeave()`.
+2. **Composant Racine ([client/src/App.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/App.jsx))** :
+   - Transmission des props `setView={setView}` et du callback de nettoyage `onLeaveGame` à `<Game />`.
+   - Ajout d'un écouteur d'événement global `window.addEventListener('wana:leave_to_home')` pour garantir un retour à l'accueil fiable et le reset complet des états de session.
+3. **Serveur Backend ([server/index.js](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/server/index.js))** :
+   - Correction de `request_terminate` : si la session est solo (ou si session introuvable), arrêt immédiat des minuteurs, invocation de `handlePlayerLeave` et émission de `session_closed` (compatible à 100% avec les modes allemand et pédiatrique).
+   - Prise en charge propre de `accept_terminate` : diffusion de `session_closed` à l'ensemble du salon avec message d'interruption mutuelle et destruction de session.
+4. **Validation Technique** :
+   - Syntaxe Node.js vérifiée avec 0 erreur (`node -c server/index.js`).
+   - Compilation de production Vite / PWA réussie (`npm.cmd --prefix client run build`) : 120 modules compilés en 997ms, Service Worker PWA régénéré.
+   - Synchronisation des assets Capacitor Android validée (`npx.cmd cap sync android`).

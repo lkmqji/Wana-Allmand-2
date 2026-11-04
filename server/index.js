@@ -1888,14 +1888,18 @@ io.on('connection', (socket) => {
 
     socket.on('request_terminate', (sessionId) => {
         const session = gameManager.getSession(sessionId);
-        if (!session) return;
-        const playerIds = Object.keys(session.players);
+        if (!session) {
+            socket.emit('session_closed', { message: 'Session introuvable.' });
+            return;
+        }
+        const playerIds = Object.keys(session.players || {});
         if (playerIds.length <= 1) {
-            // Solo: End immediately
+            // Solo: End immediately and close session cleanly
             clearTimeout(session.roundTimer);
             clearTimeout(session.autoAdvanceTimer);
-            session.currentQuestionIndex = session.vocabList.length;
-            sendNextQuestion(sessionId);
+            clearTimeout(session.startGameTimer);
+            handlePlayerLeave(sessionId, socket.id);
+            socket.emit('session_closed', { message: 'Partie terminée.' });
         } else {
             // Multi: pause game for both with blur and emit terminate request
             pauseGame(sessionId, 'leave_request', socket.id);
@@ -1923,7 +1927,17 @@ io.on('connection', (socket) => {
     });
 
     socket.on('accept_terminate', (sessionId) => {
-        handlePlayerLeave(sessionId, socket.id);
+        const session = gameManager.getSession(sessionId);
+        if (session) {
+            clearTimeout(session.roundTimer);
+            clearTimeout(session.autoAdvanceTimer);
+            clearTimeout(session.startGameTimer);
+            io.to(sessionId).emit('session_closed', {
+                message: "La partie a été interrompue d'un commun accord.",
+                reason: 'mutual_terminate'
+            });
+            gameManager.destroySession(sessionId);
+        }
     });
 
     socket.on('refuse_terminate', (sessionId) => {

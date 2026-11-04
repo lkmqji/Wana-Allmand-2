@@ -593,3 +593,26 @@ Le système repose sur trois couches découplées :
 
 
 
+
+
+---
+
+## 12. GESTION DES ABANDONS ET SORTIE DE JEU (QUIT & LEAVE ENGINE)
+
+### 12.1 Problématique & Cas Limites
+Historiquement, la sortie en cours de partie reposait exclusivement sur une négociation d'arrêt mutuel via l'événement Socket.IO `request_terminate`. Ce mécanisme présentait des défaillances critiques :
+- **Mode Solo Pédiatrique** : `session.vocabList` étant vide en mode pédiatrie (`pediaQuestions`), la réinitialisation de `currentQuestionIndex` à `session.vocabList.length` fixait l'index à 0. L'incrémentation consécutive dans `nextQuestion` relançait la question suivante, débloquait la pause et empêchait toute terminaison.
+- **Blocage Multijoueur** : En multijoueur, l'utilisateur demandeur était suspendu à la décision de son adversaire sans possibilité d'abandonner unilatéralement.
+- **Routage UI** : Le composant `Game.jsx` n'avait pas accès à la méthode de navigation `setView` de `App.jsx`.
+
+### 12.2 Architecture de Sortie Découplée & Résiliente
+1. **Modale de Confirmation (`showQuitConfirm`) dans `Game.jsx`** :
+   - Tout clic sur « 🚪 Quitter » (bandeau de pause) ou « Quitter la partie » (menu d'actions) affiche une invite modale claire évitant les clics accidentels.
+   - Propose deux options : *Annuler* ou *Oui, Quitter*.
+2. **Méthode d'Abandon Direct (`handleDirectLeave`)** :
+   - Émet `leave_session` pour que le serveur exécute `handlePlayerLeave(sessionId, socket.id)` (nettoyage de la présence en ligne, suppression propre du joueur, fermeture de session ou continuation pour les autres participants).
+   - Nettoie les messages de chat locaux.
+   - Redirige immédiatement l'interface vers l'accueil via la prop `onLeaveGame` / `setView('home')` et le dispatch d'événement global `wana:leave_to_home`.
+3. **Sécurité d'Abandon Mutuel** :
+   - Dans la vue d'attente d'accord mutuel (`leaveRequestState === 'pending'`), un bouton de secours « 🚪 Quitter direct » permet d'abandonner sans attendre la réponse adverse.
+   - L'acceptation de l'arrêt mutuel (`accept_terminate`) diffuse désormais `session_closed` à toute la salle et détruit proprement la session.
