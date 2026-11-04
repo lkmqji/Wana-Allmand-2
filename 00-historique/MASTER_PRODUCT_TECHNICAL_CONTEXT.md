@@ -544,6 +544,13 @@ L'application intègre désormais une architecture multi-univers sans régressio
     - Indicateur de frappe animé (`typing-indicator`) avec message d'attente pendant la génération de la réponse.
     - Formatage visuel distinctif des bulles IA (`.chat-bubble.bubble-ai`) avec badge du modèle utilisé et diffusion temps réel via Socket.IO (`game_chat_message` avec `isAi: true`) pour que tous les candidats profitent de l'explication du tuteur.
     - Bouton de réaction rapide : `🤖 Explique le piège !`.
+  - **Tuteur IA dans le Menu de Pause en Pleine Partie (`client/src/components/Game.jsx` & `client/src/services/geminiService.js`)** :
+    - Activation directe du Tuteur IA pendant la pause en cours de partie via un toggle interactif `[🤖 Tuteur IA : ACTIF ✨ / OFF]` ou par la commande `/ia [question]`.
+    - Méthode dédiée `geminiService.askPauseTutor({ gameType, userPrompt, contextQuestion, contextWord })` avec cascade résiliente 100% Flash (`gemini-3-flash-preview` ➔ `gemini-flash-lite-latest` ➔ `gemini-2.5-flash`) et nettoyeur LaTeX `cleanLatexMath`.
+    - Support contextuel bi-mode :
+      - **En Pédiatrie** : injecte le cas clinique actuel, les 5 propositions, la bonne réponse et l'explication officielle du QCM. Chips de prompts rapides : `🩺 Explique ce cas clinique`, `⚡ Quel est le piège clé ?`, `💡 Rappelle la conduite à tenir`.
+      - **En Allemand** : injecte le mot actif, son genre (`der/die/das`), sa traduction et son contexte d'apprentissage. Chips de prompts rapides : `💡 Astuce mnémotechnique`, `📖 Exemple de phrase`, `🔍 Règle du genre der/die/das`.
+    - Rendu visuel soigné dans l'historique du chat de pause : bulles satinées sombres à lueur cyan/violette, badge du modèle Gemini Flash utilisé, bulle de statut dynamique `isPauseAiThinking` avec spinner rotatif `⚡`, et diffusion temps réel à tous les joueurs de la session via Socket.IO (`game_chat_message`).
 
 ---
 

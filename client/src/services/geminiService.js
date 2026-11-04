@@ -510,6 +510,58 @@ Consignes pédagogiques strictes :
       };
     }
   }
+
+  /**
+   * Tuteur IA au menu de Pause (Flash models)
+   * Répond aux questions posées pendant la pause en tenant compte du mot ou du cas clinique en cours
+   */
+  async askPauseTutor(context = {}, conversationHistory = [], userMessage = "") {
+    const isPedia = context.gameType === 'pedia';
+
+    if (isPedia) {
+      const q = context.pediaQuestion || {};
+      return this.askAboutQuestion(q, conversationHistory, userMessage);
+    }
+
+    // Contexte du jeu d'Allemand
+    const currentWord = context.germanWord || {};
+    const germanWord = currentWord.answer || currentWord.word || '';
+    const frenchWord = currentWord.question || currentWord.translation || '';
+
+    const systemInstruction = `Tu es le Tuteur IA Allemand de Wana Allmand, professeur dynamique, encourageant et expert en langue allemande.
+Le joueur est actuellement en pleine partie de vocabulaire allemand (le match est mis en pause).
+Contexte de la manche en cours :
+${frenchWord ? `- Mot français demandé : "${frenchWord}"\n` : ''}${germanWord ? `- Traduction allemande attendue : "${germanWord}"\n` : ''}
+Consignes pédagogiques strictes :
+1. Réponds en français clair, concis, bienveillant et structuré (2 à 5 lignes maximum pour une lecture rapide en pause).
+2. Si le mot est un nom, explique le genre (der / die / das) et rappelle une règle mnémotechnique (ex: -ung, -heit, -keit sont toujours féminins die).
+3. Donne un court exemple de phrase pratique (Beispielsatz) en allemand avec sa traduction française si pertinent.
+4. Si l'utilisateur pose une question de grammaire générale ou sur une autre tournure, réponds précisément et va droit au but.
+5. Mets les mots allemands et règles importantes en **gras**.`;
+
+    let promptWithContext = '';
+    if (!conversationHistory || conversationHistory.length === 0) {
+      promptWithContext = `Question du joueur pendant la pause : "${userMessage}"`;
+    } else {
+      const historyStr = conversationHistory.slice(-4).map(m => `${m.role === 'user' ? 'Joueur' : 'Tuteur IA'} : ${m.text}`).join('\n\n');
+      promptWithContext = `Historique de la pause :\n${historyStr}\n\nNouvelle question du joueur : "${userMessage}"`;
+    }
+
+    try {
+      const result = await this.callWithFallback(promptWithContext, systemInstruction, 1500);
+      return {
+        text: cleanLatexMath(result.text),
+        modelUsed: result.modelUsed
+      };
+    } catch (err) {
+      console.warn("askPauseTutor failed:", err);
+      const hint = germanWord ? `Rappel pour cette manche : **${germanWord}** (${frenchWord})` : 'Bonne reprise de la partie !';
+      return {
+        text: `⚠️ **Tuteur Hors-Ligne** : ${hint}`,
+        modelUsed: "Secours Local"
+      };
+    }
+  }
 }
 
 export const geminiService = new GeminiService();

@@ -105,3 +105,45 @@
    - Syntaxe Node.js vérifiée sans erreur (`node -c server/index.js`).
    - Compilation de production Vite / PWA validée (`npm.cmd --prefix client run build`) : 120 modules compilés en 912ms.
    - Synchronisation des assets Capacitor Android validée.
+
+
+---
+
+### 2026-11-04 23:38 — Activation du Tuteur IA Conversationnel dans le Menu de Pause en Pleine Partie
+
+#### Contexte & Besoin
+- En cours de partie (lorsque le jeu est mis en pause via le bouton dédié ou le menu déroulant), les joueurs disposent d'un espace de discussion dans la modale de pause.
+- Le besoin exprimé est de pouvoir **interroger le Tuteur IA directement pendant la pause** pour demander des éclaircissements sur la question en cours, une astuce mnémotechnique, la règle d'un genre en allemand (`der/die/das`) ou une explication clinique en pédiatrie sans attendre la fin du match.
+
+#### Réalisations & Implémentation Technique
+1. **Service IA Frontend ([client/src/services/geminiService.js](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/services/geminiService.js))** :
+   - Ajout de la méthode `askPauseTutor({ gameType, userPrompt, contextQuestion, contextWord })`.
+   - Utilisation de la cascade résiliente Flash (`gemini-3-flash-preview` ➔ `gemini-flash-lite-latest` ➔ `gemini-2.5-flash`).
+   - Injection dynamique du contexte :
+     - **Mode Pédiatrie** : Intitulé de la question active, cas clinique, propositions de réponses, bonne réponse et explications médicales associées.
+     - **Mode Allemand** : Mot allemand en cours d'apprentissage, son article (`der/die/das`), sa traduction française et phrase d'exemple.
+   - Formatage médical/pédagogique clair sans balises LaTeX mathématiques superflues (`cleanLatexMath`).
+
+2. **Composant de Jeu ([client/src/components/Game.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/Game.jsx))** :
+   - Importation du service `geminiService`.
+   - Déclaration des états d'activation du tuteur :
+     - `isPauseAiMode` : Bascule de l'interface de pause en mode Tuteur IA actif.
+     - `isPauseAiThinking` : Indicateur visuel de réflexion et de génération en cours.
+   - Enrichissement de `handleSendPauseChat(e, overrideText)` :
+     - Détection automatique du mode IA (bouton toggle ou commande `/ia [question]` / `/ai [question]`).
+     - Émission instantanée de la question sur le chat partagé pour que tous les participants de la salle voient la demande.
+     - Interrogation asynchrone du Tuteur IA avec contexte de la question en cours.
+     - Émission et affichage de la réponse IA avec l'identité `🤖 Tuteur IA` et le badge du modèle utilisé (`modelUsed`).
+   - Améliorations de l'Interface Utilisateur (UI/UX du modal de pause) :
+     - **Bouton Toggle Néon** : `[🤖 Tuteur IA : ACTIF ✨ / OFF]` avec lueur cyan/violette.
+     - **Chips de prompts rapides contextualisés** :
+       - En Pédiatrie : `🩺 Explique ce cas clinique`, `⚡ Quel est le piège clé ?`, `💡 Rappelle la conduite à tenir`.
+       - En Allemand : `💡 Astuce mnémotechnique`, `📖 Exemple de phrase`, `🔍 Règle du genre der/die/das`.
+     - **Bulles de messages IA immersives** : En-tête avec avatar `⚡`, nom du tuteur, badge de modèle, fond sombre satiné (`rgba(15, 23, 42, 0.95)`), bordure cyan lumineuse et texte multi-lignes préservé (`whiteSpace: 'pre-wrap'`).
+     - **Indicateur de chargement animé** : Affichage d'une bulle pulsante `🤖 Tuteur IA analyse votre question... ⚡` pendant la réponse de l'IA.
+     - **Champ de saisie adaptatif** : Placeholder dynamique `"Demander au Tuteur IA..."` et bouton d'action `"Demander 🤖"`.
+
+3. **Validation & Synchronisation** :
+   - **Syntaxe Node.js** : `node -c server/index.js server/services/geminiServerService.js` validée avec 0 erreur.
+   - **Compilation Vite / PWA** : `npm.cmd --prefix client run build` validée avec succès (120 modules compilés en 4.15s, PWA sw.js généré).
+   - **Synchronisation Capacitor Android** : `npx.cmd cap sync android` exécuté avec succès (assets web synchronisés dans `android/app/src/main/assets/public`).

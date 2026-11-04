@@ -11,6 +11,7 @@ import VirtualKeyboard from './VirtualKeyboard';
 import MatchingPairs from './MatchingPairs';
 import PediaArenaCard from './pedia/PediaArenaCard';
 import PediaReviewModal from './pedia/PediaReviewModal';
+import geminiService from '../services/geminiService';
 
 const PRESET_PHRASES = [
   "💥 Ouch!",
@@ -196,6 +197,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const [isQuickChatOpen, setIsQuickChatOpen] = useState(false);
   const [quickChatInput, setQuickChatInput] = useState('');
   const [pauseChatInput, setPauseChatInput] = useState('');
+  const [isPauseAiMode, setIsPauseAiMode] = useState(false);
+  const [isPauseAiThinking, setIsPauseAiThinking] = useState(false);
   const [floatingBubbles, setFloatingBubbles] = useState([]);
   const pauseChatEndRef = useRef(null);
 
@@ -893,17 +896,22 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     setQuickChatInput('');
   };
 
-  const handleSendPauseChat = (e) => {
-    e.preventDefault();
-    if (!pauseChatInput.trim() || !session?.id) return;
+  const handleSendPauseChat = async (e, overrideText = null) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const rawText = (overrideText !== null ? overrideText : pauseChatInput).trim();
+    if (!rawText || !session?.id) return;
     playMessageSent();
+
+    const isAiSlash = rawText.toLowerCase().startsWith('/ia ') || rawText.toLowerCase().startsWith('/ai ');
+    const isTargetingAi = isPauseAiMode || isAiSlash;
+    const cleanUserPrompt = isAiSlash ? rawText.replace(/^\/(?:ia|ai)\s+/i, '').trim() : rawText;
 
     const localMsg = {
       id: Math.random().toString(36).substring(2, 9) + Date.now(),
       senderId: socket?.id,
       senderName: playerName || 'Vous',
       senderAvatar: avatar || '🦊',
-      text: pauseChatInput.trim(),
+      text: rawText,
       preset: false,
       timestamp: Date.now()
     };
@@ -919,11 +927,74 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
 
     socket.emit('game_chat_message', {
       sessionId: session?.id,
-      text: pauseChatInput.trim(),
+      text: rawText,
       preset: false,
       id: localMsg.id
     });
-    setPauseChatInput('');
+
+    if (overrideText === null) {
+      setPauseChatInput('');
+    }
+
+    if (isTargetingAi && cleanUserPrompt) {
+      setIsPauseAiThinking(true);
+      try {
+        const isPedia = session?.gameType === 'pedia';
+        const contextQuestion = isPedia ? (pediaQuestion || debriefQuestion || roundResult?.debriefQuestion || session?.currentQuestion || null) : null;
+        const contextWord = !isPedia ? (session?.vocabList?.[questionIndex] || null) : null;
+
+        const aiRes = await geminiService.askPauseTutor({
+          gameType: session?.gameType || 'german',
+          userPrompt: cleanUserPrompt,
+          contextQuestion,
+          contextWord
+        });
+
+        const aiSenderName = isPedia ? '🤖 Tuteur IA Pédiatrique' : '🤖 Tuteur IA Allemand';
+        const aiMsg = {
+          id: 'ai_' + Math.random().toString(36).substring(2, 9) + Date.now(),
+          senderId: 'ai_tutor',
+          senderName: aiSenderName,
+          senderAvatar: '⚡',
+          text: aiRes.reply,
+          preset: false,
+          isAi: true,
+          modelUsed: aiRes.model || 'Gemini Flash',
+          timestamp: Date.now()
+        };
+
+        if (setChatMessages) {
+          setChatMessages(prev => [...prev, aiMsg]);
+        }
+
+        socket.emit('game_chat_message', {
+          sessionId: session?.id,
+          text: aiRes.reply,
+          preset: false,
+          isAi: true,
+          modelUsed: aiRes.model || 'Gemini Flash',
+          senderName: aiSenderName,
+          senderAvatar: '⚡',
+          id: aiMsg.id
+        });
+      } catch (err) {
+        console.error('Erreur Tuteur IA Pause:', err);
+        const errorMsg = {
+          id: 'ai_err_' + Date.now(),
+          senderId: 'ai_tutor',
+          senderName: '🤖 Tuteur IA',
+          senderAvatar: '⚠️',
+          text: "Désolé, je n'ai pas pu générer l'explication pour l'instant. Réessayez dans un instant !",
+          isAi: true,
+          timestamp: Date.now()
+        };
+        if (setChatMessages) {
+          setChatMessages(prev => [...prev, errorMsg]);
+        }
+      } finally {
+        setIsPauseAiThinking(false);
+      }
+    }
   };
 
   const renderDiff = (expected, actual, isCorrect, isTypo) => {
@@ -1391,36 +1462,62 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
               ) : (
                 chatMessages.map(m => {
                   const isMe = m.senderId === socket.id;
+                  const isAiMsg = Boolean(m.isAi || m.senderId === 'ai_tutor');
                   return (
                     <div
                       key={m.id}
                       style={{
                         display: 'flex',
                         flexDirection: 'column',
-                        alignItems: isMe ? 'flex-end' : 'flex-start',
-                        maxWidth: '85%',
-                        alignSelf: isMe ? 'flex-end' : 'flex-start'
+                        alignItems: isAiMsg ? 'stretch' : (isMe ? 'flex-end' : 'flex-start'),
+                        maxWidth: isAiMsg ? '96%' : '85%',
+                        alignSelf: isAiMsg ? 'center' : (isMe ? 'flex-end' : 'flex-start'),
+                        width: isAiMsg ? '100%' : 'auto'
                       }}
                     >
                       <div style={{
                         fontSize: '0.7rem',
-                        color: 'var(--text-muted)',
+                        color: isAiMsg ? '#38bdf8' : 'var(--text-muted)',
                         marginBottom: '0.15rem',
                         display: 'flex',
                         alignItems: 'center',
+                        justifyContent: isAiMsg ? 'space-between' : 'flex-start',
                         gap: '0.25rem'
                       }}>
-                        <span>{m.senderAvatar || '👤'}</span>
-                        <span>{isMe ? 'Vous' : formatPlayerName(m.senderName)}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <span>{m.senderAvatar || (isAiMsg ? '⚡' : '👤')}</span>
+                          <span style={{ fontWeight: isAiMsg ? 700 : 500 }}>
+                            {isAiMsg ? (m.senderName || '🤖 Tuteur IA') : (isMe ? 'Vous' : formatPlayerName(m.senderName))}
+                          </span>
+                        </div>
+                        {isAiMsg && m.modelUsed && (
+                          <span style={{
+                            fontSize: '0.62rem',
+                            background: 'rgba(56, 189, 248, 0.15)',
+                            color: '#38bdf8',
+                            border: '1px solid rgba(56, 189, 248, 0.3)',
+                            padding: '1px 6px',
+                            borderRadius: '10px'
+                          }}>
+                            {m.modelUsed}
+                          </span>
+                        )}
                       </div>
                       <div style={{
-                        padding: '0.45rem 0.75rem',
-                        borderRadius: isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-                        background: isMe ? 'var(--primary)' : 'var(--bg-surface)',
-                        color: isMe ? '#ffffff' : 'var(--text-main)',
-                        border: isMe ? 'none' : '1px solid var(--border-color)',
+                        padding: isAiMsg ? '0.65rem 0.85rem' : '0.45rem 0.75rem',
+                        borderRadius: isAiMsg ? '12px' : (isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px'),
+                        background: isAiMsg
+                          ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95))'
+                          : (isMe ? 'var(--primary)' : 'var(--bg-surface)'),
+                        color: isAiMsg ? '#f1f5f9' : (isMe ? '#ffffff' : 'var(--text-main)'),
+                        border: isAiMsg
+                          ? '1px solid rgba(56, 189, 248, 0.4)'
+                          : (isMe ? 'none' : '1px solid var(--border-color)'),
+                        boxShadow: isAiMsg ? '0 4px 14px rgba(56, 189, 248, 0.12)' : 'none',
                         fontSize: '0.85rem',
-                        wordBreak: 'break-word'
+                        lineHeight: isAiMsg ? '1.45' : '1.3',
+                        wordBreak: 'break-word',
+                        whiteSpace: isAiMsg ? 'pre-wrap' : 'normal'
                       }}>
                         {m.text}
                       </div>
@@ -1428,31 +1525,127 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
                   );
                 })
               )}
+              {isPauseAiThinking && (
+                <div style={{
+                  alignSelf: 'flex-start',
+                  maxWidth: '92%',
+                  padding: '0.55rem 0.85rem',
+                  borderRadius: '12px',
+                  background: 'rgba(56, 189, 248, 0.08)',
+                  border: '1px dashed rgba(56, 189, 248, 0.4)',
+                  color: '#38bdf8',
+                  fontSize: '0.8rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  marginTop: '0.2rem'
+                }}>
+                  <span style={{ fontSize: '1rem', animation: 'spin 1.2s linear infinite' }}>⚡</span>
+                  <span><strong>Tuteur IA</strong> analyse votre question...</span>
+                </div>
+              )}
               <div ref={pauseChatEndRef} />
             </div>
 
-            {/* Quick Chips in Pause Chat */}
-            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-              {PAUSE_PRESET_PHRASES.map((preset, idx) => (
+            {/* AI Tutor Toggle & Quick Chips */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <button
-                  key={idx}
-                  disabled={reactionCooldown > 0}
-                  onClick={() => handleSendQuickMessage(preset)}
+                  type="button"
+                  onClick={() => setIsPauseAiMode(prev => !prev)}
                   style={{
-                    background: reactionCooldown > 0 ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.06)',
-                    border: '1px solid var(--border-color)',
-                    color: reactionCooldown > 0 ? 'var(--text-muted)' : 'var(--text-main)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    background: isPauseAiMode
+                      ? 'linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(99, 102, 241, 0.25))'
+                      : 'rgba(255, 255, 255, 0.04)',
+                    border: isPauseAiMode ? '1px solid #38bdf8' : '1px solid var(--border-color)',
+                    color: isPauseAiMode ? '#38bdf8' : 'var(--text-muted)',
                     borderRadius: '16px',
-                    padding: '0.25rem 0.6rem',
-                    fontSize: '0.75rem',
-                    cursor: reactionCooldown > 0 ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.15s',
-                    opacity: reactionCooldown > 0 ? 0.6 : 1
+                    padding: '0.3rem 0.75rem',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: isPauseAiMode ? '0 0 12px rgba(56, 189, 248, 0.3)' : 'none'
                   }}
                 >
-                  {preset} {reactionCooldown > 0 ? `(${reactionCooldown}s)` : ''}
+                  <span>🤖 Tuteur IA</span>
+                  <span style={{
+                    fontSize: '0.65rem',
+                    padding: '1px 6px',
+                    borderRadius: '8px',
+                    background: isPauseAiMode ? '#38bdf8' : 'rgba(255, 255, 255, 0.1)',
+                    color: isPauseAiMode ? '#000000' : 'var(--text-muted)',
+                    fontWeight: 700
+                  }}>
+                    {isPauseAiMode ? 'ACTIF ✨' : 'OFF'}
+                  </span>
                 </button>
-              ))}
+
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  {isPauseAiMode ? '💡 Posez vos questions à l\'IA' : 'Astuce: écrivez /ia [question]'}
+                </span>
+              </div>
+
+              {/* AI Quick Prompt Chips */}
+              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                {(session?.gameType === 'pedia' ? [
+                  "🩺 Explique ce cas clinique",
+                  "⚡ Quel est le piège clé ?",
+                  "💡 Rappelle la conduite à tenir"
+                ] : [
+                  "💡 Astuce mnémotechnique",
+                  "📖 Exemple de phrase",
+                  "🔍 Règle du genre der/die/das"
+                ]).map((aiPrompt, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    disabled={isPauseAiThinking}
+                    onClick={() => handleSendPauseChat(null, aiPrompt)}
+                    style={{
+                      background: 'rgba(56, 189, 248, 0.08)',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
+                      color: '#7dd3fc',
+                      borderRadius: '14px',
+                      padding: '0.22rem 0.55rem',
+                      fontSize: '0.73rem',
+                      cursor: isPauseAiThinking ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.15s',
+                      opacity: isPauseAiThinking ? 0.6 : 1
+                    }}
+                  >
+                    ✨ {aiPrompt}
+                  </button>
+                ))}
+              </div>
+
+              {/* Classic Pause Preset Chips */}
+              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                {PAUSE_PRESET_PHRASES.map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    disabled={reactionCooldown > 0}
+                    onClick={() => handleSendQuickMessage(preset)}
+                    style={{
+                      background: reactionCooldown > 0 ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.06)',
+                      border: '1px solid var(--border-color)',
+                      color: reactionCooldown > 0 ? 'var(--text-muted)' : 'var(--text-main)',
+                      borderRadius: '16px',
+                      padding: '0.2rem 0.55rem',
+                      fontSize: '0.72rem',
+                      cursor: reactionCooldown > 0 ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.15s',
+                      opacity: reactionCooldown > 0 ? 0.6 : 1
+                    }}
+                  >
+                    {preset} {reactionCooldown > 0 ? `(${reactionCooldown}s)` : ''}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Pause Chat Input */}
@@ -1460,19 +1653,29 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
               <input
                 type="text"
                 className="input-field"
-                placeholder="Envoyer un message pendant la pause..."
+                placeholder={isPauseAiMode ? "Demander au Tuteur IA (ex: explication, astuce...)" : "Envoyer un message ou /ia [question]..."}
                 value={pauseChatInput}
                 onChange={(e) => setPauseChatInput(e.target.value)}
-                maxLength={200}
-                style={{ padding: '0.5rem 0.8rem', fontSize: '0.85rem' }}
+                maxLength={300}
+                disabled={isPauseAiThinking}
+                style={{
+                  padding: '0.5rem 0.8rem',
+                  fontSize: '0.85rem',
+                  borderColor: isPauseAiMode ? '#38bdf8' : undefined
+                }}
               />
               <button
                 type="submit"
                 className="btn btn-primary"
-                disabled={!pauseChatInput.trim()}
-                style={{ width: 'auto', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                disabled={!pauseChatInput.trim() || isPauseAiThinking}
+                style={{
+                  width: 'auto',
+                  padding: '0.5rem 1rem',
+                  fontSize: '0.85rem',
+                  background: isPauseAiMode ? 'linear-gradient(135deg, #0284c7, #6366f1)' : undefined
+                }}
               >
-                Envoyer
+                {isPauseAiThinking ? '...' : (isPauseAiMode ? 'Demander 🤖' : 'Envoyer')}
               </button>
             </form>
           </div>
