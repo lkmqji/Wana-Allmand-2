@@ -147,3 +147,53 @@
    - **Syntaxe Node.js** : `node -c server/index.js server/services/geminiServerService.js` validée avec 0 erreur.
    - **Compilation Vite / PWA** : `npm.cmd --prefix client run build` validée avec succès (120 modules compilés en 4.15s, PWA sw.js généré).
    - **Synchronisation Capacitor Android** : `npx.cmd cap sync android` exécuté avec succès (assets web synchronisés dans `android/app/src/main/assets/public`).
+
+
+---
+
+### 2026-11-04 23:54 — Audit & Résolution Complète des Dysfonctionnements du Mode Jeu Médical (PédiaDrill / QCM & CROQ)
+
+#### Problèmes Identifiés lors du Diagnostic Complet
+1. **Comptabilisation & Affichage des Réponses des Joueurs Inopérant** :
+   - Dans `PediaReviewModal.jsx`, le bandeau comparatif testait `myAnswer?.isCorrect` et `opponentAnswer?.isCorrect`. Or, l'objet `answerRecord` généré côté serveur (`GameManager.js`) ne contenait pas la propriété `isCorrect` (uniquement `score`, `baseScore`, `bonus`, `isPerfect`). Résultat : `isCorrect` était toujours `undefined`, ce qui affichait systématiquement `❌ Incorrecte (+0 XP)` pour tous les joueurs même en cas de sans-faute (100% de bonnes réponses).
+2. **Désynchronisation de l'Index de Question (`qIdx`) dans le Débriefing** :
+   - `PediaReviewModal.jsx` recherchait l'index de question via `debriefQuestion.currentQuestionIndex`. Cependant, le serveur n'injectait pas cette propriété dans l'objet `debriefQ` de `pediaProvider.prepareDebriefQuestion`. Si le joueur n'avait pas répondu ou avait du retard, `qIdx` valait `undefined`, rendant totalement invisibles les sélections et les scores de la manche.
+3. **Absence de Record d'Échéance (Timeout) Côté Serveur** :
+   - Quand le timer de manche expirait côté serveur (`session.roundTimer`), `handleRoundEnd` était appelé sans insérer d'enregistrement pour les participants n'ayant pas encore cliqué sur VALIDER. Les joueurs restaient sans enregistrement (`undefined`) et étaient marqués comme `(Non répondu)`.
+   - Côté client, `onTimeout` du `GameTimerBadge` appelait `submitAnswer('')` (fonction allemande) qui écrasait toute sélection médicale en cours.
+4. **Multijoueur (3 à 10 Joueurs) Tronqué dans le Débriefing** :
+   - `PediaReviewModal.jsx` ne sélectionnait que le premier adversaire (`opponentPlayer = Object.keys(players).find(...)`), occultant tous les autres participants (joueurs 3 à 10) du bandeau de score et des indicateurs de choix sur les propositions A à E.
+5. **Absence de Mise à Jour Temps Réel des Scores en Cours de Round** :
+   - Lors de la soumission d'une réponse médicale, le serveur ne renvoyait ni accusé de réception de score au joueur ni mise à jour de la liste des joueurs à la salle, bloquant les compteurs de score en haut de l'arène.
+6. **Propriété `chapter_title` Échouant dans le Bilan de Fin de Match** :
+   - Dans `Results.jsx`, la lecture de `q.chapter_title` au lieu de `q.chapterTitle` laissait vide le nom du cours dans le récapitulatif.
+
+#### Correctifs et Optimisations Apportés
+1. **Moteur de Jeu Serveur ([server/game/GameManager.js](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/server/game/GameManager.js))** :
+   - Protection anti-doublon dans `submitPediaAnswer` : vérification préalable de `session.players[playerId].answers[session.currentQuestionIndex]` pour interdire les doubles soumissions ou les triches par répétition d'envoi.
+   - Ajout explicite de `isCorrect: Boolean(evalResult.isPerfect || pointsEarned >= 50)` pour les QCM et `isCorrect: Boolean(evalResult.isValid || pointsEarned >= 75)` pour les CROQ.
+   - Normalisation stricte de `selectedLetters` en tableau de lettres majuscules trié.
+   - Renvoi de l'état complet `{ allAnswered, playerScore, answerRecord, players: session.players }`.
+
+2. **Serveur Socket.IO & Fournisseur de Données ([server/index.js](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/server/index.js) & [server/data/pediaProvider.js](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/server/data/pediaProvider.js))** :
+   - Émission immédiate d'un accusé `answer_acknowledged` avec le score calculé au joueur répondant, et diffusion générale de `players_score_update` pour actualiser le tableau des scores en temps réel.
+   - Dans `handleRoundEnd`, remplissage systématique d'un enregistrement par défaut pour tous les joueurs en retard (`score: 0`, `isTimeout: true`, `isCorrect: false`, `feedback: 'Temps écoulé sans réponse.'`).
+   - Injection garantie de `currentQuestionIndex` dans `debriefQuestion` et normalisation des options avec `is_correct` explicite.
+
+3. **Carte d'Arène Médicale ([client/src/components/pedia/PediaArenaCard.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/pedia/PediaArenaCard.jsx))** :
+   - Détection intelligente du type de question : sélection exclusive pour les questions à choix unique (`QCU` / `QCS`) et multi-sélection pour les `QCM`.
+   - Ajout du callback `onSelectionChange` pour mémoriser en continu la sélection de l'utilisateur.
+
+4. **Composant de Jeu ([client/src/components/Game.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/Game.jsx))** :
+   - Utilisation de `pediaCurrentSelectionRef` pour auto-soumettre les choix en cours lors de l'expiration du temps (`onTimeout`), empêchant toute perte de réponse.
+   - Écouteurs `answer_acknowledged` et `players_score_update` connectés à `setPlayers` pour une réactivité instantanée du bandeau de score.
+   - Transmission explicite de `currentQuestionIndex` à `PediaReviewModal`.
+
+5. **Portail de Débriefing Universel ([client/src/components/pedia/PediaReviewModal.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/pedia/PediaReviewModal.jsx))** :
+   - Détection infaillible du statut de la réponse : `isMyAnswerCorrect = Boolean(myAnswer?.isCorrect || myAnswer?.isPerfect || (myAnswer?.score && myAnswer.score >= 50))`.
+   - Nouveau bandeau comparatif multijoueur (2 à 10 joueurs) : affiche la carte individuelle de chaque participant avec son score précis (+100 pts, partiel, 0 pt, bonus vitesse), son statut et les propositions cochées.
+   - Affichage des badges nominatifs de tous les adversaires ayant choisi chaque proposition sur les options A à E.
+
+6. **Écran de Résultats ([client/src/components/Results.jsx](file:///c:/Users/Lenovo/Documents/GitHub/Wana-Allmand-2/client/src/components/Results.jsx))** :
+   - Prise en charge de `q.chapterTitle || q.chapter_title`.
+   - Affichage complet pour chaque joueur de son choix effectif comparé à la réponse attendue et aux points engrangés.

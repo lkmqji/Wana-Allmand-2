@@ -115,6 +115,7 @@ const PRESET_DEBRIEF_REACTIONS = [
 
 export default function PediaReviewModal({
   debriefQuestion,
+  currentQuestionIndex: propQuestionIndex,
   players = {},
   myPlayerId,
   isHost = false,
@@ -287,21 +288,29 @@ export default function PediaReviewModal({
   }
 
   const isCroq = Boolean(debriefQuestion.is_croq || debriefQuestion.type === 'CROQ');
-  const myPlayer = players[myPlayerId];
-  const qIdx = debriefQuestion.currentQuestionIndex ?? Object.keys(myPlayer?.answers || {}).pop();
+  const myPlayer = players?.[myPlayerId];
+  const qIdx = propQuestionIndex ?? debriefQuestion.currentQuestionIndex ?? (myPlayer?.answers ? Object.keys(myPlayer.answers).pop() : 0) ?? 0;
   const myAnswer = myPlayer?.answers?.[qIdx];
 
-  const opponentPlayerId = Object.keys(players).find(id => id !== myPlayerId);
-  const opponentPlayer = opponentPlayerId ? players[opponentPlayerId] : null;
+  const opponentPlayers = Object.values(players || {}).filter(p => p && p.id !== myPlayerId);
+  const opponentPlayer = opponentPlayers[0] || null;
   const opponentAnswer = opponentPlayer?.answers?.[qIdx];
 
-  const mySelectedLetters = Array.isArray(myAnswer?.selectedLetters)
+  const mySelectedLetters = (Array.isArray(myAnswer?.selectedLetters)
     ? myAnswer.selectedLetters
-    : (Array.isArray(myAnswer?.answer) ? myAnswer.answer : []);
+    : (Array.isArray(myAnswer?.answer) ? myAnswer.answer : []))
+    .map(l => String(l).toUpperCase());
 
-  const opponentSelectedLetters = Array.isArray(opponentAnswer?.selectedLetters)
+  const opponentSelectedLetters = (Array.isArray(opponentAnswer?.selectedLetters)
     ? opponentAnswer.selectedLetters
-    : (Array.isArray(opponentAnswer?.answer) ? opponentAnswer.answer : []);
+    : (Array.isArray(opponentAnswer?.answer) ? opponentAnswer.answer : []))
+    .map(l => String(l).toUpperCase());
+
+  const isMyAnswerCorrect = Boolean(
+    myAnswer?.isCorrect ||
+    myAnswer?.isPerfect ||
+    (myAnswer?.score && myAnswer.score >= 50)
+  );
 
   const progressPercent = Math.max(0, Math.min(100, (timeLeft / reviewDuration) * 100));
 
@@ -708,48 +717,97 @@ export default function PediaReviewModal({
           {/* Column 1: Detailed Explanations & Answers (Scrollable) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto', paddingRight: '0.3rem' }}>
 
-            {/* Score Comparison Banner */}
+            {/* Score Comparison Banner (Supports 1 to 10 Players) */}
             <div style={{
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-around',
-              background: 'rgba(255, 255, 255, 0.04)',
+              alignItems: 'stretch',
+              justifyContent: 'center',
+              gap: '0.75rem',
+              flexWrap: 'wrap',
+              background: 'rgba(255, 255, 255, 0.03)',
               padding: '0.85rem 1rem',
-              borderRadius: '14px',
+              borderRadius: '16px',
               border: '1px solid rgba(255, 255, 255, 0.08)'
             }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
-                  Votre Réponse
+              {/* Local Player Score Card */}
+              <div style={{
+                flex: '1 1 180px',
+                maxWidth: '260px',
+                padding: '0.65rem 0.85rem',
+                borderRadius: '12px',
+                background: isMyAnswerCorrect ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.1)',
+                border: `1.5px solid ${isMyAnswerCorrect ? '#10b981' : '#ef4444'}`,
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800 }}>
+                  Votre Réponse {myAnswer?.isTimeout ? '(Temps écoulé)' : ''}
                 </div>
                 <div style={{
-                  fontSize: '1.25rem',
+                  fontSize: '1.15rem',
                   fontWeight: 900,
                   marginTop: '0.2rem',
-                  color: myAnswer?.isCorrect ? '#10b981' : '#ef4444'
+                  color: isMyAnswerCorrect ? '#34d399' : '#f87171'
                 }}>
-                  {myAnswer?.isCorrect ? '✅ Validée (+100 XP)' : '❌ Incorrecte (+0 XP)'}
+                  {myAnswer?.isPerfect
+                    ? `🎯 Parfait (+${myAnswer.score || 100} pts)`
+                    : (myAnswer?.score > 0
+                        ? `✅ +${myAnswer.score} pts`
+                        : '❌ 0 pt')}
                 </div>
+                {myAnswer?.bonus > 0 && (
+                  <div style={{ fontSize: '0.72rem', color: '#38bdf8', marginTop: '0.15rem' }}>
+                    ⚡ Bonus vitesse : +{myAnswer.bonus} pts
+                  </div>
+                )}
+                {!isCroq && mySelectedLetters.length > 0 && (
+                  <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '0.25rem', fontWeight: 600 }}>
+                    Coché : <strong>{mySelectedLetters.join(', ')}</strong>
+                  </div>
+                )}
               </div>
 
-              {opponentPlayer && (
-                <>
-                  <div style={{ width: '1px', height: '35px', background: 'rgba(255,255,255,0.1)' }} />
-                  <div style={{ textAlign: 'center' }}>
+              {/* Opponent Players Score Cards */}
+              {opponentPlayers.map(p => {
+                const pAns = p.answers?.[qIdx];
+                const pCorrect = Boolean(pAns?.isCorrect || pAns?.isPerfect || (pAns?.score && pAns.score >= 50));
+                const pSelected = (Array.isArray(pAns?.selectedLetters)
+                  ? pAns.selectedLetters
+                  : (Array.isArray(pAns?.answer) ? pAns.answer : []))
+                  .map(l => String(l).toUpperCase());
+
+                return (
+                  <div key={p.id} style={{
+                    flex: '1 1 180px',
+                    maxWidth: '260px',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '12px',
+                    background: pCorrect ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.03)',
+                    border: `1.5px solid ${pCorrect ? 'rgba(16, 185, 129, 0.4)' : 'rgba(255, 255, 255, 0.08)'}`,
+                    textAlign: 'center'
+                  }}>
                     <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
-                      {formatPlayerName(opponentPlayer.name)}
+                      {formatPlayerName(p.name)} {pAns?.isTimeout ? '(Temps écoulé)' : ''}
                     </div>
                     <div style={{
-                      fontSize: '1.25rem',
+                      fontSize: '1.15rem',
                       fontWeight: 900,
                       marginTop: '0.2rem',
-                      color: opponentAnswer?.isCorrect ? '#10b981' : '#ef4444'
+                      color: pCorrect ? '#34d399' : '#f87171'
                     }}>
-                      {opponentAnswer?.isCorrect ? '✅ Validée' : '❌ Incorrecte'}
+                      {pAns?.isPerfect
+                        ? `🎯 Parfait (+${pAns.score || 100} pts)`
+                        : (pAns?.score > 0
+                            ? `✅ +${pAns.score} pts`
+                            : '❌ 0 pt')}
                     </div>
+                    {!isCroq && pSelected.length > 0 && (
+                      <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+                        Coché : <strong>{pSelected.join(', ')}</strong>
+                      </div>
+                    )}
                   </div>
-                </>
-              )}
+                );
+              })}
             </div>
 
             {/* Clinical Case Context (if applicable) */}
@@ -849,18 +907,22 @@ export default function PediaReviewModal({
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
-                        {isOpponentChoice && (
-                          <span style={{
+                        {opponentPlayers.filter(p => {
+                          const ans = p.answers?.[qIdx];
+                          const letters = (Array.isArray(ans?.selectedLetters) ? ans.selectedLetters : (Array.isArray(ans?.answer) ? ans.answer : [])).map(l => String(l).toUpperCase());
+                          return letters.includes(opt.letter);
+                        }).map(p => (
+                          <span key={p.id} style={{
                             fontSize: '0.68rem',
                             padding: '0.15rem 0.45rem',
                             borderRadius: '999px',
                             background: 'rgba(255, 255, 255, 0.1)',
-                            color: '#94a3b8',
-                            border: '1px solid rgba(255, 255, 255, 0.15)'
-                          }} title={`Choix de ${opponentPlayer?.name || 'l\'adversaire'}`}>
-                            {opponentPlayer?.name ? formatPlayerName(opponentPlayer.name).substring(0, 8) : 'Adv.'}
+                            color: '#cbd5e1',
+                            border: '1px solid rgba(255, 255, 255, 0.18)'
+                          }} title={`Choix de ${p.name}`}>
+                            {formatPlayerName(p.name).substring(0, 8)}
                           </span>
-                        )}
+                        ))}
                         {isMyChoice && (
                           <span style={{
                             fontSize: '0.68rem',

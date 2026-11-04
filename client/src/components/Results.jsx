@@ -1043,33 +1043,66 @@ export default function Results({ players = {}, setView, socket, session, isHost
 
       {/* Detailed Game Summary List */}
       {session && session.gameType === 'pedia' && session.pediaQuestions && (
-        <div className="card" style={{ textAlign: 'left', padding: '1.1rem' }}>
-          <h3 style={{ marginBottom: '1rem', textAlign: 'center', fontSize: '1.2rem', color: '#06b6d4' }}>🩺 Résumé de l'Épreuve Médicale</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-            {session.pediaQuestions.map((q, index) => (
-              <div key={index} style={{ padding: '0.8rem 0.9rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid rgba(6, 182, 212, 0.3)' }}>
-                <div style={{ marginBottom: '0.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#38bdf8' }}>Question {index + 1} ({q.type || 'QCM'})</span>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{q.chapter_title || ''}</span>
+        <div className="card" style={{ textAlign: 'left', padding: '1.2rem' }}>
+          <h3 style={{ marginBottom: '1rem', textAlign: 'center', fontSize: '1.25rem', color: '#00d4ff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+            <span>🩺</span> Résumé Détaillé de l'Épreuve Médicale
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+            {session.pediaQuestions.map((q, index) => {
+              const isCroq = Boolean(q.is_croq || q.type === 'CROQ');
+              const correctLetters = (q.options || []).filter(o => o.is_correct).map(o => String(o.letter || '').toUpperCase()).sort();
+              const expectedStr = isCroq ? (q.croq_answer || 'Non précisé') : (correctLetters.join(', ') || 'Non précisé');
+
+              return (
+                <div key={index} style={{ padding: '0.9rem 1rem', background: 'var(--bg-main)', borderRadius: '14px', border: '1px solid rgba(0, 212, 255, 0.25)', boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
+                  <div style={{ marginBottom: '0.45rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
+                    <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#38bdf8' }}>
+                      Question {index + 1} • <span style={{ color: isCroq ? '#c084fc' : '#38bdf8' }}>{q.type || (isCroq ? 'CROQ' : 'QCM')}</span>
+                    </span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: '10px' }}>
+                      {q.chapterTitle || q.chapter_title || 'Pédiatrie'}
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: '0.88rem', color: 'var(--text-main)', marginBottom: '0.5rem', lineHeight: 1.45, fontWeight: 500 }}>
+                    {q.question}
+                  </div>
+
+                  <div style={{ fontSize: '0.8rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '0.35rem 0.65rem', borderRadius: '8px', marginBottom: '0.6rem', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                    <strong>✓ Réponse attendue :</strong> {expectedStr}
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', paddingTop: '0.5rem', borderTop: '1px dashed var(--border-color)' }}>
+                    {Object.values(currentPlayers).map(p => {
+                      const ans = p.answers && p.answers[index];
+                      const isPerfect = ans?.isPerfect;
+                      const isSuccess = Boolean(ans?.isCorrect || isPerfect || (ans?.score && ans.score >= 50));
+                      const chosenLetters = Array.isArray(ans?.selectedLetters)
+                        ? ans.selectedLetters.join(', ')
+                        : (Array.isArray(ans?.answer) ? ans.answer.join(', ') : (ans?.answer || ''));
+
+                      return (
+                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.83rem', flexWrap: 'wrap', gap: '0.3rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{formatPlayerName(p.name)} :</span>
+                            {ans?.isTimeout ? (
+                              <span style={{ color: '#f87171', fontSize: '0.75rem' }}>(Temps écoulé)</span>
+                            ) : chosenLetters ? (
+                              <span style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>Coché: <strong>{chosenLetters}</strong></span>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>(Non répondu)</span>
+                            )}
+                          </div>
+                          <span style={{ fontWeight: 800, color: isSuccess ? 'var(--success)' : (ans?.score > 0 ? '#f59e0b' : 'var(--danger)') }}>
+                            {ans ? (isPerfect ? `🎯 Parfait (+${ans.score} pts)` : (ans.score > 0 ? `✅ +${ans.score} pts` : '❌ 0 pt')) : '(Non répondu)'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', marginBottom: '0.5rem', lineHeight: 1.4 }}>
-                  {q.question}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed var(--border-color)' }}>
-                  {Object.values(currentPlayers).map(p => {
-                    const ans = p.answers && p.answers[index];
-                    return (
-                      <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
-                        <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{formatPlayerName(p.name)} :</span>
-                        <span style={{ fontWeight: 'bold', color: ans?.score >= 50 ? 'var(--success)' : 'var(--danger)' }}>
-                          {ans ? `${ans.score || 0}% (${ans.score > 0 ? '+' + ans.score + ' pts' : '0 pt'})` : '(Non répondu)'}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

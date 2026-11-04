@@ -245,6 +245,7 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
   const questionTypeRef = useRef('classic');
   const timeRemainingRef = useRef(15);
   const hasAnsweredRef = useRef(hasAnswered);
+  const pediaCurrentSelectionRef = useRef([]);
   const isGameFrozenOrPausedRef = useRef(false);
   const sessionRef = useRef(session);
   const toastTimeoutRef = useRef(null);
@@ -594,6 +595,33 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
     };
 
     socket.on('new_question', onNewQuestion);
+    const onAnswerAcknowledged = (data) => {
+      if (data && typeof data.playerScore === 'number') {
+        setPlayers(prev => {
+          if (!prev || !prev[socket.id]) return prev;
+          return {
+            ...prev,
+            [socket.id]: {
+              ...prev[socket.id],
+              score: data.playerScore,
+              answers: {
+                ...(prev[socket.id].answers || {}),
+                [data.questionIndex]: data.answerRecord
+              }
+            }
+          };
+        });
+      }
+    };
+
+    const onPlayersScoreUpdate = (updatedPlayers) => {
+      if (updatedPlayers) {
+        setPlayers(updatedPlayers);
+      }
+    };
+
+    socket.on('answer_acknowledged', onAnswerAcknowledged);
+    socket.on('players_score_update', onPlayersScoreUpdate);
     socket.on('round_results', onRoundResults);
     socket.on('joker_result', onJokerResult);
     socket.on('powerup_frozen', onPowerupFrozen);
@@ -616,6 +644,8 @@ export default function Game({ socket, session, playerName = '', avatar = '🦊'
 
     return () => {
       socket.off('new_question', onNewQuestion);
+      socket.off('answer_acknowledged', onAnswerAcknowledged);
+      socket.off('players_score_update', onPlayersScoreUpdate);
       socket.off('round_results', onRoundResults);
       socket.off('joker_result', onJokerResult);
       socket.off('powerup_frozen', onPowerupFrozen);

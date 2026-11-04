@@ -244,8 +244,21 @@ class GameManager {
         if (!session || session.status !== 'playing') return null;
 
         session.lastActivity = Date.now();
-        const currentQ = session.pediaQuestions[session.currentQuestionIndex];
+        const currentQ = session.pediaQuestions?.[session.currentQuestionIndex];
         if (!currentQ) return null;
+
+        if (!session.players[playerId]) return null;
+        if (!session.players[playerId].answers) session.players[playerId].answers = {};
+
+        // Prevent duplicate submissions for the same round
+        if (session.players[playerId].answers[session.currentQuestionIndex] !== undefined) {
+            return {
+                allAnswered: session.answersThisRound >= Object.keys(session.players).length,
+                playerScore: session.players[playerId].score,
+                answerRecord: session.players[playerId].answers[session.currentQuestionIndex],
+                players: session.players
+            };
+        }
 
         const isCroq = !!(currentQ.is_croq || currentQ.type === 'CROQ');
         let answerRecord = null;
@@ -259,44 +272,57 @@ class GameManager {
                 answer,
                 timeRemaining
             );
-            pointsEarned = evalResult.score;
+            pointsEarned = evalResult.score || 0;
             answerRecord = {
-                answer,
-                expected: currentQ.croq_answer,
-                score: evalResult.score,
-                baseScore: evalResult.baseScore,
-                bonus: evalResult.bonus,
-                isValid: evalResult.isValid,
-                feedback: evalResult.feedback,
-                reasoningNote: evalResult.reasoningNote,
-                modelUsed: evalResult.modelUsed,
-                isCroq: true
+                answer: typeof answer === 'string' ? answer.trim() : (answer || ''),
+                expected: currentQ.croq_answer || '',
+                score: pointsEarned,
+                baseScore: evalResult.baseScore || pointsEarned,
+                bonus: evalResult.bonus || 0,
+                isValid: Boolean(evalResult.isValid),
+                isCorrect: Boolean(evalResult.isValid || pointsEarned >= 75),
+                isPerfect: pointsEarned >= 90,
+                feedback: evalResult.feedback || '',
+                reasoningNote: evalResult.reasoningNote || '',
+                modelUsed: evalResult.modelUsed || 'Gemini Flash',
+                isCroq: true,
+                isTimeout: false,
+                timestamp: Date.now()
             };
         } else {
             const evalResult = calculateQcmScore(currentQ, answer, timeRemaining);
-            pointsEarned = evalResult.score;
+            pointsEarned = evalResult.score || 0;
+            const normalizedSelected = (evalResult.selectedLetters || (Array.isArray(answer) ? answer : [answer]))
+                .map(l => String(l).trim().toUpperCase())
+                .filter(Boolean);
+
             answerRecord = {
-                answer, // array of letters like ['B', 'C']
-                expected: evalResult.correctLetters,
-                score: evalResult.score,
-                baseScore: evalResult.baseScore,
-                bonus: evalResult.bonus,
-                isPerfect: evalResult.isPerfect,
-                correctCount: evalResult.correctCount,
-                wrongCount: evalResult.wrongCount,
-                selectedLetters: evalResult.selectedLetters,
-                isCroq: false
+                answer: normalizedSelected,
+                expected: evalResult.correctLetters || [],
+                score: pointsEarned,
+                baseScore: evalResult.baseScore || 0,
+                bonus: evalResult.bonus || 0,
+                isPerfect: Boolean(evalResult.isPerfect),
+                isCorrect: Boolean(evalResult.isPerfect || pointsEarned >= 50),
+                correctCount: evalResult.correctCount || 0,
+                wrongCount: evalResult.wrongCount || 0,
+                selectedLetters: normalizedSelected,
+                isCroq: false,
+                isTimeout: false,
+                timestamp: Date.now()
             };
         }
 
         session.players[playerId].answers[session.currentQuestionIndex] = answerRecord;
-        session.players[playerId].score += pointsEarned;
+        session.players[playerId].score = (session.players[playerId].score || 0) + pointsEarned;
         session.answersThisRound += 1;
 
+        const totalPlayers = Object.keys(session.players).length;
         return {
-            allAnswered: session.answersThisRound === Object.keys(session.players).length,
+            allAnswered: session.answersThisRound >= totalPlayers,
             playerScore: session.players[playerId].score,
-            answerRecord
+            answerRecord,
+            players: session.players
         };
     }
 

@@ -18,7 +18,8 @@ export default function PediaArenaCard({
   onSubmitAnswer,
   hasAnswered = false,
   opponentAnswered = false,
-  timeRemaining = 0
+  timeRemaining = 0,
+  onSelectionChange
 }) {
   const [selectedLetters, setSelectedLetters] = useState([]);
   const [croqText, setCroqText] = useState('');
@@ -40,16 +41,37 @@ export default function PediaArenaCard({
   const isCroq = Boolean(question.is_croq || question.type === 'CROQ');
   const options = question.options || [];
 
+  const isSingleChoice = Boolean(
+    question.type === 'QCU' ||
+    question.type === 'QCS' ||
+    (Array.isArray(question.options) && question.options.filter(o => o.is_correct).length === 1 && !question.type?.includes('QCM'))
+  );
+
   const handleToggleOption = (letter) => {
     if (hasAnswered) return;
+    const upper = letter.toUpperCase();
     setSelectedLetters(prev => {
-      const upper = letter.toUpperCase();
-      if (prev.includes(upper)) {
-        return prev.filter(l => l !== upper);
+      let nextLetters = [];
+      if (isSingleChoice) {
+        // Toggle or single select
+        nextLetters = prev.includes(upper) ? [] : [upper];
       } else {
-        return [...prev, upper].sort();
+        nextLetters = prev.includes(upper)
+          ? prev.filter(l => l !== upper)
+          : [...prev, upper].sort();
       }
+      if (onSelectionChange) {
+        onSelectionChange(nextLetters);
+      }
+      return nextLetters;
     });
+  };
+
+  const handleCroqTextChange = (text) => {
+    setCroqText(text);
+    if (onSelectionChange) {
+      onSelectionChange(text.trim());
+    }
   };
 
   const handleValidateQcm = () => {
@@ -328,7 +350,7 @@ export default function PediaArenaCard({
             <textarea
               rows={4}
               value={croqText}
-              onChange={(e) => setCroqText(e.target.value)}
+              onChange={(e) => handleCroqTextChange(e.target.value)}
               disabled={hasAnswered}
               placeholder="Saisissez votre réponse médicale rédigée (mots-clés cliniques, thérapeutiques ou paracliniques attendus au concours)..."
               style={{

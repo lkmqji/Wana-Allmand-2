@@ -551,6 +551,18 @@ L'application intègre désormais une architecture multi-univers sans régressio
       - **En Pédiatrie** : injecte le cas clinique actuel, les 5 propositions, la bonne réponse et l'explication officielle du QCM. Chips de prompts rapides : `🩺 Explique ce cas clinique`, `⚡ Quel est le piège clé ?`, `💡 Rappelle la conduite à tenir`.
       - **En Allemand** : injecte le mot actif, son genre (`der/die/das`), sa traduction et son contexte d'apprentissage. Chips de prompts rapides : `💡 Astuce mnémotechnique`, `📖 Exemple de phrase`, `🔍 Règle du genre der/die/das`.
     - Rendu visuel soigné dans l'historique du chat de pause : bulles satinées sombres à lueur cyan/violette, badge du modèle Gemini Flash utilisé, bulle de statut dynamique `isPauseAiThinking` avec spinner rotatif `⚡`, et diffusion temps réel à tous les joueurs de la session via Socket.IO (`game_chat_message`).
+  - **Moteur de Validation & Comptabilisation des Scores Médicaux (PédiaDrill QCM & CROQ)** :
+    - **Calcul des Scores & Détection de Succès** :
+      - Pour les QCM/QCU : calcul au prorata partiel avec bonus vitesse optionnel via `calculateQcmScore`. Propriété `isCorrect: Boolean(isPerfect || score >= 50)` et `isPerfect` explicite garantissant l'affichage exact du badge de validation (`🎯 Parfait`, `✅ Partiel`, ou `❌ 0 pt`).
+      - Pour les CROQ : évaluation sémantique via Gemini Flash (ou repli local). Propriété `isCorrect: Boolean(isValid || score >= 75)`.
+    - **Gestion Fiable des Échéances (Timeouts)** :
+      - Côté client (`Game.jsx` / `PediaArenaCard.jsx`) : `pediaCurrentSelectionRef` mémorise en direct les cases cochées ou le texte rédigé ; si le chronomètre arrive à 0, la sélection active est automatiquement soumise, évitant l'écrasement par une réponse vide.
+      - Côté serveur (`server/index.js`) : lors de l'expiration du roundTimer, `handleRoundEnd` injecte un enregistrement officiel par défaut (`score: 0`, `isTimeout: true`, `feedback: 'Temps écoulé sans réponse.'`) pour chaque participant en retard afin qu'aucune réponse ne soit `undefined`.
+    - **Synchronisation Temps Réel des Tableaux de Score** :
+      - Événement `answer_acknowledged` transmis au joueur validant et diffusion de `players_score_update` à la salle pour une réactivité instantanée des scores en tête d'arène.
+    - **Comparateur de Débriefing Universel (2 à 10 Joueurs)** :
+      - `PediaReviewModal.jsx` extrait `currentQuestionIndex` garanti et affiche sous forme de cartes dédiées les scores, bonus et lettres choisies pour l'intégralité des participants du salon.
+      - Sur les propositions A à E, affichage dynamique des puces nominatives de tous les adversaires ayant coché chaque option.
 
 ---
 

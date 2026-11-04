@@ -138,13 +138,24 @@ class PediaProvider {
   /**
    * Complete question payload revealed during the 60s debrief / inter-round review phase
    */
-  prepareDebriefQuestion(q) {
+  prepareDebriefQuestion(q, currentQuestionIndex = null) {
     if (!q) return null;
+    const correctOptions = (q.options || []).filter(o => o.is_correct);
     return {
       ...q,
+      chapterTitle: q.chapterTitle || q.chapter_title || 'Pédiatrie',
+      chapter_title: q.chapterTitle || q.chapter_title || 'Pédiatrie',
       is_croq: !!(q.is_croq || q.type === 'CROQ'),
-      correctLetters: (q.options || []).filter(o => o.is_correct).map(o => o.letter.toUpperCase()).sort()
+      currentQuestionIndex: currentQuestionIndex !== null ? currentQuestionIndex : q.currentQuestionIndex,
+      correctLetters: correctOptions.map(o => String(o.letter || '').toUpperCase()).sort(),
+      options: (q.options || []).map(opt => ({
+        id: opt.id,
+        letter: String(opt.letter || '').toUpperCase(),
+        text: opt.text,
+        is_correct: Boolean(opt.is_correct)
+      }))
     };
+  };
   }
 }
 

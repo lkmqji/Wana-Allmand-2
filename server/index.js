@@ -1592,6 +1592,17 @@ io.on('connection', (socket) => {
             result = gameManager.submitAnswer(sessionId, socket.id, answer, timeRemaining);
         }
 
+        // Real-time acknowledgment to answering player with their score
+        if (result) {
+            socket.emit('answer_acknowledged', {
+                questionIndex: session.currentQuestionIndex,
+                playerScore: result.playerScore,
+                answerRecord: result.answerRecord
+            });
+            // Broadcast updated players list to keep scoreboards in sync
+            io.to(sessionId).emit('players_score_update', session.players);
+        }
+
         // Real-time opponent answered notification
         if (sessionId) {
             socket.to(sessionId).emit('opponent_answered', { playerId: socket.id });
@@ -1602,7 +1613,7 @@ io.on('connection', (socket) => {
         }
 
         if (result && result.allAnswered) {
-            // Both answered, clear timer and move to next
+            // All players have answered this round, clear timer and move to debrief/results
             clearTimeout(session.roundTimer);
             handleRoundEnd(sessionId);
         }
@@ -2559,7 +2570,33 @@ function handleRoundEnd(sessionId) {
         session.resultEndTime = Date.now() + 60000;
 
         const rawQ = session.pediaQuestions?.[session.currentQuestionIndex];
-        const debriefQ = pediaProvider.prepareDebriefQuestion(rawQ);
+        const isCroq = !!(rawQ?.is_croq || rawQ?.type === 'CROQ');
+        const correctLetters = (rawQ?.options || []).filter(o => o.is_correct).map(o => String(o.letter || '').toUpperCase()).sort();
+
+        // Backfill unanswered players with default timeout records so answers are never undefined
+        for (const pId in session.players) {
+            if (!session.players[pId].answers) session.players[pId].answers = {};
+            if (session.players[pId].answers[session.currentQuestionIndex] === undefined) {
+                session.players[pId].answers[session.currentQuestionIndex] = {
+                    answer: isCroq ? '' : [],
+                    expected: isCroq ? (rawQ?.croq_answer || '') : correctLetters,
+                    score: 0,
+                    baseScore: 0,
+                    bonus: 0,
+                    isPerfect: false,
+                    isCorrect: false,
+                    isTimeout: true,
+                    correctCount: 0,
+                    wrongCount: 0,
+                    selectedLetters: [],
+                    isCroq,
+                    feedback: 'Temps écoulé sans réponse.',
+                    timestamp: Date.now()
+                };
+            }
+        }
+
+        const debriefQ = pediaProvider.prepareDebriefQuestion(rawQ, session.currentQuestionIndex);
 
         io.to(sessionId).emit('debrief_extend_votes', {
             votes1m: { count: 0, voters: [] },
